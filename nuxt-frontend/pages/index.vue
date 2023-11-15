@@ -19,7 +19,7 @@ Code under GPL v3.0 licence
           <v-card
             variant="outlined"
           >
-            <v-card-title>Welcome to mouseTube 2</v-card-title>
+            <v-card-title>Welcome to mouseTube v2</v-card-title>
 
             <v-card-text>
               This web application allows the exchange of mouse vocalisation recording files.<br />
