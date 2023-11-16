@@ -48,6 +48,10 @@ Code under GPL v3.0 licence
           </v-card>
         </v-col>
       </v-row>
+
+      <v-row>
+        <logo-strip></logo-strip>
+      </v-row>
     </v-container>
   </v-main>
 
