@@ -19,11 +19,13 @@ Code under GPL v3.0 licence
           <v-card
             variant="flat"
           >
-            <v-card-title>Welcome to mouseTube</v-card-title>
+            <v-card-title class="text-h2">Welcome to mouseTube</v-card-title>
 
-            <v-card-text>
+            <v-card-text class="mt-2">
               This web application allows the exchange of mouse vocalisation recording files.<br />
-              Data will be accessible as soon as your registration is complete.<br />
+              <v-img :width="300" src="fair_data_principles.jpg" alt="FAIR"></v-img>
+              This new version is more  FAIR (Findable, Accessible, Interoperable, Reusable). Through mouseTube,
+              you can upload your data on a repository.<br />
               You can be part of the community by clicking here.<br />
               Check out the mouseTube's publications: <br />
               <v-list>
@@ -34,6 +36,14 @@ Code under GPL v3.0 licence
                   Ferhat A. T., Torquet N., Le Sourd A. M., de Chaumont F., Olivo-Marin J. C., Faure P., Bourgeron T., Ey E. Recording Mouse Ultrasonic Vocalizations to Evaluate Social Communication. J. Vis. Exp. (112), e53871, doi:10.3791/53871 (2016).
                 </v-list-item>
               </v-list>
+
+              <v-row justify="center" no-gutters>
+                <v-col
+                  class="text-h4"
+                >
+                  {{ numberOfFiles }} vocalisation files available now!
+                </v-col>
+              </v-row>
             </v-card-text>
           </v-card>
         </v-col>
@@ -61,9 +71,32 @@ Code under GPL v3.0 licence
 
 <script>
 
+import axios from "axios";
+
 export default {
   name: "index",
+  data: function () {
+    return {
+      numberOfFiles: [],
+    }
+  },
+  methods: {
+    getNumberOfFiles() {
+      axios.get(`http://127.0.0.1:8000/api/file`)
+          .then(response => {
+            this.numberOfFiles = response.data.length
+            console.log(this.numberOfFiles)
+            this.dataLoaded = true
+          })
+          .catch(error => {
+            console.log(JSON.stringify(error))
+          })
+    },
 
+  },
+  mounted() {
+    this.getNumberOfFiles()
+  }
 }
 </script>
 

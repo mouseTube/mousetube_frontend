@@ -54,6 +54,7 @@ Code under GPL v3.0 licence
             <v-card-text>
               <v-list>
                 <v-list-item>name_protocol</v-list-item>
+                <v-list-item>protocol_type</v-list-item>
                 <v-list-item>protocol_description</v-list-item>
               </v-list>
             </v-card-text>
