@@ -25,8 +25,9 @@ Code under GPL v3.0 licence
           </v-list>
         </v-menu>
       </v-col>
-      <v-col><nuxt-link to="/" class="nuxt-link">Vocalisations</nuxt-link></v-col>
+      <v-col><nuxt-link to="/vocalisations" class="nuxt-link">Vocalisations</nuxt-link></v-col>
       <v-col><nuxt-link to="/softwares" class="nuxt-link">Sofwares</nuxt-link></v-col>
+      <v-col><nuxt-link to="/metadata" class="nuxt-link">Metadata</nuxt-link></v-col>
       <v-col><nuxt-link to="/" class="nuxt-link">Help</nuxt-link></v-col>
       <v-col><v-btn>Connexion</v-btn></v-col>
     </v-row>

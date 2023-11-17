@@ -17,9 +17,9 @@ Code under GPL v3.0 licence
       <v-row>
         <v-col>
           <v-card
-            variant="outlined"
+            variant="flat"
           >
-            <v-card-title>Welcome to mouseTube v2</v-card-title>
+            <v-card-title>Welcome to mouseTube</v-card-title>
 
             <v-card-text>
               This web application allows the exchange of mouse vocalisation recording files.<br />

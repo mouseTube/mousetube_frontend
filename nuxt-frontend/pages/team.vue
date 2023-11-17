@@ -16,9 +16,8 @@ Code under GPL v3.0 licence
       </v-row>
       <v-row>
         <v-col>
-          <v-card>
+          <v-card variant="flat">
             <v-card-title>Team</v-card-title>
-
             <v-card-text class="mt-4">
               <v-list>
                 <v-list-item prepend-icon="mdi-account-circle"><strong>Elodie Ey</strong> (PhD -
