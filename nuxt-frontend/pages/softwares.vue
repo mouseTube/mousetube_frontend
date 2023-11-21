@@ -17,7 +17,11 @@ Code under GPL v3.0 licence
           but this is under development. Please contact the administrators if you would like to add your own application in this section.
         </v-card-text>
       </v-card>
-      <v-card variant="outlined" class="mt-5" v-for="software in softwares">
+
+      <v-skeleton-loader v-if="dataLoaded==false">
+      </v-skeleton-loader>
+
+      <v-card v-else variant="outlined" class="mt-5" v-for="software in softwares">
         <v-card-title>{{ software.software_name }}</v-card-title>
         <v-card-text>
           <p>{{ software.maded_by }}</p>
@@ -26,7 +30,7 @@ Code under GPL v3.0 licence
           <h3 class="mt-5">References and tutorials:</h3>
             <v-list>
               <v-list-item v-for="ref in software.references_and_tutorials">
-                <a :href="ref.url" target="_blank">{{ ref.name_reference }}</a>
+                <a :href="ref.url" target="_blank">{{ ref.description }}</a>
               </v-list-item>
             </v-list>
           <h3 class="mt-5">Contact:</h3>
