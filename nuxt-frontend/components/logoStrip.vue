@@ -27,9 +27,6 @@ Code under GPL v3.0 licence
       <v-col><v-sheet class="pa-2 ma-2">
         <nuxt-link to="http://www.ics-mci.fr/" target="_blank"><img class="ma-2 pa-2" src="phenomin_ics.png" alt="ICS" /></nuxt-link>
       </v-sheet></v-col>
-      <v-col><v-sheet class="pa-2 ma-2">
-        <nuxt-link to="http://www.univ-paris-diderot.fr/" target="_blank"><img class="ma-2 pa-2" src="logo_univ_paris7.png" alt="Paris Diderot" /></nuxt-link>
-      </v-sheet></v-col>
     </v-row>
   </v-container>
 </template>

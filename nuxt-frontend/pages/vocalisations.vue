@@ -23,7 +23,7 @@ Code under GPL v3.0 licence
           <v-card-actions>
             <v-select
                 label="Species"
-                :items=species
+                :items=species.name_species
             ></v-select>
             <v-checkbox label="Dataset" class="ml-2"></v-checkbox>
             <v-select
@@ -32,10 +32,12 @@ Code under GPL v3.0 licence
                 class="ml-2"
             ></v-select>
             <v-select
-                label="Protocol"
-                :items=protocol
+                label="Protocol type"
+                v-slot:protocol.name_protocol_type
                 class="ml-2"
-            ></v-select>
+            >
+              <v-list-item v-bind="name_protocol_type"></v-list-item>
+            </v-select>
             <v-text-field
               placeholder="DOI"
               class="ml-2"
@@ -55,15 +57,14 @@ export default {
   name: "vocalisations",
   data: function () {
     return {
-      species: [],
+      species: {},
       strain: ['C57BL/6J'],
-      protocol: ['Pups', 'Male-oestrus female interations', 'Male-male interactions',
-        'Female-female interactions', 'Group of male', 'Group of female', 'Group of mixed sex']
+      protocol: {}
     }
   },
   methods: {
     getSpecies() {
-      axios.get(`http://127.0.0.1:8000/api/species`)
+      axios.get(`http://127.0.0.1:8000/api/species/`)
           .then(response => {
             this.species = response.data
             console.log(this.species)
@@ -74,7 +75,7 @@ export default {
           })
     },
     getStrains() {
-      axios.get(`http://127.0.0.1:8000/api/strain`)
+      axios.get(`http://127.0.0.1:8000/api/strain/`)
           .then(response => {
             this.strain = response.data
             console.log(this.strain)
@@ -84,9 +85,10 @@ export default {
           })
     },
     getProtocolType() {
-      axios.get(`http://127.0.0.1:8000/api/protocol_type`)
+      axios.get(`http://127.0.0.1:8000/api/protocol_type/`)
           .then(response => {
-            this.protocol = response.data.name_protocol_type
+            this.protocol = response.data
+            console.log("protocols loaded")
             console.log(this.protocol)
           })
           .catch(error => {
