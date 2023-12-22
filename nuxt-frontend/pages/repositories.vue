@@ -32,19 +32,19 @@ Code under GPL v3.0 licence
         </v-card-text>
       </v-card>
 
+
       <v-card class="mt-5">
         <v-card-title>Search a repository</v-card-title>
         <v-card-actions>
           <v-text-field
               placeholder="key word"
               append-inner-icon="mdi-magnify"
+              class="ml-2 mr-2"
           ></v-text-field>
-          <h-divider></h-divider>
             <v-select
                 label="Area"
+                class="ml-2 mr-2"
             ></v-select>
-          </v-card-actions>
-        <v-card-actions>
           <v-btn color="teal">Search</v-btn>
         </v-card-actions>
       </v-card>
@@ -83,6 +83,7 @@ export default {
 		return {
       loading: true,
       repositories: [],
+      areas: []
     }
   },
   methods: {
@@ -96,9 +97,20 @@ export default {
             console.log(JSON.stringify(error))
           })
     },
+    getAreas() {
+      axios.get(`http://127.0.0.1:8000/api/country`)
+          .then(response => {
+            this.areas = response.data
+            console.log(this.areas)
+          })
+          .catch(error => {
+            console.log(JSON.stringify(error))
+          })
+    }
   },
   mounted() {
     this.getRepositories()
+    this.getAreas()
     this.loading = false
   }
 }

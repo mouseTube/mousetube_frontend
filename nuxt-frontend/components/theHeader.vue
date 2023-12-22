@@ -8,7 +8,7 @@ Code under GPL v3.0 licence
 -->
 <template>
   <v-app-bar color="black">
-    <v-app-bar-title><nuxt-link to="/" class="nuxt-link"><strong>mouseTube</strong></nuxt-link></v-app-bar-title>
+    <v-app-bar-title><nuxt-link to="/" class="nuxt-link"><v-img src="logo_mousetube.png" alt="logo mouseTube"></v-img> <strong>mouseTube</strong></nuxt-link></v-app-bar-title>
     <v-row>
       <v-col>
         <v-menu open-on-hover>

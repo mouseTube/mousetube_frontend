@@ -18,32 +18,44 @@ Code under GPL v3.0 licence
         </v-card-text>
       </v-card>
 
-      <v-skeleton-loader type="card" v-if="dataLoaded==false">
+      <v-skeleton-loader class="mt-5" type="card" v-if="dataLoaded==false">
       </v-skeleton-loader>
 
-      <v-card v-else class="mt-5" v-for="soft in software">
-        <v-card-title class="ml-5">{{ soft.software_name }}</v-card-title>
-        <v-card-subtitle>{{ soft.maded_by }}</v-card-subtitle>
-        <v-divider class="mx-4 mt-2 mb-1"></v-divider>
-        <v-card-item>
-          <h3>Technical requirements:</h3>
-            {{ soft.description }}
-        </v-card-item>
+      <v-data-iterator v-else :items="software" :page="page" :items-per-page="1">
+        <template v-slot:default="{ items }">
+          <template
+            v-for="(soft, i) in software"
+            :key="i"
+          >
+            <v-card class="mt-5" v-bind="soft">
+              <v-card-title class="ml-5">{{ soft.software_name }}</v-card-title>
+              <v-card-subtitle>{{ soft.made_by }}</v-card-subtitle>
+              <v-divider class="mx-4 mt-2 mb-1"></v-divider>
+              <v-card-item>
+                <h3>Technical requirements:</h3>
+                  {{ soft.description }}
+              </v-card-item>
 
-        <v-card-item>
-          <h3 class="mt-5">References and tutorials:</h3>
-          <v-list>
-            <v-list-item class="mb-0" v-for="ref in soft.references_and_tutorials">
-              <v-icon color="teal-accent-4" icon="mdi-link-variant"></v-icon>  <a :href="ref.url" target="_blank">{{ ref.description }}</a>
-            </v-list-item>
-          </v-list>
-        </v-card-item>
-        <v-divider class="mx-4 mt-2 mb-1"></v-divider>
-        <v-card-actions>
-          <v-btn color="teal-accent-4" v-for="contact in soft.contacts"><v-icon icon="mdi-email"></v-icon> <a class="text-decoration-none" href='mailto:{{contact.email}}' target="_blank">{{ contact.firstname }} {{ contact.lastname }}</a></v-btn>
-        </v-card-actions>
-
-      </v-card>
+              <v-card-item>
+                <h3 class="mt-5">References and tutorials:</h3>
+                <v-list>
+                  <v-list-item class="mb-0" v-for="ref in soft.references_and_tutorials">
+                    <v-icon color="teal-accent-4" icon="mdi-link-variant"></v-icon>  <a :href="ref.url" target="_blank">{{ ref.description }}</a>
+                  </v-list-item>
+                </v-list>
+              </v-card-item>
+              <v-divider class="mx-4 mt-2 mb-1"></v-divider>
+              <v-card-actions>
+                <v-btn color="teal-accent-4" v-for="contact in soft.contacts" prepend-icon="mdi-email">
+                  <a class="text-decoration-none" href='mailto:{{contact.email}}' target="_blank">
+                    <span v-if="contact.firstname && contact.lastname">{{ contact.firstname }} {{ contact.lastname }}</span>
+                    <span v-else>{{ contact.email }}</span>
+                  </a></v-btn>
+              </v-card-actions>
+            </v-card>
+          </template>
+        </template>
+      </v-data-iterator>
     </v-container>
   </v-main>
 </template>
@@ -57,7 +69,8 @@ export default {
   data: function(){
 		return {
       software: [],
-      dataLoaded: false
+      dataLoaded: false,
+      page: 1
     }
   },
   methods: {
