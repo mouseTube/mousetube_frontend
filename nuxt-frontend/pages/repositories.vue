@@ -11,8 +11,8 @@ Code under GPL v3.0 licence
  <v-main>
     <v-container>
       <h1><v-icon icon="mdi-cloud-upload"></v-icon> Repositories</h1>
-      <v-card>
-        <v-alert-title>To change</v-alert-title>
+      <v-card class="mt-5" color="grey-lighten-4">
+        <v-alert-title class="mt-2 ml-2"><v-icon icon="mdi-information-variant-circle" class="mr-2"></v-icon> To change</v-alert-title>
         <v-card-text>
           We would like to conform to the FAIR (Findable, Accessible, Interoperable, Reusable) principles. According to them,
           several organizations have created repositories to promote Open Data. For instance,
@@ -32,15 +32,43 @@ Code under GPL v3.0 licence
         </v-card-text>
       </v-card>
 
+      <v-card class="mt-5">
+        <v-card-title>Search a repository</v-card-title>
+        <v-card-actions>
+          <v-text-field
+              placeholder="key word"
+              append-inner-icon="mdi-magnify"
+          ></v-text-field>
+          <h-divider></h-divider>
+            <v-select
+                label="Area"
+            ></v-select>
+          </v-card-actions>
+        <v-card-actions>
+          <v-btn color="teal">Search</v-btn>
+        </v-card-actions>
+      </v-card>
 
-      <v-skeleton-loader v-if="dataLoaded==false">
+      <v-skeleton-loader class="mt-5" type="table-heading, list-item-two-line" v-if="loading">
       </v-skeleton-loader>
 
-      <v-card v-else variant="outlined" class="mt-5" v-for="repository in repositories">
-        <v-card-title><img :src="repository.logo" /> - {{ repository.name_repository }}</v-card-title>
-        <v-card-text>
+
+
+      <v-card v-else class="mt-5" v-for="repository in repositories">
+        <v-card-title><img :src="repository.logo" :alt="repository.name_repository" /></v-card-title>
+        <v-card-subtitle><strong>{{ repository.name_repository }}</strong> - {{ repository.area }}</v-card-subtitle>
+        <v-card-item>
             {{ repository.description }}
-        </v-card-text>
+        </v-card-item>
+        <v-divider class="mx-4 mb-1"></v-divider>
+        <v-card-actions>
+          <v-btn variant="text" color="teal-accent-4">
+            <v-icon icon="mdi-link-variant"></v-icon> <a :href="repository.url" target="_blank"> Website</a>
+          </v-btn>
+          <v-btn variant="text" color="teal-accent-4">
+            <v-icon icon="mdi-api"></v-icon> <a :href="repository.url_api" target="_blank">{{ repository.url_api }}</a>
+          </v-btn>
+        </v-card-actions>
       </v-card>
     </v-container>
  </v-main>
@@ -53,8 +81,8 @@ export default {
   name: "repositories",
   data: function(){
 		return {
+      loading: true,
       repositories: [],
-      dataLoaded: false
     }
   },
   methods: {
@@ -63,7 +91,6 @@ export default {
           .then(response => {
             this.repositories = response.data
             console.log(this.repositories)
-            this.dataLoaded = true
           })
           .catch(error => {
             console.log(JSON.stringify(error))
@@ -72,11 +99,19 @@ export default {
   },
   mounted() {
     this.getRepositories()
+    this.loading = false
   }
 }
 </script>
 
 
 <style scoped>
+a{
+  text-decoration: none;
+  color: teal;
+}
 
+a:hover{
+  text-decoration: underline;
+}
 </style>

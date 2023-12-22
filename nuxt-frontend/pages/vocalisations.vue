@@ -11,8 +11,13 @@ Code under GPL v3.0 licence
   <v-main>
     <v-container>
       <h1>Vocalisations</h1>
+
+      <v-skeleton-loader type="article" v-if="loading">
+      </v-skeleton-loader>
+
       <v-card
           title="Search a file"
+          v-else
       >
         <v-card-text>
           <v-text-field
@@ -23,7 +28,8 @@ Code under GPL v3.0 licence
           <v-card-actions>
             <v-select
                 label="Species"
-                :items=species.name_species
+                :items="species"
+                item-title="name_species"
             ></v-select>
             <v-checkbox label="Dataset" class="ml-2"></v-checkbox>
             <v-select
@@ -33,10 +39,10 @@ Code under GPL v3.0 licence
             ></v-select>
             <v-select
                 label="Protocol type"
-                v-slot:protocol.name_protocol_type
                 class="ml-2"
+                :items="protocol"
+                item-title="name_protocol_type"
             >
-              <v-list-item v-bind="name_protocol_type"></v-list-item>
             </v-select>
             <v-text-field
               placeholder="DOI"
@@ -46,6 +52,7 @@ Code under GPL v3.0 licence
           <v-btn>Search</v-btn>
         </v-card-text>
       </v-card>
+
     </v-container>
   </v-main>
 </template>
@@ -57,9 +64,10 @@ export default {
   name: "vocalisations",
   data: function () {
     return {
-      species: {},
+      loading: true,
+      species: [],
       strain: ['C57BL/6J'],
-      protocol: {}
+      protocol: []
     }
   },
   methods: {
@@ -99,6 +107,7 @@ export default {
   mounted() {
     this.getSpecies()
     this.getProtocolType()
+    this.loading = false
   }
 }
 </script>
