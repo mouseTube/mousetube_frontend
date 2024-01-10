@@ -14,6 +14,7 @@ Code under GPL v3.0 licence
       <v-card class="mt-5" color="grey-lighten-4">
         <v-alert-title class="mt-2 ml-2"><v-icon icon="mdi-information-variant-circle" class="mr-2"></v-icon> To change</v-alert-title>
         <v-card-text>
+          <nuxt-link href="https://www.go-fair.org/fair-principles/" target="_blank"><v-img :width="300" class="mt-3 mb-3" src="fair_data_principles.jpg" alt="FAIR"></v-img></nuxt-link>
           We would like to conform to the FAIR (Findable, Accessible, Interoperable, Reusable) principles. According to them,
           several organizations have created repositories to promote Open Data. For instance,
           Zenodo and Dataverse can be used to store data for free and to generate for each of them a DOI (Digital Object Identifier)
@@ -37,6 +38,7 @@ Code under GPL v3.0 licence
         <v-card-title>Search a repository</v-card-title>
         <v-card-actions>
           <v-text-field
+              v-model="search"
               placeholder="key word"
               append-inner-icon="mdi-magnify"
               class="ml-2 mr-2"
@@ -44,6 +46,10 @@ Code under GPL v3.0 licence
             <v-select
                 label="Area"
                 class="ml-2 mr-2"
+                :items="areas"
+                item-value="key"
+                item-title="value"
+                v-model="areaSelect"
             ></v-select>
           <v-btn color="teal">Search</v-btn>
         </v-card-actions>
@@ -52,24 +58,39 @@ Code under GPL v3.0 licence
       <v-skeleton-loader class="mt-5" type="table-heading, list-item-two-line" v-if="loading">
       </v-skeleton-loader>
 
+      <v-skeleton-loader class="mt-5" type="table-heading, list-item-two-line" v-if="loading">
+      </v-skeleton-loader>
 
 
-      <v-card v-else class="mt-5" v-for="repository in repositories">
-        <v-card-title><img :src="repository.logo" :alt="repository.name_repository" /></v-card-title>
-        <v-card-subtitle><strong>{{ repository.name_repository }}</strong> - {{ repository.area }}</v-card-subtitle>
+<!--      <v-card v-else class="mt-5" v-for="repository in repositories">-->
+      <v-data-iterator  v-else
+      :items="repositories"
+      :search="areaSelect"
+    >
+      <template
+        v-slot:default="{ items }">
+      <template
+        v-for="repository in items"
+      >
+      <v-card class="mt-5">
+        <v-card-title><img :src="repository.raw.logo" :alt="repository.raw.name_repository" /></v-card-title>
+        <v-card-subtitle><strong>{{ repository.raw.name_repository }}</strong> - {{ repository.raw.area }}</v-card-subtitle>
         <v-card-item>
-            {{ repository.description }}
+            {{ repository.raw.description }}
         </v-card-item>
         <v-divider class="mx-4 mb-1"></v-divider>
         <v-card-actions>
           <v-btn variant="text" color="teal-accent-4">
-            <v-icon icon="mdi-link-variant"></v-icon> <a :href="repository.url" target="_blank"> Website</a>
+            <v-icon icon="mdi-link-variant"></v-icon> <a :href="repository.raw.url" target="_blank"> Website</a>
           </v-btn>
           <v-btn variant="text" color="teal-accent-4">
-            <v-icon icon="mdi-api"></v-icon> <a :href="repository.url_api" target="_blank">{{ repository.url_api }}</a>
+            <v-icon icon="mdi-api"></v-icon> <a :href="repository.raw.url_api" target="_blank">{{ repository.raw.url_api }}</a>
           </v-btn>
         </v-card-actions>
       </v-card>
+        </template>
+      </template>
+      </v-data-iterator>
     </v-container>
  </v-main>
 </template>
@@ -83,7 +104,9 @@ export default {
 		return {
       loading: true,
       repositories: [],
-      areas: []
+      areas: [],
+      areaSelect: "",
+      search: ""
     }
   },
   methods: {
@@ -100,7 +123,11 @@ export default {
     getAreas() {
       axios.get(`http://127.0.0.1:8000/api/country`)
           .then(response => {
-            this.areas = response.data
+            for(let [key, value] of Object.entries(response.data)){
+              this.areas.push({'key': key, 'value': value})
+              // this.areas.push({"key": response.data[i].key, "country": response.data[i].value})
+            }
+            // this.areas = response.data
             console.log(this.areas)
           })
           .catch(error => {

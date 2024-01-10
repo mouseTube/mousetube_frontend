@@ -10,7 +10,7 @@ Code under GPL v3.0 licence
   <v-footer color="black">
     <div class="px-4 py-2 bg-black text-center w-100">
       <v-row>
-        <v-col>mouseTube - Copyright © CNRS - INSERM - UNISTRA - ICS - IGBMC 2023</v-col>
+        <v-col>mouseTube - Copyright © CNRS - INSERM - UNISTRA - ICS - IGBMC 2024</v-col>
       </v-row>
       <v-row>
         <v-col>

@@ -50,16 +50,6 @@ Code under GPL v3.0 licence
           </v-card>
         </v-col>
       </v-row>
-      <v-row>
-        <v-col>
-          <v-card >
-            <v-card-title>Here is a short video introduction to <strong>mouseTube</strong>:</v-card-title>
-            <v-card-text>
-              <iframe width="560" height="315" src="https://www.youtube.com/embed/-0HTEXEnwSc?si=lxsGyiq16kE3nq9K" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
 
       <v-row>
         <logo-strip></logo-strip>
