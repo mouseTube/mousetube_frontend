@@ -30,7 +30,12 @@ Code under GPL v3.0 licence
       <v-col><nuxt-link to="/repositories" class="nuxt-link">Repositories</nuxt-link></v-col>
       <v-col><nuxt-link to="/metadata" class="nuxt-link">Metadata</nuxt-link></v-col>
       <v-col><nuxt-link to="/" class="nuxt-link">Help</nuxt-link></v-col>
-      <v-col><v-btn>Connexion</v-btn></v-col>
+      <v-col><v-btn variant="tonal">
+        <v-icon icon="mdi-account-box"></v-icon> New account</v-btn>
+      </v-col>
+      <v-col><v-btn variant="tonal">
+        <v-icon icon="mdi-login"></v-icon> Login</v-btn>
+      </v-col>
     </v-row>
 
   </v-app-bar>
