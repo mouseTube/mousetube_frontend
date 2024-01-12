@@ -67,7 +67,7 @@ Code under GPL v3.0 licence
 <!--                          <v-card-text>{{ file.raw.created_by }}</v-card-text>-->
                         </v-card>
 
-                          <v-divider class="mx-4 mt-2 mb-2"></v-divider>
+                        <v-divider class="mx-4 mt-2 mb-2"></v-divider>
 
                         <v-card>
                           <v-card-title class="mt-2 ml-2">Protocol</v-card-title>
@@ -79,21 +79,64 @@ Code under GPL v3.0 licence
                           </v-card-text>
                         </v-card>
 
-                          <h3>Protocol</h3>
-                          <h5>Protocol type:</h5> {{ file.raw.experiment.protocol.protocol_type.name_protocol_type }}
-                          <h5>Protocol name:</h5> {{ file.raw.experiment.protocol.name_protocol }}
-                          <h5>Protocol description:</h5> {{ file.raw.experiment.protocol.protocol_description }}
+                        <v-divider class="mx-4 mt-2 mb-2"></v-divider>
 
-                          <v-divider class="mx-4 mt-2 mb-2"></v-divider>
+                        <v-card>
+                          <v-card-title class="mt-2 ml-2">Experiment</v-card-title>
+                          <v-card-subtitle class="mt-1 ml-4">{{ file.raw.experiment.name_experiment }}</v-card-subtitle>
+                          <v-card-text>
+                            <v-list>
+                              <v-list-item><strong>Date:</strong> {{ file.raw.experiment.date_experiment }}</v-list-item>
+                              <v-list-item v-if="file.raw.experiment.subjects_age"><strong>Animals age:</strong> {{ file.raw.experiment.subjects_age }}</v-list-item>
+                              <v-list-item><strong>Temperature:</strong> {{ file.raw.experiment.temperature }}</v-list-item>
+                              <v-list-item><strong>Cycle:</strong> {{ file.raw.experiment.light_cycle }}</v-list-item>
+                              <v-list-item><strong>Laboratory:</strong> {{ file.raw.experiment.laboratory }}</v-list-item>
+                              <v-list-item v-if="file.raw.experiment.notes_experiment"><strong>Notes:</strong> {{ file.raw.experiment.notes_experiment }}</v-list-item>
+                            </v-list>
 
-                        <h3>Experiment</h3>
-                        <h5>Experiment name:</h5> {{ file.raw.experiment.name_experiment }}
-                        <h5>Date:</h5> {{ file.raw.experiment.date_experiment }}
+                            <h3>Hardware</h3>
+                            <h4>Microphones:</h4>
+                            <v-list>
+                              <v-list-item v-for="micro in file.raw.experiment.microphones">{{ micro.hardware_name }}</v-list-item>
+                            </v-list>
+
+                            <h4>Soundcard:</h4>
+                            <v-list>
+                              <v-list-item v-for="soundcard in file.raw.experiment.acquisition_hardware">{{ soundcard.hardware_name }}</v-list-item>
+                            </v-list>
+
+                            <h3>Acquisition software</h3>
+                            <v-list>
+                              <v-list-item v-for="software in file.raw.experiment.acquisition_software">{{ software.software_name }}</v-list-item>
+                            </v-list>
+                          </v-card-text>
+                        </v-card>
 
                         <v-divider class="mx-4 mt-2 mb-2"></v-divider>
 
-                        <h3>Spectrogram</h3>
-                        <v-img :src="file.raw.spectrogram"></v-img>
+                        <v-card>
+                          <v-card-title class="mt-2 ml-2">File</v-card-title>
+                          <v-card-subtitle class="mt-1 ml-4">{{ file.raw.name_file }}</v-card-subtitle>
+                          <v-card-text>
+                            <v-list>
+                              <v-list-item v-if="file.raw.file_number"><strong>File number:</strong> {{ file.raw.file_number }}</v-list-item>
+                              <v-list-item v-if="file.raw.number_of_channels"><strong>Number of channel:</strong> {{ file.raw.number_of_channels }}</v-list-item>
+                              <v-list-item v-if="file.raw.file_weight"><strong>File weight:</strong> {{ file.raw.file_weight }}</v-list-item>
+                            </v-list>
+
+                            <div v-if="animal_list">
+                              <h3>Animals</h3>
+                              <v-list>
+                                <v-list-item v-for="animal in animal_list">{{ animal }}</v-list-item>
+                              </v-list>
+                            </div>
+
+                            <div v-if="file.raw.spectrogram">
+                              <h3>Spectrogram</h3>
+                              <v-img :src="file.raw.spectrogram"></v-img>
+                            </div>
+                          </v-card-text>
+                        </v-card>
 
                         </v-expansion-panel-text>
                     </v-expansion-panel>
@@ -107,9 +150,12 @@ Code under GPL v3.0 licence
                 <v-btn color="teal-accent-4" prepend-icon="mdi-download">
                   <a :href="file.raw.link_file" target="_blank">Download</a>
                 </v-btn>
-                <v-btn color="teal-accent-4">
-                  DOI: {{ file.raw.doi_file }}
-                </v-btn>
+                  <v-chip class="ma-2" label color="#03DAC6">
+                    <strong>DOI:</strong> {{ file.raw.doi_file }}
+                  </v-chip>
+                  <v-chip class="ma-2" label color="#03DAC6">
+                    <strong>Protocol type:</strong> {{ file.raw.experiment.protocol.protocol_type.name_protocol_type }}
+                  </v-chip>
               </v-card-actions>
 
             </v-card>
