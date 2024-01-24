@@ -47,6 +47,9 @@ Code under GPL v3.0 licence
                 </v-col>
               </v-row>
             </v-card-text>
+            <v-card-actions>
+              <nuxt-link to="https://mastodon.social/@mousetube" target="_blank" class="nuxt-link"><v-btn prepend-icon="mdi-mastodon">Follow mouseTube on Mastodon</v-btn></nuxt-link>
+            </v-card-actions>
           </v-card>
         </v-col>
       </v-row>
@@ -92,5 +95,12 @@ export default {
 </script>
 
 <style scoped>
+a{
+  text-decoration: none;
+  color: teal;
+}
 
+a:hover{
+  text-decoration: underline;
+}
 </style>
