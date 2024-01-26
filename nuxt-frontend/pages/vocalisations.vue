@@ -150,12 +150,12 @@ Code under GPL v3.0 licence
                 <v-btn color="teal-accent-4" prepend-icon="mdi-download">
                   <a :href="file.raw.link_file" target="_blank">Download</a>
                 </v-btn>
-                  <v-chip class="ma-2" label color="#03DAC6">
-                    <strong>DOI:</strong> {{ file.raw.doi_file }}
-                  </v-chip>
-                  <v-chip class="ma-2" label color="#03DAC6">
-                    <strong>Protocol type:</strong> {{ file.raw.experiment.protocol.protocol_type.name_protocol_type }}
-                  </v-chip>
+                <v-chip class="ma-2" label color="#03DAC6">
+                  <strong>DOI:</strong> {{ file.raw.doi_file }}
+                </v-chip>
+                <v-chip class="ma-2" label color="#03DAC6">
+                  <strong>Protocol type:</strong> {{ file.raw.experiment.protocol.protocol_type.name_protocol_type }}
+                </v-chip>
               </v-card-actions>
 
             </v-card>
