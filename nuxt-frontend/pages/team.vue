@@ -11,7 +11,7 @@ Code under GPL v3.0 licence
     <v-container>
       <v-row>
         <v-col>
-          <v-img :width="600" src="logo_mousetube_big.png" alt="logo mouseTube"></v-img>
+          <h1><v-img :width="600" src="logo_mousetube_big.png" alt="logo mouseTube"></v-img> Team and information</h1>
         </v-col>
       </v-row>
       <v-row>
@@ -84,9 +84,9 @@ Code under GPL v3.0 licence
             <v-card-title>Acknowledgments</v-card-title>
             <v-card-text>
               <v-list>
-                <v-list-item prepend-icon="mdi-account-circle">Thomas Bourgeron (Institut Pasteur, Paris, France)</v-list-item>
-                <v-list-item prepend-icon="mdi-account-circle">Fabrice de Chaumont (Institut Pasteur, Paris, France)</v-list-item>
-                <v-list-item prepend-icon="mdi-account-circle">Philippe Faure (ESPCI, Paris, France)</v-list-item>
+                <v-list-item prepend-icon="mdi-account-circle"><strong>Thomas Bourgeron</strong> (Institut Pasteur, Paris, France)</v-list-item>
+                <v-list-item prepend-icon="mdi-account-circle"><strong>Fabrice de Chaumont</strong> (Institut Pasteur, Paris, France)</v-list-item>
+                <v-list-item prepend-icon="mdi-account-circle"><strong>Philippe Faure</strong> (ESPCI, Paris, France)</v-list-item>
                 <v-list-item prepend-icon="mdi-account-circle">mouseTube logo by <strong>Ioan Lemoël</strong><br /></v-list-item>
               </v-list>
             </v-card-text>

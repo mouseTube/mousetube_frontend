@@ -154,7 +154,7 @@ Code under GPL v3.0 licence
                   <strong>DOI:</strong> {{ file.raw.doi_file }}
                 </v-chip>
                 <v-chip class="ma-2" label color="#03DAC6">
-                  <strong>Protocol type:</strong> {{ file.raw.experiment.protocol.protocol_type.name_protocol_type }}
+                  <strong>Protocol type: </strong> {{ file.raw.experiment.protocol.protocol_type.name_protocol_type }}
                 </v-chip>
               </v-card-actions>
 
