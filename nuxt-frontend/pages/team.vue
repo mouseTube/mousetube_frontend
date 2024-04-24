@@ -90,6 +90,11 @@ Code under GPL v3.0 licence
                 <v-list-item prepend-icon="mdi-account-circle">mouseTube logo by <strong>Ioan Lemoël</strong><br /></v-list-item>
               </v-list>
             </v-card-text>
+            <v-card-text>
+              <nuxt-link to="https://www.fc3r.com/" target="_blank"><img src="logo-fc3r_bleu.png" alt="FC3R" class="ml-2 mr-2" /></nuxt-link>
+              <nuxt-link to="https://www.ouvrirlascience.fr" target="_blank"><img src="macaron_recherche_data_gouv.png" alt="Recherche Data Gouv" class="mr-2" /></nuxt-link>
+              We would like to thank the FC3R (French Center for 3R) and the French Ministry of Higher Education and Research for their financial support.
+            </v-card-text>
           </v-card>
 
         </v-col>

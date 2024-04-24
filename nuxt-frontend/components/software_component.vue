@@ -11,8 +11,10 @@ Code under GPL v3.0 licence
     <v-card-title>{{ software_component.software_name }}</v-card-title>
     <v-card-text>
       <p>{{ software_component.maded_by }}</p>
-      <h3 class="mt-5">Technical requirements:</h3>
+      <h3 class="mt-5">Description:</h3>
       {{ software_component.description }}
+      <h3 class="mt-5">Technical requirements:</h3>
+      {{ software_component.technical_requirements }}
       <h3 class="mt-5">References and tutorials:</h3>
         <v-list>
           <v-list-item v-for="ref in software_component.references_and_tutorials">

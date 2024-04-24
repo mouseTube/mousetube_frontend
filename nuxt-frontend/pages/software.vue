@@ -21,7 +21,7 @@ Code under GPL v3.0 licence
       <v-skeleton-loader class="mt-5" type="card" v-if="dataLoaded==false">
       </v-skeleton-loader>
 
-      <v-data-iterator v-else class="mt-5" :items="software" :items-per-page="2" :search="search">
+      <v-data-iterator v-else class="mt-5" :items="software" :items-per-page="15" :search="search">
         <template v-slot:header>
           <v-toolbar class="px-2">
             <v-text-field
@@ -44,8 +44,13 @@ Code under GPL v3.0 licence
               <v-card-subtitle>{{ soft.raw.made_by }}</v-card-subtitle>
               <v-divider class="mx-4 mt-2 mb-1"></v-divider>
               <v-card-item>
-                <h3>Technical requirements:</h3>
+                <h3>Description:</h3>
                   {{ soft.raw.description }}
+              </v-card-item>
+
+              <v-card-item>
+                <h3>Technical requirements:</h3>
+                  {{ soft.raw.technical_requirements }}
               </v-card-item>
 
               <v-card-item>
