@@ -27,6 +27,7 @@ Code under GPL v3.0 licence
       </v-col>
       <v-col><nuxt-link to="/vocalisations" class="nuxt-link">Vocalisations</nuxt-link></v-col>
       <v-col><nuxt-link to="/software" class="nuxt-link">Software</nuxt-link></v-col>
+      <v-col><nuxt-link to="/hardware" class="nuxt-link">Hardware</nuxt-link></v-col>
       <v-col><nuxt-link to="/repositories" class="nuxt-link">Repositories</nuxt-link></v-col>
       <v-col><nuxt-link to="/dataset" class="nuxt-link">Dataset</nuxt-link></v-col>
       <v-col><nuxt-link to="/metadata" class="nuxt-link">Metadata</nuxt-link></v-col>
