@@ -23,7 +23,7 @@ Code under GPL v3.0 licence
         <nuxt-link to="http://www.inserm.fr/" target="_blank"><img src="logo_inserm.jpg" alt="Inserm" /></nuxt-link>
       </v-sheet></v-col>
       <v-col><v-sheet class="pa-2 ma-2">
-        <nuxt-link to="http://www.ics-mci.fr/" target="_blank"><img src="phenomin_ics.png" alt="ICS" /></nuxt-link>
+        <nuxt-link to="http://www.ics-mci.fr/" target="_blank"><img src="ics2010.png" alt="ICS" /></nuxt-link>
       </v-sheet></v-col>
     </v-row>
   </v-container>

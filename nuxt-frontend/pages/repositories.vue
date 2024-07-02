@@ -34,45 +34,33 @@ Code under GPL v3.0 licence
       </v-card>
 
 
-      <v-card class="mt-5">
-        <v-card-title>Search a repository</v-card-title>
-        <v-card-actions>
-          <v-text-field
+      <v-skeleton-loader class="mt-5" type="table-heading, list-item-two-line" v-if="loading">
+      </v-skeleton-loader>
+
+      <v-skeleton-loader class="mt-5" type="table-heading, list-item-two-line" v-if="loading">
+      </v-skeleton-loader>
+
+
+      <v-data-iterator v-else class="mt-5" :items="repositories" :items-per-page="15" :search="search">
+        <template v-slot:header>
+          <v-toolbar class="px-2">
+            <v-text-field
               v-model="search"
-              placeholder="key word"
-              append-inner-icon="mdi-magnify"
-              class="ml-2 mr-2"
-          ></v-text-field>
-            <v-select
-                label="Area"
-                class="ml-2 mr-2"
-                :items="areas"
-                item-value="key"
-                item-title="value"
-                v-model="areaSelect"
-            ></v-select>
-          <v-btn color="teal">Search</v-btn>
-        </v-card-actions>
-      </v-card>
+              clearable
+              density="comfortable"
+              hide-details
+              placeholder="Search"
+              prepend-inner-icon="mdi-magnify"
+              style="max-width: 300px;"
+              variant="solo"
+            ></v-text-field>
+          </v-toolbar>
+        </template>
 
-      <v-skeleton-loader class="mt-5" type="table-heading, list-item-two-line" v-if="loading">
-      </v-skeleton-loader>
+        <template v-slot:default="{ items }">
+          <v-container class="pa-2" fluid>
 
-      <v-skeleton-loader class="mt-5" type="table-heading, list-item-two-line" v-if="loading">
-      </v-skeleton-loader>
-
-
-<!--      <v-card v-else class="mt-5" v-for="repository in repositories">-->
-      <v-data-iterator  v-else
-      :items="repositories"
-      :search="areaSelect"
-    >
-      <template
-        v-slot:default="{ items }">
-      <template
-        v-for="repository in items"
-      >
-      <v-card class="mt-5">
+      <v-card class="mt-5" v-bind="repository" v-for="repository in items">
         <v-card-title><img :src="repository.raw.logo" :alt="repository.raw.name_repository" /></v-card-title>
         <v-card-subtitle><strong>{{ repository.raw.name_repository }}</strong> - {{ repository.raw.area }}</v-card-subtitle>
         <v-card-item>
@@ -88,7 +76,7 @@ Code under GPL v3.0 licence
           </v-btn>
         </v-card-actions>
       </v-card>
-        </template>
+          </v-container>
       </template>
       </v-data-iterator>
     </v-container>
