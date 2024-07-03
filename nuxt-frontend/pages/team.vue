@@ -22,11 +22,15 @@ Code under GPL v3.0 licence
               <v-list>
                 <v-list-item prepend-icon="mdi-account-circle"><strong>Elodie Ey</strong> (PhD -
                   <nuxt-link to="http://www.igbmc.fr/research/department/4/team/45/" target="_blank">Physiopathology of aneuploidy, gene dosage effect and Down syndrome</nuxt-link>
-                  - <nuxt-link to="https://www.igbmc.fr/" target="_blank">CNRS UMR 7104 - Institut de Génétique et de Biologie Moléculaire et Cellulaire: IGBMC</nuxt-link>)
+                  - <nuxt-link to="https://www.igbmc.fr/" target="_blank">CNRS UMR 7104 - Institut de Génétique et de Biologie Moléculaire et Cellulaire: IGBMC</nuxt-link>, Fr)
                 </v-list-item>
                 <v-list-item prepend-icon="mdi-account-circle"><strong>Nicolas Torquet</strong> (Research and Development pole -
                   <nuxt-link to="http://www.ics-mci.fr/en/" target="_blank">Institut Clinique de la Souris</nuxt-link> -
-                  <nuxt-link to="https://www.igbmc.fr/" target="_blank">CNRS UMR 7104 - Institut de Génétique et de Biologie Moléculaire et Cellulaire: IGBMC</nuxt-link>)
+                  <nuxt-link to="https://www.igbmc.fr/" target="_blank">CNRS UMR 7104 - Institut de Génétique et de Biologie Moléculaire et Cellulaire: IGBMC</nuxt-link>, Fr)
+                </v-list-item>
+                <v-list-item prepend-icon="mdi-account-circle"><strong>Emma Cahill</strong> (PhD - lecturer at
+                  <nuxt-link to="https://www.bristol.ac.uk/phys-pharm-neuro/" target="_blank">School of Physiology, Pharmacology and Neuroscience</nuxt-link> -
+                  <nuxt-link to="https://www.bristol.ac.uk" target="_blank">University of Bristol</nuxt-link>, UK)
                 </v-list-item>
               </v-list>
 
