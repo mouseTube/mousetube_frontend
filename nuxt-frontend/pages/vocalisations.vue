@@ -71,11 +71,11 @@ Code under GPL v3.0 licence
 
                         <v-card>
                           <v-card-title class="mt-2 ml-2">Protocol</v-card-title>
-                          <v-card-subtitle class="mt-1 ml-4">Protocol type: {{ file.raw.experiment.protocol.protocol_type.name_protocol_type }}</v-card-subtitle>
+                          <v-card-subtitle class="mt-1 ml-4">Protocol type: </v-card-subtitle>
                           <v-card-text>
-                            <strong>Protocol name:</strong> {{ file.raw.experiment.protocol.name_protocol }}<br />
+                            <strong>Protocol name:</strong> {{ file.raw.protocol.name_protocol }}<br />
                             <strong>Protocol description:</strong><br />
-                            {{ file.raw.experiment.protocol.protocol_description }}
+                            {{ file.raw.protocol.protocol_description }}
                           </v-card-text>
                         </v-card>
 
@@ -83,32 +83,27 @@ Code under GPL v3.0 licence
 
                         <v-card>
                           <v-card-title class="mt-2 ml-2">Experiment</v-card-title>
-                          <v-card-subtitle class="mt-1 ml-4">{{ file.raw.experiment.name_experiment }}</v-card-subtitle>
+                          <v-card-subtitle class="mt-1 ml-4">{{ file.raw.metadata.experiment.name_experiment }}</v-card-subtitle>
                           <v-card-text>
                             <v-list>
-                              <v-list-item><strong>Date:</strong> {{ file.raw.experiment.date_experiment }}</v-list-item>
-                              <v-list-item v-if="file.raw.experiment.subjects_age"><strong>Animals age:</strong> {{ file.raw.experiment.subjects_age }}</v-list-item>
-                              <v-list-item><strong>Temperature:</strong> {{ file.raw.experiment.temperature }}</v-list-item>
-                              <v-list-item><strong>Cycle:</strong> {{ file.raw.experiment.light_cycle }}</v-list-item>
-                              <v-list-item><strong>Laboratory:</strong> {{ file.raw.experiment.laboratory }}</v-list-item>
-                              <v-list-item v-if="file.raw.experiment.notes_experiment"><strong>Notes:</strong> {{ file.raw.experiment.notes_experiment }}</v-list-item>
+                              <v-list-item><strong>Date:</strong> {{ file.raw.metadata.experiment.date_experiment }}</v-list-item>
+<!--                              <v-list-item v-if="file.raw.metadata.experiment.subjects_age"><strong>Animals age:</strong> {{ file.raw.experiment.subjects_age }}</v-list-item>-->
+                              <v-list-item><strong>Temperature:</strong> {{ file.raw.metadata.experiment.temperature }}</v-list-item>
+                              <v-list-item><strong>Cycle:</strong> {{ file.raw.metadata.experiment.light_cycle }}</v-list-item>
+<!--                              <v-list-item><strong>Laboratory:</strong> {{ file.raw.metadata.experiment.laboratory }}</v-list-item>-->
                             </v-list>
 
                             <h3>Hardware</h3>
                             <h4>Microphones:</h4>
                             <v-list>
-                              <v-list-item v-for="micro in file.raw.experiment.microphones">{{ micro.hardware_name }}</v-list-item>
+                              <v-list-item v-for="micro in file.raw.microphones">{{ micro.hardware_name }}</v-list-item>
                             </v-list>
 
                             <h4>Soundcard:</h4>
-                            <v-list>
-                              <v-list-item v-for="soundcard in file.raw.experiment.acquisition_hardware">{{ soundcard.hardware_name }}</v-list-item>
-                            </v-list>
+                            {{ file.raw.acquisition_hardware.hardware_name }}
 
-                            <h3>Acquisition software</h3>
-                            <v-list>
-                              <v-list-item v-for="software in file.raw.experiment.acquisition_software">{{ software.software_name }}</v-list-item>
-                            </v-list>
+                            <h4>Acquisition software</h4>
+                            {{ file.raw.acquisition_software.software_name }}
                           </v-card-text>
                         </v-card>
 
@@ -124,10 +119,12 @@ Code under GPL v3.0 licence
                               <v-list-item v-if="file.raw.file_weight"><strong>File weight:</strong> {{ file.raw.file_weight }}</v-list-item>
                             </v-list>
 
-                            <div v-if="animal_list">
+                            <div v-if="file.raw.metadata.experiment.animals">
                               <h3>Animals</h3>
                               <v-list>
-                                <v-list-item v-for="animal in animal_list">{{ animal }}</v-list-item>
+                                <v-list-item v-for="animal in file.raw.metadata.experiment.animals">
+                                  {{ animal.name }} - {{ animal.sex }} - {{ animal.genotype }}
+                                </v-list-item>
                               </v-list>
                             </div>
 
@@ -154,7 +151,7 @@ Code under GPL v3.0 licence
                   <strong>DOI:</strong> {{ file.raw.doi_file }}
                 </v-chip>
                 <v-chip class="ma-2" label color="#03DAC6">
-                  <strong>Protocol type: </strong> {{ file.raw.experiment.protocol.protocol_type.name_protocol_type }}
+                  <strong>Protocol type: </strong>
                 </v-chip>
               </v-card-actions>
 
@@ -229,17 +226,17 @@ export default {
             console.log(JSON.stringify(error))
           })
     },
-    getProtocolType() {
-      axios.get(`http://127.0.0.1:8000/api/protocol_type/`)
-          .then(response => {
-            this.protocol = response.data
-            console.log("protocols loaded")
-            console.log(this.protocol)
-          })
-          .catch(error => {
-            console.log(JSON.stringify(error))
-          })
-    },
+    // getProtocolType() {
+    //   axios.get(`http://127.0.0.1:8000/api/protocol_type/`)
+    //       .then(response => {
+    //         this.protocol = response.data
+    //         console.log("protocols loaded")
+    //         console.log(this.protocol)
+    //       })
+    //       .catch(error => {
+    //         console.log(JSON.stringify(error))
+    //       })
+    // },
     getFiles() {
       axios.get(`http://127.0.0.1:8000/api/file/`)
           .then(response => {
@@ -254,7 +251,7 @@ export default {
   },
   mounted() {
     this.getSpecies()
-    this.getProtocolType()
+    // this.getProtocolType()
     this.getFiles()
     this.loading = false
   }
