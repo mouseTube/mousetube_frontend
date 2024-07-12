@@ -83,13 +83,13 @@ Code under GPL v3.0 licence
 
                         <v-card>
                           <v-card-title class="mt-2 ml-2">Experiment</v-card-title>
-                          <v-card-subtitle class="mt-1 ml-4">{{ file.raw.metadata.experiment.name_experiment }}</v-card-subtitle>
+                          <v-card-subtitle class="mt-1 ml-4">{{ file.raw.metadata_json.experiment.name_experiment }}</v-card-subtitle>
                           <v-card-text>
                             <v-list>
-                              <v-list-item><strong>Date:</strong> {{ file.raw.metadata.experiment.date_experiment }}</v-list-item>
+                              <v-list-item><strong>Date:</strong> {{ file.raw.metadata_json.experiment.date_experiment }}</v-list-item>
 <!--                              <v-list-item v-if="file.raw.metadata.experiment.subjects_age"><strong>Animals age:</strong> {{ file.raw.experiment.subjects_age }}</v-list-item>-->
-                              <v-list-item><strong>Temperature:</strong> {{ file.raw.metadata.experiment.temperature }}</v-list-item>
-                              <v-list-item><strong>Cycle:</strong> {{ file.raw.metadata.experiment.light_cycle }}</v-list-item>
+                              <v-list-item><strong>Temperature:</strong> {{ file.raw.metadata_json.experiment.temperature }}</v-list-item>
+                              <v-list-item><strong>Cycle:</strong> {{ file.raw.metadata_json.experiment.light_cycle }}</v-list-item>
 <!--                              <v-list-item><strong>Laboratory:</strong> {{ file.raw.metadata.experiment.laboratory }}</v-list-item>-->
                             </v-list>
 
@@ -119,10 +119,10 @@ Code under GPL v3.0 licence
                               <v-list-item v-if="file.raw.file_weight"><strong>File weight:</strong> {{ file.raw.file_weight }}</v-list-item>
                             </v-list>
 
-                            <div v-if="file.raw.metadata.experiment.animals">
+                            <div v-if="file.raw.metadata_json.experiment.animals">
                               <h3>Animals</h3>
                               <v-list>
-                                <v-list-item v-for="animal in file.raw.metadata.experiment.animals">
+                                <v-list-item v-for="animal in file.raw.metadata_json.experiment.animals">
                                   {{ animal.name }} - {{ animal.sex }} - {{ animal.genotype }}
                                 </v-list-item>
                               </v-list>
