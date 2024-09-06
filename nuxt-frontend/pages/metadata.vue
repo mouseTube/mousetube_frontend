@@ -27,6 +27,19 @@ Code under GPL v3.0 licence
         </v-card-text>
       </v-card>
 
+      <v-card class="mt-4 mr-3">
+        <v-card-title>Metadata protocol</v-card-title>
+        <v-card-text>
+          <v-list v-model:opened="open">
+            <v-list-item v-for="metadata in protocol_metadata" :title="metadata.name_metadata">
+              {{ metadata.metadata_field.description }}
+            </v-list-item>
+          </v-list>
+          -------
+          {{ protocol_metadata }}
+        </v-card-text>
+      </v-card>
+
       <v-row justify="center">
         <v-col cols="auto">
           <v-card class="mt-4 mr-3">
@@ -128,7 +141,35 @@ Code under GPL v3.0 licence
 
 
 <script>
-
+import axios from "axios";
+export default {
+  name: "metadata",
+  data: function () {
+    return {
+      loading: true,
+      protocol_metadata: [],
+      open: true
+    }
+  },
+  methods: {
+    getProtocolMetadata() {
+      axios.get(`http://127.0.0.1:8000/api/protocol_metadata/`)
+          .then(response => {
+            this.protocol_metadata = response.data
+            console.log(this.protocol_metadata)
+            this.dataLoaded = true
+          })
+          .catch(error => {
+            console.log(JSON.stringify(error))
+          })
+    },
+  },
+  mounted() {
+    this.getProtocolMetadata()
+    // this.getProtocolType()
+    this.loading = false
+  }
+}
 </script>
 
 
