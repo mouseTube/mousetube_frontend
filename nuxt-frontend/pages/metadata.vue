@@ -36,9 +36,11 @@ Code under GPL v3.0 licence
             </v-list-item>
           </v-list>
           -------
-          {{ protocol_metadata }}
+<!--          {{ protocol_metadata }}-->
         </v-card-text>
       </v-card>
+
+
 
       <v-row justify="center">
         <v-col cols="auto">
@@ -148,7 +150,9 @@ export default {
     return {
       loading: true,
       protocol_metadata: [],
-      open: true
+      ordered_protocol_metadata: [],
+      metadata_category: [],
+      open: false
     }
   },
   methods: {
@@ -158,11 +162,37 @@ export default {
             this.protocol_metadata = response.data
             console.log(this.protocol_metadata)
             this.dataLoaded = true
+            this.orderProtocolMetadata()
+            this.open = true
           })
           .catch(error => {
             console.log(JSON.stringify(error))
           })
     },
+    orderProtocolMetadata() {
+      for(let metadata in this.protocol_metadata){
+        console.log('Metadata category:')
+        for(let metadata_field in this.protocol_metadata[metadata]['metadata_field']){
+          for(let metadata_category in this.protocol_metadata[metadata]['metadata_field'][metadata_field]['metadata_category']){
+            console.log(this.protocol_metadata[metadata]['metadata_field'][metadata_field]['metadata_category'][metadata_category]['name_metadata_category'])
+            if(!this.metadata_category.includes(this.protocol_metadata[metadata]['metadata_field'][metadata_field]['metadata_category'][metadata_category]['name_metadata_category'])){
+              // let ${this.protocol_metadata[metadata]['metadata_field'][metadata_field]['metadata_category'][metadata_category]['name_metadata_category']} = "hop"
+              console.log(eval(this.protocol_metadata[metadata]['metadata_field'][metadata_field]['metadata_category'][metadata_category]['name_metadata_category']))
+              // this.metadata_category.push(this.protocol_metadata[metadata]['metadata_field'][metadata_field]['metadata_category'][metadata_category]['name_metadata_category'])
+
+              // this.protocol_metadata[metadata]['metadata_field'][metadata_field]['name_metadata_field']
+              //  "hop": "gna"
+              // var metadata_category = {
+                // window[this.protocol_metadata[metadata]['metadata_field'][metadata_field]['metadata_category'][metadata_category]['name_metadata_category']]: "hop"
+                // "gna": "hop"
+              // }
+              // this.metadata_category.push(metadata_category)
+            }
+            console.log(metadata_category)
+          }
+        }
+      }
+    }
   },
   mounted() {
     this.getProtocolMetadata()

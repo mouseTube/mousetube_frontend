@@ -18,7 +18,45 @@ Code under GPL v3.0 licence
           >
             <v-img cover :width="600" src="logo_mousetube_big.png" alt="logo mouseTube"></v-img>
             <v-card-title class="text-h2 mt-5">Welcome to mouseTube</v-card-title>
+            <v-card-item>
+              <v-card-text>
+                Rodents communicate with each other through their various sensory modalities: olfaction (scent marking, glands),
+                vision (postures), touch (contacts) and hearing (vocalizations). In the latter case, vocalizations are mainly emitted
+                in the ultrasonic range, beyond human perception capabilities (Anderson, 1954; Brudzynski, 2005, 2021; Portfors, 2007;
+                Schweinfurth, 2020). Ultrasonic vocalizations are emitted in various contexts: by isolated pups during the first
+                two weeks of life, by juveniles and adults during same-sex social interactions, by males in the presence of females,
+                and by individuals in aversive or appetitive situations (restraint stress, anticipation of pain, social play, food
+                rewards) and exploring an unfamiliar environment. These ultrasonic vocalizations are used as markers of motivation
+                and social communication (Fischer and Hammerschmidt, 2010; Schweinfurth, 2020), or susceptibility to stress or anxiety,
+                depending on the type of signal examined (Brudzynski, 2005). Ultrasonic vocalizations are therefore routinely measured
+                in rodent models of neuropsychiatric conditions (Premoli et al., 2023).
+              </v-card-text>
+              <v-card-text>
+                The mechanisms of production, the temporal organization into sequences, the significance of the acoustic features and the
+                effect on the recipient are far from elucidated. Understanding the complexity of this complex communication system requires
+                a vast amount of data to explore with high-performance analysis methods. For that purpose, we developed <strong>mouseTube</strong>, a database
+                designed to facilitate sharing, archiving and analysing raw recording files of rodent ultrasonic vocalisations following the
+                FAIR (Findable, Accessible, Interoperable, Reusable) principles (Wilkinson et al., 2016).
+              </v-card-text>
+              <v-card-text>
+                New functionalities since the first launch in 2014 (Ferhat et al., 2016; Torquet et al., 2016):
+                <v-list>
+                  <v-list-item class="mt-0">- <strong>mouseTube</strong> will have an API (Application Program Interface) to allow the automation of analyses through external programs.</v-list-item>
+                  <v-list-item class="mt-0">- Data will be accessible without authentication.</v-list-item>
+                  <v-list-item class="mt-0">- The search engine will be optimised through key words.</v-list-item>
+                  <v-list-item class="mt-0">- We will open the database to other species such as rats.</v-list-item>
+                  <v-list-item class="mt-0">- The direct upload of the recording files and their metadata on certified institutional data repositories (Zenodo, Recherche Data Gouv) will be possible.</v-list-item>
+                  <v-list-item class="mt-0">- A fully annotated set of data will be available to compare analysis solutions with manual annotations by experts.</v-list-item>
+                </v-list>
+              </v-card-text>
+            </v-card-item>
 
+          </v-card>
+          <v-card
+            variant="flat"
+            class="mx-auto mt-8"
+            max-width="800"
+          >
             <v-card-text class="mt-4">
               This web application allows the exchange of mouse vocalisation recording files.<br />
               <v-img :width="300" class="mt-3 mb-3" src="fair_data_principles.jpg" alt="FAIR"></v-img>
@@ -102,5 +140,10 @@ a{
 
 a:hover{
   text-decoration: underline;
+}
+
+.max-v-list-height {
+  max-height: 200px;
+  overflow-y: auto;
 }
 </style>
