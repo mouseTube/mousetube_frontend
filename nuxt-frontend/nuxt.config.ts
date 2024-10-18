@@ -19,4 +19,7 @@ export default defineNuxtConfig({
           title: 'mouseTube'
       }
   },
+  modules: [
+      '@pinia/nuxt',
+  ],
 })
