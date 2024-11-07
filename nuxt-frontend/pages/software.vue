@@ -6,6 +6,16 @@ CNRS - Mouse Clinical Institute
 PHENOMIN, CNRS UMR7104, INSERM U964, Université de Strasbourg
 Code under GPL v3.0 licence
 -->
+
+<script setup>
+import { useSoftwareStore } from "@/stores/softwareStore.js";
+const software = useSoftwareStore()
+await software.fetchSoftware()
+
+let search = ref("")
+
+</script>
+
 <template>
   <v-main>
     <v-container>
@@ -18,10 +28,10 @@ Code under GPL v3.0 licence
         </v-card-text>
       </v-card>
 
-      <v-skeleton-loader class="mt-5" type="card" v-if="dataLoaded==false">
+      <v-skeleton-loader class="mt-5" type="card" v-if="software.software_loaded==false">
       </v-skeleton-loader>
 
-      <v-data-iterator v-else class="mt-5" :items="software" :items-per-page="15" :search="search">
+      <v-data-iterator v-else class="mt-5" :items="software.software" :items-per-page="10" :search="search">
         <template v-slot:header>
           <v-toolbar class="px-2">
             <v-text-field
@@ -34,6 +44,12 @@ Code under GPL v3.0 licence
               style="max-width: 300px;"
               variant="solo"
             ></v-text-field>
+            <div class="d-flex align-right">
+              <v-select chips
+                        :items="['All software', 'Acquisition software', 'Analysis software', 'Acquisition and analysis software']">
+
+              </v-select>
+            </div>
           </v-toolbar>
         </template>
 
@@ -45,12 +61,12 @@ Code under GPL v3.0 licence
               <v-divider class="mx-4 mt-2 mb-1"></v-divider>
               <v-card-item>
                 <h3>Description:</h3>
-                  {{ soft.raw.description }}
+                <div class="text-block">{{ soft.raw.description }}</div>
               </v-card-item>
 
               <v-card-item>
                 <h3>Technical requirements:</h3>
-                  {{ soft.raw.technical_requirements }}
+                <div class="text-block">{{ soft.raw.technical_requirements }}</div>
               </v-card-item>
 
               <v-card-item>
@@ -105,36 +121,36 @@ Code under GPL v3.0 licence
 
 
 
-<script>
-import axios from "axios";
-export default {
-  name: "software",
-  data: function(){
-		return {
-      software: [],
-      dataLoaded: false,
-      page: 1,
-      search: ""
-    }
-  },
-  methods: {
-    getSoftware() {
-      axios.get(`http://127.0.0.1:8000/api/software`)
-          .then(response => {
-            this.software = response.data
-            console.log(this.software)
-            this.dataLoaded = true
-          })
-          .catch(error => {
-            console.log(JSON.stringify(error))
-          })
-    },
-  },
-  mounted() {
-    this.getSoftware()
-  }
-}
-</script>
+<!--<script>-->
+<!--// import axios from "axios";-->
+<!--// export default {-->
+<!--//   name: "software",-->
+<!--//   data: function(){-->
+<!--// 		return {-->
+<!--//       software: [],-->
+<!--//       dataLoaded: false,-->
+<!--//       page: 1,-->
+<!--//       search: ""-->
+<!--//     }-->
+<!--//   },-->
+<!--//   methods: {-->
+<!--//     getSoftware() {-->
+<!--//       axios.get(`http://127.0.0.1:8000/api/software`)-->
+<!--//           .then(response => {-->
+<!--//             this.software = response.data-->
+<!--//             console.log(this.software)-->
+<!--//             this.dataLoaded = true-->
+<!--//           })-->
+<!--//           .catch(error => {-->
+<!--//             console.log(JSON.stringify(error))-->
+<!--//           })-->
+<!--//     },-->
+<!--//   },-->
+<!--//   mounted() {-->
+<!--//     this.getSoftware()-->
+<!--//   }-->
+<!--// }-->
+<!--</script>-->
 
 <style scoped>
 .nuxt-link{
@@ -153,6 +169,10 @@ a{
 
 a:hover{
   text-decoration: underline;
+}
+
+.text-block {
+  white-space: pre;
 }
 
 </style>

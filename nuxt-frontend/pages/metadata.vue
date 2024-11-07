@@ -7,6 +7,15 @@ PHENOMIN, CNRS UMR7104, INSERM U964, Université de Strasbourg
 Code under GPL v3.0 licence
 -->
 
+<script setup>
+import { useProtocolMetadataStore } from "@/stores/metadataStore.js";
+const storeMetadata = useProtocolMetadataStore()
+storeMetadata.fetchProtocolMetadata()
+
+
+</script>
+
+
 <template>
   <v-main>
     <v-container>
@@ -30,9 +39,9 @@ Code under GPL v3.0 licence
       <v-card class="mt-4 mr-3">
         <v-card-title>Metadata protocol</v-card-title>
         <v-card-text>
-          <v-list v-if="open">
+          <v-list v-if="storeMetadata.protocol_metadata_loaded">
 
-            <v-list-item v-for="(category, key) in metadata_category" :title="key">
+            <v-list-item v-for="(category, key) in storeMetadata.metadata_category" :title="key">
               <v-list>
                 <v-list-item v-for="(field, field_key) in category" :title="field_key">
                   <v-list>
@@ -42,183 +51,13 @@ Code under GPL v3.0 licence
                   </v-list>
                 </v-list-item>
               </v-list>
-
             </v-list-item>
           </v-list>
-          -------
-
         </v-card-text>
       </v-card>
-
-
-
-<!--      <v-row justify="center">-->
-<!--        <v-col cols="auto">-->
-<!--          <v-card class="mt-4 mr-3">-->
-<!--            <v-toolbar color="black">-->
-<!--              <v-toolbar-title>Strain</v-toolbar-title>-->
-<!--            </v-toolbar>-->
-<!--            <v-card-text>-->
-<!--              <v-list>-->
-<!--                <v-list-item>name_strain</v-list-item>-->
-<!--                <v-list-item>species</v-list-item>-->
-<!--                <v-list-item>background</v-list-item>-->
-<!--                <v-list-item>jax_number</v-list-item>-->
-<!--                <v-list-item>mgi_number</v-list-item>-->
-<!--                <v-list-item>biblio_strain</v-list-item>-->
-<!--              </v-list>-->
-<!--            </v-card-text>-->
-<!--          </v-card>-->
-<!--        </v-col>-->
-
-<!--        <v-col cols="auto">-->
-<!--          <v-card class="mt-4 mr-3">-->
-<!--            <v-toolbar color="black">-->
-<!--              <v-toolbar-title>Protocol</v-toolbar-title>-->
-<!--            </v-toolbar>-->
-<!--            <v-card-text>-->
-<!--              <v-list>-->
-<!--                <v-list-item>name_protocol</v-list-item>-->
-<!--                <v-list-item>protocol_type</v-list-item>-->
-<!--                <v-list-item>protocol_description</v-list-item>-->
-<!--              </v-list>-->
-<!--            </v-card-text>-->
-<!--          </v-card>-->
-<!--        </v-col>-->
-
-<!--        <v-col cols="auto">-->
-<!--          <v-card class="mt-4 mr-3">-->
-<!--            <v-toolbar color="black">-->
-<!--              <v-toolbar-title>Experiment</v-toolbar-title>-->
-<!--            </v-toolbar>-->
-<!--            <v-card-text>-->
-<!--              <v-list>-->
-<!--                <v-list-item>name_experiment</v-list-item>-->
-<!--                <v-list-item>protocol</v-list-item>-->
-<!--                <v-list-item>date_experiment</v-list-item>-->
-<!--                <v-list-item>group_subject</v-list-item>-->
-<!--                <v-list-item>temperature</v-list-item>-->
-<!--                <v-list-item>light_cycle</v-list-item>-->
-<!--                <v-list-item>microphone</v-list-item>-->
-<!--                <v-list-item>acquisition_harware</v-list-item>-->
-<!--                <v-list-item>acquisition_software</v-list-item>-->
-<!--                <v-list-item>sampling-frequency</v-list-item>-->
-<!--                <v-list-item>bit_depth</v-list-item>-->
-<!--                <v-list-item>laboratory</v-list-item>-->
-<!--              </v-list>-->
-<!--            </v-card-text>-->
-<!--          </v-card>-->
-<!--        </v-col>-->
-
-<!--        <v-col cols="auto">-->
-<!--          <v-card class="mt-4 mr-3">-->
-<!--            <v-toolbar color="black">-->
-<!--              <v-toolbar-title>Subject</v-toolbar-title>-->
-<!--            </v-toolbar>-->
-<!--            <v-card-text>-->
-<!--              <v-list>-->
-<!--                <v-list-item>name_subject</v-list-item>-->
-<!--                <v-list-item>strain</v-list-item>-->
-<!--                <v-list-item>origin_subject</v-list-item>-->
-<!--                <v-list-item>sex</v-list-item>-->
-<!--                <v-list-item>group_subject</v-list-item>-->
-<!--                <v-list-item>genotype</v-list-item>-->
-<!--                <v-list-item>treatment</v-list-item>-->
-<!--              </v-list>-->
-<!--            </v-card-text>-->
-<!--          </v-card>-->
-<!--        </v-col>-->
-
-<!--        <v-col cols="auto">-->
-<!--          <v-card class="mt-4">-->
-<!--            <v-toolbar color="black">-->
-<!--              <v-toolbar-title>File</v-toolbar-title>-->
-<!--            </v-toolbar>-->
-<!--            <v-card-text>-->
-<!--              <v-list>-->
-<!--                <v-list-item>experiment</v-list-item>-->
-<!--                <v-list-item>subject</v-list-item>-->
-<!--                <v-list-item>file_number</v-list-item>-->
-<!--                <v-list-item>link_file</v-list-item>-->
-<!--                <v-list-item>notes_file</v-list-item>-->
-<!--                <v-list-item>doi</v-list-item>-->
-<!--              </v-list>-->
-<!--            </v-card-text>-->
-<!--          </v-card>-->
-<!--        </v-col>-->
-<!--      </v-row>-->
-      {{ metadataStore }}
     </v-container>
   </v-main>
 </template>
-
-
-<script>
-import axios from "axios";
-import { useProtocolMetadata } from "@/stores/metadataStore.js";
-
-// const store = computed(() => useProtocolMetadata())
-
-export default {
-  name: "mousetube_metadata",
-  data: function () {
-    return {
-      loading: true,
-      protocol_metadata: [],
-      ordered_protocol_metadata: [],
-      metadata_category: {},
-      open: false,
-      store: useProtocolMetadata(),
-      metadataStore: computed(() => this.store.useProtocolMetadata)
-    }
-  },
-  methods: {
-    getProtocolMetadata() {
-      axios.get(`http://127.0.0.1:8000/api/protocol_metadata/`)
-          .then(response => {
-            this.protocol_metadata = response.data
-            console.log(this.protocol_metadata)
-            this.dataLoaded = true
-            this.orderProtocolMetadata()
-            this.open = true
-          })
-          .catch(error => {
-            console.log(JSON.stringify(error))
-          })
-    },
-    orderProtocolMetadata() {
-      for(let metadata in this.protocol_metadata){
-        for(let metadata_field in this.protocol_metadata[metadata]['metadata_field']){
-          for(let metadata_category in this.protocol_metadata[metadata]['metadata_field'][metadata_field]['metadata_category']){
-            let name_metadata_category = this.protocol_metadata[metadata]['metadata_field'][metadata_field]['metadata_category'][metadata_category]['name_metadata_category']
-            if(!(name_metadata_category in this.metadata_category)){
-              console.log(name_metadata_category)
-              this.metadata_category[name_metadata_category] = {}
-            }
-
-            let name_metadata_field = this.protocol_metadata[metadata]['metadata_field'][metadata_field]['name_metadata_field']
-            console.log(name_metadata_field)
-            if(!(name_metadata_field in this.metadata_category[name_metadata_category])){
-              this.metadata_category[name_metadata_category][name_metadata_field] = []
-            }
-
-            let name_metadata = this.protocol_metadata[metadata]['name_metadata']
-            console.log(name_metadata)
-            this.metadata_category[name_metadata_category][name_metadata_field].push(name_metadata)
-          }
-        }
-      }
-      console.log(this.metadata_category)
-    }
-  },
-  mounted() {
-    this.getProtocolMetadata()
-    // this.getProtocolType()
-    this.loading = false
-  },
-
-}
-</script>
 
 
 <style scoped>
