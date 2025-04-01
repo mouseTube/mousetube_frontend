@@ -27,3 +27,23 @@ export const useSoftwareStore = defineStore('software', {
         },
     },
 })
+
+
+export const useAcquisitionSoftwareStore = defineStore('acquisition_software', {
+    state: () => ({
+        software_loaded: false,
+        software: {},
+
+    }),
+    actions: {
+        async fetchSoftware() {
+              try {
+                  const { data } = await useFetch('http://127.0.0.1:8000/api/acquisition_software')
+                  this.software = data.value
+                  this.software_loaded = true
+              } catch(error) {
+                  this.protocol_metadata_loaded = "error"
+              }
+        },
+    },
+})

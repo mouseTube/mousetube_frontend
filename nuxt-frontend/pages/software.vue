@@ -9,10 +9,19 @@ Code under GPL v3.0 licence
 
 <script setup>
 import { useSoftwareStore } from "@/stores/softwareStore.js";
+import { useAcquisitionSoftwareStore } from "@/stores/softwareStore.js";
+
 const software = useSoftwareStore()
 await software.fetchSoftware()
 
 let search = ref("")
+let software_selection = ref("all")
+
+function selectSoftware(){
+  if(software_selection == "acquisition_software"){
+    const software = useAcquisitionSoftwareStore()
+  }
+}
 
 </script>
 
@@ -44,12 +53,18 @@ let search = ref("")
               style="max-width: 300px;"
               variant="solo"
             ></v-text-field>
-            <div class="d-flex align-right">
-              <v-select chips
-                        :items="['All software', 'Acquisition software', 'Analysis software', 'Acquisition and analysis software']">
+<!--            <div class="d-flex align-right">-->
+<!--              <v-select chips-->
+<!--                        :items="['All software', 'Acquisition software', 'Analysis software', 'Acquisition and analysis software']">-->
 
-              </v-select>
-            </div>
+<!--              </v-select>-->
+<!--            </div>-->
+            <v-radio-group v-model="software_selection" inline>
+              <v-radio label="All software" value="all"></v-radio>
+              <v-radio label="Acquisition software" value="acquisition_software"></v-radio>
+              <v-radio label="Analysis software" value="analysis software"></v-radio>
+              <v-radio label="Acquisition and analysis software" value="acquisition and analysis software"></v-radio>
+            </v-radio-group>
           </v-toolbar>
         </template>
 
