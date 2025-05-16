@@ -1,0 +1,30 @@
+name: 🚀 Frontend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    name: 🧪 Check frontend quality and build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout repository
+        uses: actions/checkout@v3
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: 📥 Install dependencies
+        run: npm install
+
+      - name: 🧹 Lint with ESLint
+        run: npm run lint
+
+      - name: 🛠️ Build with Nuxt
+        run: npm run build

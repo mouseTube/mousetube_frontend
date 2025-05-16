@@ -8,12 +8,11 @@ Code under GPL v3.0 licence
 -->
 
 <template>
-<!--  <div>-->
+  <!--  <div>-->
   <v-app id="nuxt_mouseTube">
     <NuxtLayout>
       <nuxt-page />
-
     </NuxtLayout>
   </v-app>
-<!--  </div>-->
+  <!--  </div>-->
 </template>

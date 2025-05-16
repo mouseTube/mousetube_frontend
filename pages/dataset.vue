@@ -8,13 +8,14 @@ Code under GPL v3.0 licence
 -->
 
 <template>
-<v-main>
+  <v-main>
     <v-container>
       <h1>Dataset</h1>
       <v-card>
         <v-card-title>Mouse dataset</v-card-title>
         <v-card-item>
-          In this page, you will find a reference dataset to train, test or compare vocalization analysis software.
+          In this page, you will find a reference dataset to train, test or compare vocalization
+          analysis software.
         </v-card-item>
         <v-card-item>
           This dataset is composed of:
@@ -34,22 +35,18 @@ Code under GPL v3.0 licence
         </v-card-actions>
       </v-card>
     </v-container>
-</v-main>
+  </v-main>
 </template>
 
-
-<script>
-
-</script>
-
+<script></script>
 
 <style scoped>
-a{
+a {
   text-decoration: none;
   color: teal;
 }
 
-a:hover{
+a:hover {
   text-decoration: underline;
 }
 </style>

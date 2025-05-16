@@ -14,9 +14,17 @@ Code under GPL v3.0 licence
       </v-row>
       <v-row>
         <v-col>
-          <nuxt-link to="/team" class="nuxt-link"><v-icon icon="mdi-account-group"></v-icon> Team</nuxt-link> -
-          <nuxt-link to="https://mastodon.social/@mousetube" target="_blank" class="nuxt-link"><v-icon icon="mdi-mastodon"></v-icon> Mastodon</nuxt-link> -
-          <nuxt-link to="https://github.com/mousetube" target="_blank" class="nuxt-link"><v-icon icon="mdi-github"></v-icon> GitHub</nuxt-link>
+          <nuxt-link to="/team" class="nuxt-link"
+            ><v-icon icon="mdi-account-group"></v-icon> Team</nuxt-link
+          >
+          -
+          <nuxt-link to="https://mastodon.social/@mousetube" target="_blank" class="nuxt-link"
+            ><v-icon icon="mdi-mastodon"></v-icon> Mastodon</nuxt-link
+          >
+          -
+          <nuxt-link to="https://github.com/mousetube" target="_blank" class="nuxt-link"
+            ><v-icon icon="mdi-github"></v-icon> GitHub</nuxt-link
+          >
         </v-col>
       </v-row>
     </div>
@@ -24,20 +32,18 @@ Code under GPL v3.0 licence
 </template>
 
 <script>
-
 export default {
-  name: "TheFooter",
-
-}
+  name: 'TheFooter',
+};
 </script>
 
 <style scoped>
-.nuxt-link{
+.nuxt-link {
   color: white;
   text-decoration: None;
 }
 
-.nuxt-link:hover{
+.nuxt-link:hover {
   text-decoration: underline;
 }
 </style>
