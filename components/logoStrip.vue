@@ -37,7 +37,7 @@ Code under GPL v3.0 licence
       <v-col
         ><v-sheet class="pa-2 ma-2">
           <nuxt-link to="http://www.ics-mci.fr/" target="_blank"
-            ><img src="/ics2010.png" alt="ICS"
+            ><img src="/ICS2010.png" alt="ICS"
           /></nuxt-link> </v-sheet
       ></v-col>
     </v-row>
