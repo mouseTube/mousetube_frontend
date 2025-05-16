@@ -12,7 +12,7 @@ Code under GPL v3.0 licence
       <v-row>
         <v-col>
           <h1>
-            <v-img :width="600" src="logo_mousetube_big.png" alt="logo mouseTube"></v-img> Team and
+            <v-img :width="600" src="/logo_mousetube_big.png" alt="logo mouseTube"></v-img> Team and
             information
           </h1>
         </v-col>
@@ -158,7 +158,7 @@ Code under GPL v3.0 licence
                 ><img src="/logo-fc3r_bleu.png" alt="FC3R" class="ml-2 mr-2"
               /></nuxt-link>
               <nuxt-link to="https://www.ouvrirlascience.fr" target="_blank"
-                ><img src="macaron_recherche_data_gouv.png" alt="Recherche Data Gouv" class="mr-2"
+                ><img src="/macaron_recherche_data_gouv.png" alt="Recherche Data Gouv" class="mr-2"
               /></nuxt-link>
               We would like to thank the FC3R (French Center for 3R) and the French Ministry of
               Higher Education and Research for their financial support.

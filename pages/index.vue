@@ -12,7 +12,7 @@ Code under GPL v3.0 licence
       <v-row>
         <v-col>
           <v-card variant="flat" class="mx-auto" max-width="800">
-            <v-img cover :width="600" src="logo_mousetube_big.png" alt="logo mouseTube"></v-img>
+            <v-img cover :width="600" src="/logo_mousetube_big.png" alt="logo mouseTube"></v-img>
             <v-card-title class="text-h2 mt-5">Welcome to mouseTube</v-card-title>
             <v-card-item>
               <v-card-text>
