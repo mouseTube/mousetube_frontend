@@ -13,5 +13,4 @@ Code under GPL v3.0 licence
     <TheFooter />
   </div>
 </template>
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>

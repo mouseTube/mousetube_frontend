@@ -8,7 +8,9 @@ Code under GPL v3.0 licence
 -->
 <template>
   <v-app-bar color="black">
-    <v-app-bar-title><nuxt-link to="/" class="nuxt-link"><strong>mouseTube</strong></nuxt-link></v-app-bar-title>
+    <v-app-bar-title
+      ><nuxt-link to="/" class="nuxt-link"><strong>mouseTube</strong></nuxt-link></v-app-bar-title
+    >
     <v-row>
       <v-col>
         <v-menu open-on-hover>
@@ -16,10 +18,7 @@ Code under GPL v3.0 licence
             <v-btn color="primary">Species</v-btn>
           </template>
           <v-list>
-            <v-list-item
-              v-for="(item, index) in species"
-              :key="index"
-            >
+            <v-list-item v-for="(item, index) in species" :key="index">
               <v-list-item-title>{{ item.name_species }}</v-list-item-title>
             </v-list-item>
           </v-list>
@@ -32,55 +31,54 @@ Code under GPL v3.0 licence
       <v-col><nuxt-link to="/dataset" class="nuxt-link">Dataset</nuxt-link></v-col>
       <v-col><nuxt-link to="/metadata" class="nuxt-link">Metadata</nuxt-link></v-col>
       <v-col><nuxt-link to="/" class="nuxt-link">Help</nuxt-link></v-col>
-      <v-col><v-btn variant="tonal">
-        <v-icon icon="mdi-account-box"></v-icon> New account</v-btn>
+      <v-col
+        ><v-btn variant="tonal"> <v-icon icon="mdi-account-box"></v-icon> New account</v-btn>
       </v-col>
-      <v-col><v-btn variant="tonal">
-        <v-icon icon="mdi-login"></v-icon> Login</v-btn>
+      <v-col
+        ><v-btn variant="tonal"> <v-icon icon="mdi-login"></v-icon> Login</v-btn>
       </v-col>
     </v-row>
-
   </v-app-bar>
 </template>
 
 <script>
-import axios from "axios";
+import axios from 'axios';
 
 export default {
-  name: "TheHeader",
-  data: function(){
-		return {
+  name: 'TheHeader',
+  data: function () {
+    return {
       species: [],
-      dataLoaded: false
-    }
+      dataLoaded: false,
+    };
   },
   methods: {
     getSpecies() {
-      axios.get(`http://127.0.0.1:8000/api/species`)
-          .then(response => {
-            this.species = response.data
-            console.log(this.species)
-            this.dataLoaded = true
-          })
-          .catch(error => {
-            console.log(JSON.stringify(error))
-          })
+      axios
+        .get(`http://127.0.0.1:8000/api/species`)
+        .then((response) => {
+          this.species = response.data;
+          this.dataLoaded = true;
+        })
+        .catch((error) => {
+          //eslint-disable-next-line no-console
+          console.log(JSON.stringify(error));
+        });
     },
   },
   mounted() {
-    this.getSpecies()
-  }
-}
+    this.getSpecies();
+  },
+};
 </script>
 
 <style scoped>
-.nuxt-link{
+.nuxt-link {
   color: white;
   text-decoration: None;
 }
 
-.nuxt-link:hover{
+.nuxt-link:hover {
   text-decoration: underline;
 }
-
 </style>

@@ -8,39 +8,49 @@ Code under GPL v3.0 licence
 -->
 
 <script setup>
-import { useSoftwareStore } from "@/stores/softwareStore.js";
-import { useAcquisitionSoftwareStore } from "@/stores/softwareStore.js";
+import { useSoftwareStore } from '@/stores/softwareStore.js';
+import { useAcquisitionSoftwareStore } from '@/stores/softwareStore.js';
 
-const software = useSoftwareStore()
-await software.fetchSoftware()
+const software = useSoftwareStore();
+await software.fetchSoftware();
 
-let search = ref("")
-let software_selection = ref("all")
+let search = ref('');
+let software_selection = ref('all');
 
-function selectSoftware(){
-  if(software_selection == "acquisition_software"){
-    const software = useAcquisitionSoftwareStore()
+function selectSoftware() {
+  if (software_selection == 'acquisition_software') {
+    const software = useAcquisitionSoftwareStore();
   }
 }
-
 </script>
 
 <template>
   <v-main>
     <v-container>
-      <h1><v-icon icon="mdi-floppy"></v-icon> Software and applications to analyse ultrasonic vocalisations</h1>
-      <v-card  class="mt-5" color="grey-lighten-4">
+      <h1>
+        <v-icon icon="mdi-floppy"></v-icon> Software and applications to analyse ultrasonic
+        vocalisations
+      </h1>
+      <v-card class="mt-5" color="grey-lighten-4">
         <v-card-text>
-          In this section, you will find a non-exhaustive list of commercial and custom-made software (arranged in alphabetical order)
-          to analyse mouse ultrasonic vocalisation files. <strong>mouseTube</strong> does not provide an integrated analysis solution for the moment,
-          but this is under development. Please contact the administrators if you would like to add your own application in this section.
+          In this section, you will find a non-exhaustive list of commercial and custom-made
+          software (arranged in alphabetical order) to analyse mouse ultrasonic vocalisation files.
+          <strong>mouseTube</strong> does not provide an integrated analysis solution for the
+          moment, but this is under development. Please contact the administrators if you would like
+          to add your own application in this section.
         </v-card-text>
       </v-card>
 
-      <v-skeleton-loader class="mt-5" type="card" v-if="software.software_loaded==false">
+      <v-skeleton-loader class="mt-5" type="card" v-if="software.software_loaded == false">
       </v-skeleton-loader>
 
-      <v-data-iterator v-else class="mt-5" :items="software.software" :items-per-page="10" :search="search">
+      <v-data-iterator
+        v-else
+        class="mt-5"
+        :items="software.software"
+        :items-per-page="10"
+        :search="search"
+      >
         <template v-slot:header>
           <v-toolbar class="px-2">
             <v-text-field
@@ -50,20 +60,23 @@ function selectSoftware(){
               hide-details
               placeholder="Search"
               prepend-inner-icon="mdi-magnify"
-              style="max-width: 300px;"
+              style="max-width: 300px"
               variant="solo"
             ></v-text-field>
-<!--            <div class="d-flex align-right">-->
-<!--              <v-select chips-->
-<!--                        :items="['All software', 'Acquisition software', 'Analysis software', 'Acquisition and analysis software']">-->
+            <!--            <div class="d-flex align-right">-->
+            <!--              <v-select chips-->
+            <!--                        :items="['All software', 'Acquisition software', 'Analysis software', 'Acquisition and analysis software']">-->
 
-<!--              </v-select>-->
-<!--            </div>-->
+            <!--              </v-select>-->
+            <!--            </div>-->
             <v-radio-group v-model="software_selection" inline>
               <v-radio label="All software" value="all"></v-radio>
               <v-radio label="Acquisition software" value="acquisition_software"></v-radio>
               <v-radio label="Analysis software" value="analysis software"></v-radio>
-              <v-radio label="Acquisition and analysis software" value="acquisition and analysis software"></v-radio>
+              <v-radio
+                label="Acquisition and analysis software"
+                value="acquisition and analysis software"
+              ></v-radio>
             </v-radio-group>
           </v-toolbar>
         </template>
@@ -88,17 +101,25 @@ function selectSoftware(){
                 <h3 class="mt-5">References and tutorials:</h3>
                 <v-list>
                   <v-list-item class="mb-0" v-for="ref in soft.raw.references_and_tutorials">
-                    <v-icon color="teal-accent-4" icon="mdi-link-variant"></v-icon>  <a :href="ref.url" target="_blank">{{ ref.description }}</a>
+                    <v-icon color="teal-accent-4" icon="mdi-link-variant"></v-icon>
+                    <a :href="ref.url" target="_blank">{{ ref.description }}</a>
                   </v-list-item>
                 </v-list>
               </v-card-item>
               <v-divider class="mx-4 mt-2 mb-1"></v-divider>
               <v-card-actions>
-                <v-btn color="teal-accent-4" v-for="contact in soft.raw.contacts" prepend-icon="mdi-email">
-                  <a class="text-decoration-none" href='mailto:{{contact.email}}' target="_blank">
-                    <span v-if="contact.firstname && contact.lastname">{{ contact.firstname }} {{ contact.lastname }}</span>
+                <v-btn
+                  color="teal-accent-4"
+                  v-for="contact in soft.raw.contacts"
+                  prepend-icon="mdi-email"
+                >
+                  <a class="text-decoration-none" href="mailto:{{contact.email}}" target="_blank">
+                    <span v-if="contact.firstname && contact.lastname"
+                      >{{ contact.firstname }} {{ contact.lastname }}</span
+                    >
                     <span v-else>{{ contact.email }}</span>
-                  </a></v-btn>
+                  </a></v-btn
+                >
               </v-card-actions>
             </v-card>
           </v-container>
@@ -115,9 +136,7 @@ function selectSoftware(){
               @click="prevPage"
             ></v-btn>
 
-            <div class="mx-2 text-caption">
-              Page {{ page }} of {{ pageCount }}
-            </div>
+            <div class="mx-2 text-caption">Page {{ page }} of {{ pageCount }}</div>
 
             <v-btn
               :disabled="page >= pageCount"
@@ -133,8 +152,6 @@ function selectSoftware(){
     </v-container>
   </v-main>
 </template>
-
-
 
 <!--<script>-->
 <!--// import axios from "axios";-->
@@ -168,26 +185,25 @@ function selectSoftware(){
 <!--</script>-->
 
 <style scoped>
-.nuxt-link{
+.nuxt-link {
   color: white;
   text-decoration: None;
 }
 
-.nuxt-link:hover{
+.nuxt-link:hover {
   text-decoration: underline;
 }
 
-a{
+a {
   text-decoration: none;
   color: teal;
 }
 
-a:hover{
+a:hover {
   text-decoration: underline;
 }
 
 .text-block {
   white-space: pre;
 }
-
 </style>
