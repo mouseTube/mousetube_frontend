@@ -1,12 +1,6 @@
-# mousetube client (website)
+# MouseTube client (website)
 
-### Description
-
-Web client of mouseTube
-
-<h1 align="center">mouseTube_frontendv0-5</h1>
-
-![Build Passing](https://img.shields.io/github/actions/workflow/status/mouseTube/mousetube_frontendv0-5/ci.yml?branch=main)
+![Build Passing](https://img.shields.io/github/actions/workflow/status/mouseTube/mousetube_frontend/ci.yml?branch=main)
 [![Made with Nuxt](https://img.shields.io/badge/Made%20with-Nuxt-green)](https://nuxt.com/)
 [![Made with Vuetify](https://img.shields.io/badge/Made%20with-Vuetify-1976D2)](https://vuetifyjs.com/)
 [![Made with VueJS](https://img.shields.io/badge/Made%20with-VueJS-blue)](https://vuejs.org/)
@@ -19,7 +13,7 @@ Web client of mouseTube
 
 ## What is mouseTube?
 
-**mouseTube** is a database designed to facilitate sharing, archiving, and analyzing raw recording files of rodent ultrasonic vocalizations following the FAIR (Findable, Accessible, Interoperable, Reusable) principles ([Wilkinson et al., 2016](https://doi.org/10.1038/sdata.2016.18)).
+**MouseTube** is a database designed to facilitate sharing, archiving, and analyzing raw recording files of rodent ultrasonic vocalizations following the FAIR (Findable, Accessible, Interoperable, Reusable) principles ([Wilkinson et al., 2016](https://doi.org/10.1038/sdata.2016.18)).
 
 ## Requirements
 
