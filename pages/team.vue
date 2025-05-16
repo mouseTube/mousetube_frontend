@@ -155,7 +155,7 @@ Code under GPL v3.0 licence
             </v-card-text>
             <v-card-text>
               <nuxt-link to="https://www.fc3r.com/" target="_blank"
-                ><img src="logo-fc3r_bleu.png" alt="FC3R" class="ml-2 mr-2"
+                ><img src="/logo-fc3r_bleu.png" alt="FC3R" class="ml-2 mr-2"
               /></nuxt-link>
               <nuxt-link to="https://www.ouvrirlascience.fr" target="_blank"
                 ><img src="macaron_recherche_data_gouv.png" alt="Recherche Data Gouv" class="mr-2"
