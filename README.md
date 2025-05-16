@@ -1,4 +1,4 @@
-# MouseTube client (website)
+<h1 align="center">MouseTube client (website)</h1>
 
 ![Build Passing](https://img.shields.io/github/actions/workflow/status/mouseTube/mousetube_frontend/ci.yml?branch=main)
 [![Made with Nuxt](https://img.shields.io/badge/Made%20with-Nuxt-green)](https://nuxt.com/)
