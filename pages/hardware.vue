@@ -10,11 +10,11 @@ Code under GPL v3.0 licence
 <template>
   <v-main>
     <v-container>
-      <h1><v-icon icon="mdi-microphone"></v-icon> Hardware to record ultrasonic vocalisations</h1>
+      <h1><v-icon icon="mdi-microphone"></v-icon> Hardware to record ultrasonic vocalizations</h1>
       <v-card class="mt-5" color="grey-lighten-4">
         <v-card-text>
           In this section, you will find a non-exhaustive list of commercial and custom-made
-          hardware (arranged in alphabetical order) to record ultrasonic vocalisation files.
+          hardware (arranged in alphabetical order) to record ultrasonic vocalization files.
           <strong>mouseTube</strong> is not a seller. Information about the hardware is an important
           metadata.
         </v-card-text>
