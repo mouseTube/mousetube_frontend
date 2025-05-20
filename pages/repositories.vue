@@ -7,6 +7,62 @@ PHENOMIN, CNRS UMR7104, INSERM U964, Université de Strasbourg
 Code under GPL v3.0 licence
 -->
 
+<script setup>
+////////////////////////////////
+// IMPORT
+////////////////////////////////
+
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
+
+////////////////////////////////
+// DATA
+////////////////////////////////
+
+const loading = ref(true);
+const repositories = ref([]);
+const areas = ref([]);
+const areaSelect = ref('');
+const search = ref('');
+
+////////////////////////////////
+// METHODS
+////////////////////////////////
+
+const getRepositories = async () => {
+  try {
+    const response = await axios.get(`http://127.0.0.1:8000/api/repository`);
+    repositories.value = response.data;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(error));
+  }
+};
+
+const getAreas = async () => {
+  try {
+    const response = await axios.get(`http://127.0.0.1:8000/api/country`);
+    for (const [key, value] of Object.entries(response.data)) {
+      areas.value.push({ key, value });
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(error));
+  }
+};
+
+////////////////////////////////
+// ON MOUNTED
+////////////////////////////////
+
+// Fetch repositories and areas when the component is mounted
+onMounted(async () => {
+  await getRepositories();
+  await getAreas();
+  loading.value = false;
+});
+</script>
+
 <template>
   <v-main>
     <v-container>
@@ -101,55 +157,6 @@ Code under GPL v3.0 licence
     </v-container>
   </v-main>
 </template>
-
-<script>
-import axios from 'axios';
-export default {
-  name: 'repositories',
-  data: function () {
-    return {
-      loading: true,
-      repositories: [],
-      areas: [],
-      areaSelect: '',
-      search: '',
-    };
-  },
-  methods: {
-    getRepositories() {
-      axios
-        .get(`http://127.0.0.1:8000/api/repository`)
-        .then((response) => {
-          this.repositories = response.data;
-        })
-        .catch((error) => {
-          //eslint-disable-next-line no-console
-          console.log(JSON.stringify(error));
-        });
-    },
-    getAreas() {
-      axios
-        .get(`http://127.0.0.1:8000/api/country`)
-        .then((response) => {
-          for (let [key, value] of Object.entries(response.data)) {
-            this.areas.push({ key: key, value: value });
-            // this.areas.push({"key": response.data[i].key, "country": response.data[i].value})
-          }
-          // this.areas = response.data
-        })
-        .catch((error) => {
-          //eslint-disable-next-line no-console
-          console.log(JSON.stringify(error));
-        });
-    },
-  },
-  mounted() {
-    this.getRepositories();
-    this.getAreas();
-    this.loading = false;
-  },
-};
-</script>
 
 <style scoped>
 a {

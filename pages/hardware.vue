@@ -7,6 +7,45 @@ PHENOMIN, CNRS UMR7104, INSERM U964, Université de Strasbourg
 Code under GPL v3.0 licence
 -->
 
+<script setup>
+////////////////////////////
+// IMPORT
+////////////////////////////
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
+
+////////////////////////////
+// DATA
+////////////////////////////
+
+const hardware = ref([]);
+const dataLoaded = ref(false);
+const page = ref(1);
+const search = ref('');
+
+////////////////////////////
+// METHODS
+////////////////////////////
+const getHardware = async () => {
+  try {
+    const response = await axios.get('http://127.0.0.1:8000/api/hardware');
+    hardware.value = response.data;
+    dataLoaded.value = true;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(error));
+  }
+};
+
+//////////////////////////////
+// ON MOUNTED
+//////////////////////////////
+// Fetch hardware when the component is mounted
+onMounted(() => {
+  getHardware();
+});
+</script>
+
 <template>
   <v-main>
     <v-container>
@@ -92,38 +131,6 @@ Code under GPL v3.0 licence
     </v-container>
   </v-main>
 </template>
-
-<script>
-import axios from 'axios';
-export default {
-  name: 'hardware',
-  data: function () {
-    return {
-      hardware: [],
-      dataLoaded: false,
-      page: 1,
-      search: '',
-    };
-  },
-  methods: {
-    getHardware() {
-      axios
-        .get(`http://127.0.0.1:8000/api/hardware`)
-        .then((response) => {
-          this.hardware = response.data;
-          this.dataLoaded = true;
-        })
-        .catch((error) => {
-          //eslint-disable-next-line no-console
-          console.log(JSON.stringify(error));
-        });
-    },
-  },
-  mounted() {
-    this.getHardware();
-  },
-};
-</script>
 
 <style scoped>
 .nuxt-link {

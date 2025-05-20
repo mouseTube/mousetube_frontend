@@ -8,10 +8,17 @@ Code under GPL v3.0 licence
 -->
 
 <script setup>
-// Team page
+////////////////////////////////
+// IMPORT
+////////////////////////////////
+
 import { Users } from 'lucide-vue-next';
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+
+////////////////////////////////
+// DATA
+////////////////////////////////
 
 const showButton = ref(false);
 const route = useRoute();
@@ -23,6 +30,10 @@ const handleScroll = () => {
     showButton.value = false;
   }
 };
+
+////////////////////////////////
+// METHODS
+////////////////////////////////
 
 function scrollToHash(hash) {
   if (hash) {
@@ -44,6 +55,10 @@ function scrollToTop() {
   });
 }
 
+////////////////////////////////
+// ON MOUNTED
+////////////////////////////////
+
 onMounted(() => {
   scrollToHash(route.hash);
   window.addEventListener('scroll', handleScroll);
@@ -52,6 +67,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', handleScroll);
 });
+
+////////////////////////////////
+// WATCHER
+////////////////////////////////
 
 watch(
   () => route.hash,
