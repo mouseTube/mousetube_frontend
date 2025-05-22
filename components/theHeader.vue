@@ -96,7 +96,7 @@ const links = [
       <v-divider color="white" />
 
       <v-list nav dense>
-        <v-list-item to="/login" exact-active-class="active-link">
+        <v-list-item to="/" exact-active-class="active-link">
           <template #prepend>
             <User class="me-3 nav-icon audio-icon audio-hover-icon" size="20" />
           </template>
