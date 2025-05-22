@@ -63,7 +63,7 @@ const links = [
 
       <!-- Bouton Login -->
       <v-col cols="auto" v-if="!smAndDown" class="d-flex align-center" style="width: 186px">
-        <nuxt-link to="/login" class="nuxt-link nav-item px-2" exact-active-class="active-link">
+        <nuxt-link to="/" class="nuxt-link nav-item px-2" exact-active-class="active-link">
           <span class="nav-link-content">
             <User class="nav-icon audio-hover-icon" />
             <span class="nav-label">Login</span>
