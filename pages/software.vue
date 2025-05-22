@@ -181,6 +181,7 @@ onMounted(() => fetchSoftware());
                 <v-container class="pa-2" fluid>
                   <v-card
                     class="mt-5 border-sm"
+                    style="position: relative"
                     v-for="{ raw: software } in items"
                     :key="software.id"
                     elevated
@@ -197,7 +198,13 @@ onMounted(() => fetchSoftware());
                         'bg-red-darken-2': software.type === 'analysis',
                         'bg-orange-darken-2': software.type === 'acquisition and analysis',
                       }"
-                      class="ml-2 position-absolute top-0 right-0 mt-3 mr-3"
+                      style="
+                        position: absolute;
+                        top: 12px;
+                        right: 12px;
+                        background-color: red;
+                        color: white;
+                      "
                       label
                     >
                       {{ software.type }}

@@ -187,14 +187,6 @@ onMounted(() => fetchFiles());
                         hide-details
                         class="py-0"
                       />
-                      <v-checkbox
-                        :model-value="filters.includes('preview_available')"
-                        @change="() => toggleFilter('preview_available')"
-                        label="Preview available"
-                        density="compact"
-                        hide-details
-                        class="py-0"
-                      />
                     </v-col>
                   </v-row>
                 </v-sheet>
@@ -255,14 +247,14 @@ onMounted(() => fetchFiles());
                       {{ file.name ? file.name : file.link.split('/').pop() }}
                     </v-card-title>
                     <v-card-subtitle>
-                      {{ file.experiment.protocol.user.first_name_user }}
-                      {{ file.experiment.protocol.user.name_user }}
+                      {{ file.recording_session.protocol.user.first_name_user }}
+                      {{ file.recording_session.protocol.user.name_user }}
                     </v-card-subtitle>
                     <v-card-item class="bg-surface-light pt-4">
                       <v-label class="mr-2">Name subject: </v-label>{{ file.subject.name }}<br />
                       <v-label class="mr-2">Strain: </v-label>{{ file.subject.strain.name }}<br />
                       <v-label class="mr-2">Protocol name: </v-label
-                      >{{ file.experiment.protocol.name }}<br />
+                      >{{ file.recording_session.protocol.name }}<br />
                     </v-card-item>
 
                     <!-- Expansion Panel -->
@@ -309,61 +301,46 @@ onMounted(() => fetchFiles());
                           <v-card class="mx-auto my-2 pt-2 pl-2" title="Protocol">
                             <v-card-text>
                               <v-label class="mr-2">Protocol name: </v-label
-                              >{{ file.experiment.protocol.name }}<br />
+                              >{{ file.recording_session.protocol.name }}<br />
                               <v-label class="mr-2">Number of files: </v-label
-                              >{{ file.experiment.protocol.number_files }}<br />
+                              >{{ file.recording_session.protocol.number_files }}<br />
                               <v-label class="mr-2">Description: </v-label>
-                              {{ file.experiment.protocol.description }}
+                              {{ file.recording_session.protocol.description }}
                             </v-card-text>
                           </v-card>
 
-                          <v-card class="mx-auto my-2 pt-2 pl-2" title="Experiment">
+                          <v-card class="mx-auto my-2 pt-2 pl-2" title="Recording Session">
                             <v-card-text>
                               <ul class="ml-3 mt-2">
                                 <li>
-                                  <v-label class="mr-2">Name experiment: </v-label
-                                  >{{ file.experiment.name }}
+                                  <v-label class="mr-2">Name Recording Session: </v-label
+                                  >{{ file.recording_session.name }}
                                 </li>
                                 <li>
                                   <v-label class="mr-2">Group: </v-label
-                                  >{{ file.experiment.group_subject }}
+                                  >{{ file.recording_session.group_subject }}
                                 </li>
                                 <li>
-                                  <v-label class="mr-2">Date: </v-label>{{ file.experiment.date }}
+                                  <v-label class="mr-2">Date: </v-label
+                                  >{{ file.recording_session.date }}
                                 </li>
                                 <li>
                                   <v-label class="mr-2">File number: </v-label>{{ file.number }}
                                 </li>
                                 <li>
                                   <v-label class="mr-2">Temperature: </v-label
-                                  >{{ file.experiment.temperature }}
+                                  >{{ file.recording_session.temperature }}
                                 </li>
                                 <li>
                                   <v-label class="mr-2">Light cycle: </v-label
-                                  >{{ file.experiment.light_cycle }}
+                                  >{{ file.recording_session.light_cycle }}
                                 </li>
                                 <li>
                                   <v-label class="mr-2">Microphone: </v-label
-                                  >{{ file.experiment.microphone }}
+                                  >{{ file.recording_session.microphone }}
                                 </li>
                               </ul>
                             </v-card-text>
-                          </v-card>
-                          <v-card v-if="file.spectrogram_image" class="mx-auto my-2 pt-2 pl-2">
-                            <v-card-title>Preview</v-card-title>
-                            <v-card-subtitle>
-                              <div class="text-body-2 mr-2" style="white-space: normal">
-                                This 10-second preview was automatically extracted from the audio by
-                                detecting the loudest high-frequency segment (20–150 kHz) using
-                                spectral power analysis. The spectrogram highlights the most
-                                acoustically active part of the recording.
-                              </div>
-                            </v-card-subtitle>
-                            <v-img
-                              :src="baseUrl + file.spectrogram_image"
-                              alt="Spectrogram"
-                              contain
-                            />
                           </v-card>
                         </v-expansion-panel-text>
                       </v-expansion-panel>
