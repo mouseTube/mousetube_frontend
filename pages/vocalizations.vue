@@ -501,7 +501,16 @@ onMounted(() => fetchFiles());
                                 </li>
                                 <li>
                                   <v-label class="mr-2">Laboratory: </v-label>
-                                  {{ file.recording_session.laboratory }}
+                                  {{
+                                    file.recording_session.laboratory &&
+                                    file.recording_session.laboratory.name
+                                      ? file.recording_session.laboratory.name
+                                      : 'N/A'
+                                  }}
+                                  {{ file.recording_session.laboratory?.institution || '' }}
+                                  {{ file.recording_session.laboratory?.unit || '' }}
+                                  {{ file.recording_session.laboratory?.address || '' }}
+                                  {{ file.recording_session.laboratory?.country || '' }}
                                 </li>
                                 <li>
                                   <v-label class="mr-2">Animal profiles: </v-label>
