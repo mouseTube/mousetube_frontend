@@ -12,7 +12,7 @@ Code under GPL v3.0 licence
 // IMPORT
 ////////////////////////////////
 
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import axios from 'axios';
 import { debounce } from 'lodash';
 import { AudioLines } from 'lucide-vue-next';
@@ -153,7 +153,6 @@ onMounted(() => fetchFiles());
                 :autofocus="true"
               />
               <v-spacer></v-spacer>
-
               <v-select
                 v-model="perPage"
                 :items="[10, 20, 50, 100]"
@@ -164,7 +163,6 @@ onMounted(() => fetchFiles());
                 :menu-props="{ contentClass: 'select-dropdown-zfix' }"
                 hide-details
               />
-
               <v-btn icon="mdi-filter-variant" @click="showFilters = !showFilters" variant="text" />
             </v-toolbar>
             <!-- Filtres -->
@@ -241,6 +239,34 @@ onMounted(() => fetchFiles());
                           <v-icon style="font-size: 0.875rem; color: gray">mdi-download</v-icon>
                           <span style="margin-left: 8px">{{ file.downloads }}</span>
                         </div>
+                        <v-avatar
+                          v-if="file.repository && file.repository.logo"
+                          size="40"
+                          class="mt-2"
+                          style="
+                            background: #fff;
+                            border: 1px solid #eee;
+                            display: block;
+                            position: absolute;
+                            top: 25px;
+                            right: 0px;
+                          "
+                        >
+                          <img
+                            :src="baseUrl + file.repository.logo"
+                            :alt="file.repository.name"
+                            style="
+                              padding: 4px;
+                              border-radius: 10px;
+                              object-fit: contain;
+                              /* or: contain, none, scale-down */
+                              object-position: center;
+                              width: 100%;
+                              height: 100%;
+                              transform: scale(1.7);
+                            "
+                          />
+                        </v-avatar>
                       </template>
                     </v-badge>
                     <v-card-title>
@@ -251,61 +277,86 @@ onMounted(() => fetchFiles());
                       {{ file.recording_session.protocol.user.name_user }}
                     </v-card-subtitle>
                     <v-card-item class="bg-surface-light pt-4">
-                      <v-label class="mr-2">Name subject: </v-label>{{ file.subject.name }}<br />
-                      <v-label class="mr-2">Strain: </v-label>{{ file.subject.strain.name }}<br />
-                      <v-label class="mr-2">Protocol name: </v-label
-                      >{{ file.recording_session.protocol.name }}<br />
+                      <v-label class="mr-2">Protocol: </v-label>
+                      {{ file.recording_session.protocol.name || 'N/A' }}<br />
+                      <v-label class="mr-2">Duration: </v-label>
+                      {{ file.duration || 'N/A' }}<br />
+                      <v-label class="mr-2">Date: </v-label>
+                      {{ file.recording_session.date || 'N/A' }}<br />
+                      <v-label class="mr-2">Format: </v-label>
+                      {{ file.format || 'N/A' }}<br />
+                      <v-label class="mr-2">Sampling_rate: </v-label>
+                      {{ file.sampling_rate || 'N/A' }} KHz<br />
+                      <v-label class="mr-2">Bit_depth: </v-label>
+                      {{ file.bit_depth || 'N/A' }} bits<br />
                     </v-card-item>
 
                     <!-- Expansion Panel -->
                     <v-expansion-panels>
                       <v-expansion-panel title="More information" bg-color="grey-lighten-2">
                         <v-expansion-panel-text>
-                          <v-card class="mx-auto my-2 pt-2 pl-2" title="Subject">
+                          <v-card class="mx-auto my-2 pt-2 pl-2" title="Subjects">
                             <v-card-item>
                               <v-card-text>
-                                <v-label class="mr-2">Strain: </v-label>{{ file.subject.strain.name
-                                }}<br />
-                                <v-label class="mr-2">Background: </v-label
-                                >{{ file.subject.strain.background }}<br />
-                                <v-label class="mr-2">Bibliography: </v-label
-                                >{{ file.subject.strain.bibliography }}<br />
-
-                                <ul class="ml-3 mt-2">
-                                  <li>
-                                    <v-label class="mr-2">Name: </v-label>{{ file.subject.name }}
-                                  </li>
-                                  <li>
-                                    <v-label class="mr-2">Origin: </v-label
-                                    >{{ file.subject.origin }}
-                                  </li>
-                                  <li>
-                                    <v-label class="mr-2">Sex: </v-label>{{ file.subject.sex }}
-                                  </li>
-                                  <li>
-                                    <v-label class="mr-2">Group: </v-label>{{ file.subject.group }}
-                                  </li>
-                                  <li>
-                                    <v-label class="mr-2">Genotype: </v-label
-                                    >{{ file.subject.genotype }}
-                                  </li>
-                                  <li>
-                                    <v-label class="mr-2">Treatment: </v-label
-                                    >{{ file.subject.treatment }}
-                                  </li>
-                                </ul>
+                                <template
+                                  v-for="(subject, idx) in file.subjects"
+                                  :key="subject.id || idx"
+                                >
+                                  <v-label class="mr-2">Subject name: </v-label>{{ subject.name
+                                  }}<br />
+                                  <v-label class="mr-2">Animal profile: </v-label
+                                  >{{ subject.animal_profile?.name }}<br />
+                                  <v-label class="mr-2">Sex: </v-label
+                                  >{{ subject.animal_profile?.sex }}<br />
+                                  <v-label class="mr-2">Genotype: </v-label
+                                  >{{ subject.animal_profile?.genotype }}<br />
+                                  <v-label class="mr-2">Treatment: </v-label
+                                  >{{ subject.animal_profile?.treatment }}<br />
+                                  <v-label class="mr-2">Origin: </v-label>{{ subject.origin }}<br />
+                                  <v-label class="mr-2">Cohort: </v-label>{{ subject.cohort }}<br />
+                                  <v-divider
+                                    class="my-2"
+                                    v-if="idx < file.subjects.length - 1"
+                                  ></v-divider>
+                                </template>
                               </v-card-text>
                             </v-card-item>
                           </v-card>
 
                           <v-card class="mx-auto my-2 pt-2 pl-2" title="Protocol">
                             <v-card-text>
-                              <v-label class="mr-2">Protocol name: </v-label
-                              >{{ file.recording_session.protocol.name }}<br />
-                              <v-label class="mr-2">Number of files: </v-label
-                              >{{ file.recording_session.protocol.number_files }}<br />
+                              <v-label class="mr-2">Name: </v-label>
+                              {{ file.recording_session.protocol.name }}<br />
                               <v-label class="mr-2">Description: </v-label>
-                              {{ file.recording_session.protocol.description }}
+                              {{ file.recording_session.protocol.description }}<br />
+                              <v-label class="mr-2">Animals sex: </v-label>
+                              {{ file.recording_session.protocol.animals_sex || 'N/A' }}<br />
+                              <v-label class="mr-2">Animals age: </v-label>
+                              {{ file.recording_session.protocol.animals_age || 'N/A' }}<br />
+                              <v-label class="mr-2">Animals housing: </v-label>
+                              {{ file.recording_session.protocol.animals_housing || 'N/A' }}<br />
+                              <v-label class="mr-2">Animals species: </v-label>
+                              {{ file.recording_session.protocol.animals_species || 'N/A' }}<br />
+                              <v-label class="mr-2">Number of animals: </v-label>
+                              {{ file.recording_session.protocol.context_number_of_animals || 'N/A'
+                              }}<br />
+                              <v-label class="mr-2">Duration: </v-label>
+                              {{ file.recording_session.protocol.context_duration || 'N/A' }}<br />
+                              <v-label class="mr-2">Cage: </v-label>
+                              {{ file.recording_session.protocol.context_cage || 'N/A' }}<br />
+                              <v-label class="mr-2">Bedding: </v-label>
+                              {{ file.recording_session.protocol.context_bedding || 'N/A' }}<br />
+                              <v-label class="mr-2">Light cycle: </v-label>
+                              {{ file.recording_session.protocol.context_light_cycle || 'N/A'
+                              }}<br />
+                              <v-label class="mr-2">Temperature: </v-label>
+                              {{
+                                file.recording_session.protocol.context_temperature_value || 'N/A'
+                              }}
+                              {{ file.recording_session.protocol.context_temperature_unit || ''
+                              }}<br />
+                              <v-label class="mr-2">Brightness: </v-label>
+                              {{ file.recording_session.protocol.context_brightness || 'N/A' }}
                             </v-card-text>
                           </v-card>
 
@@ -313,31 +364,154 @@ onMounted(() => fetchFiles());
                             <v-card-text>
                               <ul class="ml-3 mt-2">
                                 <li>
-                                  <v-label class="mr-2">Name Recording Session: </v-label
-                                  >{{ file.recording_session.name }}
+                                  <v-label class="mr-2">Name: </v-label>
+                                  {{ file.recording_session.name }}
                                 </li>
                                 <li>
-                                  <v-label class="mr-2">Group: </v-label
-                                  >{{ file.recording_session.group_subject }}
-                                </li>
-                                <li>
-                                  <v-label class="mr-2">Date: </v-label
-                                  >{{ file.recording_session.date }}
+                                  <v-label class="mr-2">Date: </v-label>
+                                  {{ file.recording_session.date }}
                                 </li>
                                 <li>
                                   <v-label class="mr-2">File number: </v-label>{{ file.number }}
                                 </li>
                                 <li>
-                                  <v-label class="mr-2">Temperature: </v-label
-                                  >{{ file.recording_session.temperature }}
+                                  <v-label class="mr-2">Temperature: </v-label>
+                                  {{ file.recording_session.context_temperature_value }}
+                                  {{ file.recording_session.context_temperature_unit }}
                                 </li>
                                 <li>
-                                  <v-label class="mr-2">Light cycle: </v-label
-                                  >{{ file.recording_session.light_cycle }}
+                                  <v-label class="mr-2">Soundcards: </v-label>
+                                  <span
+                                    v-if="
+                                      file.recording_session
+                                        .equipment_acquisition_hardware_soundcards &&
+                                      file.recording_session
+                                        .equipment_acquisition_hardware_soundcards.length
+                                    "
+                                  >
+                                    <span
+                                      v-for="(mic, idx) in file.recording_session
+                                        .equipment_acquisition_hardware_soundcards"
+                                      :key="mic.id"
+                                    >
+                                      {{ mic.name
+                                      }}<span v-if="mic.made_by"> by {{ mic.made_by }}</span
+                                      ><span
+                                        v-if="
+                                          idx <
+                                          file.recording_session
+                                            .equipment_acquisition_hardware_soundcards.length -
+                                            1
+                                        "
+                                        >,&nbsp;</span
+                                      >
+                                    </span>
+                                  </span>
+                                  <span v-else> N/A </span>
                                 </li>
                                 <li>
-                                  <v-label class="mr-2">Microphone: </v-label
-                                  >{{ file.recording_session.microphone }}
+                                  <v-label class="mr-2">Speakers: </v-label>
+                                  <span
+                                    v-if="
+                                      file.recording_session
+                                        .equipment_acquisition_hardware_speakers &&
+                                      file.recording_session.equipment_acquisition_hardware_speakers
+                                        .length
+                                    "
+                                  >
+                                    <span
+                                      v-for="(mic, idx) in file.recording_session
+                                        .equipment_acquisition_hardware_speakers"
+                                      :key="mic.id"
+                                    >
+                                      {{ mic.name
+                                      }}<span v-if="mic.made_by"> by {{ mic.made_by }}</span
+                                      ><span
+                                        v-if="
+                                          idx <
+                                          file.recording_session
+                                            .equipment_acquisition_hardware_speakers.length -
+                                            1
+                                        "
+                                        >,&nbsp;</span
+                                      >
+                                    </span>
+                                  </span>
+                                  <span v-else> N/A </span>
+                                </li>
+                                <li>
+                                  <v-label class="mr-2">Amplifiers: </v-label>
+                                  <span
+                                    v-if="
+                                      file.recording_session
+                                        .equipment_acquisition_hardware_amplifiers &&
+                                      file.recording_session
+                                        .equipment_acquisition_hardware_amplifiers.length
+                                    "
+                                  >
+                                    <span
+                                      v-for="(mic, idx) in file.recording_session
+                                        .equipment_acquisition_hardware_amplifiers"
+                                      :key="mic.id"
+                                    >
+                                      {{ mic.name
+                                      }}<span v-if="mic.made_by"> by {{ mic.made_by }}</span
+                                      ><span
+                                        v-if="
+                                          idx <
+                                          file.recording_session
+                                            .equipment_acquisition_hardware_amplifiers.length -
+                                            1
+                                        "
+                                        >,&nbsp;</span
+                                      >
+                                    </span>
+                                  </span>
+                                  <span v-else> N/A </span>
+                                </li>
+                                <li>
+                                  <v-label class="mr-2">Microphones: </v-label>
+                                  <span
+                                    v-if="
+                                      file.recording_session
+                                        .equipment_acquisition_hardware_microphones &&
+                                      file.recording_session
+                                        .equipment_acquisition_hardware_microphones.length
+                                    "
+                                  >
+                                    <span
+                                      v-for="(mic, idx) in file.recording_session
+                                        .equipment_acquisition_hardware_microphones"
+                                      :key="mic.id"
+                                    >
+                                      {{ mic.name
+                                      }}<span v-if="mic.made_by"> by {{ mic.made_by }}</span
+                                      ><span
+                                        v-if="
+                                          idx <
+                                          file.recording_session
+                                            .equipment_acquisition_hardware_microphones.length -
+                                            1
+                                        "
+                                        >,&nbsp;</span
+                                      >
+                                    </span>
+                                  </span>
+                                  <span v-else> N/A </span>
+                                </li>
+                                <li>
+                                  <v-label class="mr-2">Laboratory: </v-label>
+                                  {{ file.recording_session.laboratory }}
+                                </li>
+                                <li>
+                                  <v-label class="mr-2">Animal profiles: </v-label>
+                                  {{
+                                    file.recording_session.animal_profiles
+                                      ? file.recording_session.animal_profiles
+                                          .map((profile) => profile.name)
+                                          .join(', ')
+                                      : 'N/A'
+                                  }}
                                 </li>
                               </ul>
                             </v-card-text>
@@ -366,9 +540,7 @@ onMounted(() => fetchFiles());
                             <strong class="mr-2">Notes:</strong> {{ file.notes }}
                           </span>
                         </v-col>
-
                         <v-spacer></v-spacer>
-
                         <v-col class="d-flex justify-end" cols="auto">
                           <v-btn
                             v-if="file.is_valid_link"
