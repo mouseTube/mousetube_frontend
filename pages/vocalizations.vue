@@ -279,6 +279,34 @@ onMounted(() => fetchFiles());
                     <v-card-item class="bg-surface-light pt-4">
                       <v-label class="mr-2">Protocol: </v-label>
                       {{ file.recording_session.protocol.name || 'N/A' }}<br />
+                      <v-label class="mr-2">Animal profile: </v-label>
+                      <span
+                        v-if="
+                          file.subjects &&
+                          file.subjects.length &&
+                          file.subjects.some((s) => s.animal_profile)
+                        "
+                      >
+                        {{
+                          file.subjects
+                            .filter((s) => s.animal_profile)
+                            .map((s) => s.animal_profile.name)
+                            .join(', ')
+                        }}
+                      </span>
+                      <span
+                        v-else-if="
+                          file.recording_session.animal_profiles &&
+                          file.recording_session.animal_profiles.length
+                        "
+                      >
+                        {{
+                          file.recording_session.animal_profiles
+                            .map((profile) => profile.name)
+                            .join(', ')
+                        }}
+                      </span>
+                      <span v-else> N/A </span><br />
                       <v-label class="mr-2">Duration: </v-label>
                       {{ file.duration || 'N/A' }}<br />
                       <v-label class="mr-2">Date: </v-label>

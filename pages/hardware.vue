@@ -79,10 +79,11 @@ onMounted(() => {
 
         <template v-slot:default="{ items }">
           <v-container class="pa-2" fluid>
-            <v-card class="mt-5" v-bind="hard" v-for="hard in items" :key="hard.raw.hardware_name">
-              <v-card-title class="ml-5">{{ hard.raw.hardware_name }}</v-card-title>
-              <v-card-subtitle
-                >{{ hard.raw.made_by }} - {{ hard.raw.hardware_type }}</v-card-subtitle
+            <v-card class="mt-5" v-bind="hard" v-for="hard in items" :key="hard.raw.name">
+              <v-card-title class="ml-5">{{ hard.raw.name }}</v-card-title>
+              <v-card-subtitle>{{ hard.raw.type }}</v-card-subtitle>
+              <v-card-subtitle v-if="hard.raw.made_by"
+                >made by {{ hard.raw.made_by }}</v-card-subtitle
               >
               <v-divider class="mx-4 mt-2 mb-1"></v-divider>
               <v-card-item>

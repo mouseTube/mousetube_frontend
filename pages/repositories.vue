@@ -24,6 +24,9 @@ const repositories = ref([]);
 const areas = ref([]);
 const areaSelect = ref('');
 const search = ref('');
+const apiBaseUrl = useApiBaseUrl();
+
+const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
 
 ////////////////////////////////
 // METHODS
@@ -129,13 +132,32 @@ onMounted(async () => {
         <template v-slot:default="{ items }">
           <v-container class="pa-2" fluid>
             <v-card class="mt-5" v-bind="repository" v-for="repository in items">
-              <v-card-title
-                ><img :src="repository.raw.logo" :alt="repository.raw.name_repository"
-              /></v-card-title>
-              <v-card-subtitle
-                ><strong>{{ repository.raw.name_repository }}</strong> -
-                {{ repository.raw.area }}</v-card-subtitle
+              <div
+                v-if="repository.raw.logo"
+                style="
+                  position: absolute;
+                  top: 12px;
+                  right: 16px;
+                  width: 56px;
+                  height: 56px;
+                  background: #fff;
+                  border: 1px solid #eee;
+                  border-radius: 10px;
+                  overflow: hidden;
+                  z-index: 2;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                "
               >
+                <img
+                  :src="baseUrl + repository.raw.logo"
+                  :alt="repository.raw.name"
+                  style="width: 100%; height: 100%; object-fit: contain; transform: scale(1.3)"
+                />
+              </div>
+              <v-card-title>{{ repository.raw.name }}</v-card-title>
+              <v-card-subtitle>{{ repository.raw.area }}</v-card-subtitle>
               <v-card-item>
                 {{ repository.raw.description }}
               </v-card-item>
