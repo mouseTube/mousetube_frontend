@@ -302,8 +302,7 @@ onMounted(() => fetchFiles());
                                   v-for="(subject, idx) in file.subjects"
                                   :key="subject.id || idx"
                                 >
-                                  <v-label class="mr-2">Subject name: </v-label>{{ subject.name
-                                  }}<br />
+                                  <v-label class="mr-2">Name: </v-label>{{ subject.name }}<br />
                                   <v-label class="mr-2">Animal profile: </v-label
                                   >{{ subject.animal_profile?.name }}<br />
                                   <v-label class="mr-2">Sex: </v-label
@@ -368,6 +367,27 @@ onMounted(() => fetchFiles());
                                   {{ file.recording_session.name }}
                                 </li>
                                 <li>
+                                  <v-label class="mr-2">Studies: </v-label>
+                                  <span
+                                    v-if="
+                                      file.recording_session.studies &&
+                                      file.recording_session.studies.length
+                                    "
+                                  >
+                                    <span
+                                      v-for="(study, idx) in file.recording_session.studies"
+                                      :key="study.id"
+                                    >
+                                      {{ study.name
+                                      }}<span v-if="study.made_by"> by {{ study.made_by }}</span
+                                      ><span v-if="idx < file.recording_session.studies.length - 1"
+                                        >,&nbsp;</span
+                                      >
+                                    </span>
+                                  </span>
+                                  <span v-else> N/A </span>
+                                </li>
+                                <li>
                                   <v-label class="mr-2">Date: </v-label>
                                   {{ file.recording_session.date }}
                                 </li>
@@ -390,12 +410,12 @@ onMounted(() => fetchFiles());
                                     "
                                   >
                                     <span
-                                      v-for="(mic, idx) in file.recording_session
+                                      v-for="(sc, idx) in file.recording_session
                                         .equipment_acquisition_hardware_soundcards"
-                                      :key="mic.id"
+                                      :key="sc.id"
                                     >
-                                      {{ mic.name
-                                      }}<span v-if="mic.made_by"> by {{ mic.made_by }}</span
+                                      {{ sc.name
+                                      }}<span v-if="sc.made_by"> by {{ sc.made_by }}</span
                                       ><span
                                         v-if="
                                           idx <
@@ -420,12 +440,12 @@ onMounted(() => fetchFiles());
                                     "
                                   >
                                     <span
-                                      v-for="(mic, idx) in file.recording_session
+                                      v-for="(sp, idx) in file.recording_session
                                         .equipment_acquisition_hardware_speakers"
-                                      :key="mic.id"
+                                      :key="sp.id"
                                     >
-                                      {{ mic.name
-                                      }}<span v-if="mic.made_by"> by {{ mic.made_by }}</span
+                                      {{ sp.name
+                                      }}<span v-if="sp.made_by"> by {{ sp.made_by }}</span
                                       ><span
                                         v-if="
                                           idx <
@@ -450,12 +470,12 @@ onMounted(() => fetchFiles());
                                     "
                                   >
                                     <span
-                                      v-for="(mic, idx) in file.recording_session
+                                      v-for="(amp, idx) in file.recording_session
                                         .equipment_acquisition_hardware_amplifiers"
-                                      :key="mic.id"
+                                      :key="amp.id"
                                     >
-                                      {{ mic.name
-                                      }}<span v-if="mic.made_by"> by {{ mic.made_by }}</span
+                                      {{ amp.name
+                                      }}<span v-if="amp.made_by"> by {{ amp.made_by }}</span
                                       ><span
                                         v-if="
                                           idx <
