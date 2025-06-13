@@ -95,7 +95,7 @@ onMounted(() => {
               <v-card-actions>
                 <v-btn
                   color="teal-accent-4"
-                  v-for="ref in hard.raw.reference"
+                  v-for="ref in hard.raw.references"
                   prepend-icon="mdi-link-variant"
                 >
                   <a :href="ref.url" target="_blank"> Website</a>

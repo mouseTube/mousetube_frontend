@@ -314,7 +314,7 @@ onMounted(() => fetchFiles());
                       <v-label class="mr-2">Format: </v-label>
                       {{ file.format || 'N/A' }}<br />
                       <v-label class="mr-2">Sampling_rate: </v-label>
-                      {{ file.sampling_rate || 'N/A' }} KHz<br />
+                      {{ file.sampling_rate || 'N/A' }} Hz<br />
                       <v-label class="mr-2">Bit_depth: </v-label>
                       {{ file.bit_depth || 'N/A' }} bits<br />
                     </v-card-item>
