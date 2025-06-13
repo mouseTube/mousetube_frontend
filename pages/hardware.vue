@@ -13,6 +13,7 @@ Code under GPL v3.0 licence
 ////////////////////////////
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import { MicVocal, Speaker, BoomBox, Microchip } from 'lucide-vue-next';
 
 ////////////////////////////
 // DATA
@@ -79,26 +80,77 @@ onMounted(() => {
 
         <template v-slot:default="{ items }">
           <v-container class="pa-2" fluid>
-            <v-card class="mt-5" v-bind="hard" v-for="hard in items" :key="hard.raw.name">
-              <v-card-title class="ml-5">{{ hard.raw.name }}</v-card-title>
-              <v-card-subtitle>{{ hard.raw.type }}</v-card-subtitle>
+            <v-card
+              class="mt-5 border-sm"
+              v-bind="hard"
+              v-for="hard in items"
+              :key="hard.raw.name"
+              elevated
+            >
+              <v-tooltip location="right">
+                <template #activator="{ props }">
+                  <div
+                    v-if="hard.raw.type"
+                    v-bind="props"
+                    style="
+                      position: absolute;
+                      top: 12px;
+                      right: 16px;
+                      width: 36px;
+                      height: 36px;
+                      background: #fff;
+                      border: 1px solid #eee;
+                      border-radius: 10px;
+                      overflow: hidden;
+                      z-index: 2;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    "
+                  >
+                    <MicVocal
+                      v-if="hard.raw.type === 'microphone'"
+                      class="w-100 h-100"
+                      style="width: 100%; height: 100%; object-fit: contain"
+                    />
+                    <Speaker
+                      v-else-if="hard.raw.type === 'speaker'"
+                      class="w-100 h-100"
+                      style="width: 100%; height: 100%; object-fit: contain"
+                    />
+                    <BoomBox
+                      v-else-if="hard.raw.type === 'amplifier'"
+                      class="w-100 h-100"
+                      style="width: 100%; height: 100%; object-fit: contain"
+                    />
+                    <Microchip
+                      v-else-if="hard.raw.type === 'soundcard'"
+                      class="w-100 h-100"
+                      style="width: 100%; height: 100%; object-fit: contain"
+                    />
+                  </div>
+                </template>
+                <span>{{ hard.raw.type.charAt(0).toUpperCase() + hard.raw.type.slice(1) }}</span>
+              </v-tooltip>
+              <v-card-title>{{ hard.raw.name }}</v-card-title>
               <v-card-subtitle v-if="hard.raw.made_by"
                 >made by {{ hard.raw.made_by }}</v-card-subtitle
               >
-              <v-divider class="mx-4 mt-2 mb-1"></v-divider>
               <v-card-item>
-                <h3>Description:</h3>
                 {{ hard.raw.description }}
               </v-card-item>
 
-              <v-divider class="mx-4 mt-2 mb-1"></v-divider>
-              <v-card-actions>
+              <v-divider
+                v-if="hard.raw.references && hard.raw.references.length > 0"
+                class="mx-4 mt-2 mb-1"
+              ></v-divider>
+              <v-card-actions v-if="hard.raw.references && hard.raw.references.length > 0">
                 <v-btn
-                  color="teal-accent-4"
+                  color="rgba(198, 40, 40, 0.9)"
                   v-for="ref in hard.raw.references"
                   prepend-icon="mdi-link-variant"
                 >
-                  <a :href="ref.url" target="_blank"> Website</a>
+                  <a :href="ref.url" target="_blank"> {{ ref.name }}</a>
                 </v-btn>
               </v-card-actions>
             </v-card>
@@ -145,7 +197,7 @@ onMounted(() => {
 
 a {
   text-decoration: none;
-  color: teal;
+  color: rgba(198, 40, 40, 0.9);
 }
 
 a:hover {

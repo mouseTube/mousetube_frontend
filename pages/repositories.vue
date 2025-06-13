@@ -131,7 +131,13 @@ onMounted(async () => {
 
         <template v-slot:default="{ items }">
           <v-container class="pa-2" fluid>
-            <v-card class="mt-5" v-bind="repository" v-for="repository in items">
+            <v-card
+              class="mt-5 border-sm"
+              v-bind="repository"
+              v-for="repository in items"
+              :key="repository.raw.name"
+              elevated
+            >
               <div
                 v-if="repository.raw.logo"
                 style="
@@ -163,11 +169,11 @@ onMounted(async () => {
               </v-card-item>
               <v-divider class="mx-4 mb-1"></v-divider>
               <v-card-actions>
-                <v-btn variant="text" color="teal-accent-4">
+                <v-btn variant="text" color="rgba(198, 40, 40, 0.9)">
                   <v-icon icon="mdi-link-variant"></v-icon>
                   <a :href="repository.raw.url" target="_blank"> Website</a>
                 </v-btn>
-                <v-btn variant="text" color="teal-accent-4">
+                <v-btn variant="text" color="rgba(198, 40, 40, 0.9)">
                   <v-icon icon="mdi-api"></v-icon>
                   <a :href="repository.raw.url_api" target="_blank">{{ repository.raw.url_api }}</a>
                 </v-btn>
@@ -183,7 +189,7 @@ onMounted(async () => {
 <style scoped>
 a {
   text-decoration: none;
-  color: teal;
+  color: rgba(198, 40, 40, 0.9);
 }
 
 a:hover {
