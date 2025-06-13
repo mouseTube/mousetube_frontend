@@ -112,7 +112,6 @@ onMounted(() => fetchSoftware());
                 variant="solo"
                 clearable
                 hide-details
-                :autofocus="true"
               />
               <v-spacer></v-spacer>
 

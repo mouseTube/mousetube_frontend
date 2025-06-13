@@ -14,6 +14,7 @@ Code under GPL v3.0 licence
 
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import { debounce } from 'lodash';
 import { Warehouse } from 'lucide-vue-next';
 
 ////////////////////////////////
@@ -21,10 +22,16 @@ import { Warehouse } from 'lucide-vue-next';
 ////////////////////////////////
 
 const loading = ref(true);
-const repositories = ref([]);
-const areas = ref([]);
-const areaSelect = ref('');
+const dataLoaded = ref(false);
 const search = ref('');
+const repositoriesList = ref([]);
+const next = ref(null);
+const previous = ref(null);
+const count = ref(0);
+const currentPage = ref(1);
+const perPage = ref(10);
+const showFilters = ref(false);
+const filters = ref(['all']);
 const apiBaseUrl = useApiBaseUrl();
 
 const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
@@ -33,38 +40,58 @@ const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
 // METHODS
 ////////////////////////////////
 
-const getRepositories = async () => {
+/**
+ * Fetch software from the API
+ * @param {string} url - The URL to fetch data from
+ */
+const fetchRepositories = async (url = `${apiBaseUrl}/repository/?page_size=${perPage.value}`) => {
+  dataLoaded.value = false;
   try {
-    const response = await axios.get(`http://127.0.0.1:8000/api/repository`);
-    repositories.value = response.data;
+    const response = await axios.get(url);
+    repositoriesList.value = response.data.results;
+    next.value = response.data.next;
+    previous.value = response.data.previous;
+    count.value = response.data.count;
+    currentPage.value = new URL(url).searchParams.get('page') || 1;
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.log(JSON.stringify(error));
+    console.error('error while loading repositories :', error);
+  } finally {
+    dataLoaded.value = true;
   }
 };
 
-const getAreas = async () => {
-  try {
-    const response = await axios.get(`http://127.0.0.1:8000/api/country`);
-    for (const [key, value] of Object.entries(response.data)) {
-      areas.value.push({ key, value });
-    }
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.log(JSON.stringify(error));
+/**
+ * Debounced search function
+ * @param {string} searchTerm - The search term to filter repositories
+ */
+const onSearch = debounce(() => {
+  fetchRepositories(
+    `${apiBaseUrl}/repository/?search=${encodeURIComponent(search.value)}&page_size=${perPage.value}`
+  );
+}, 600);
+
+////////////////////////////////
+// WATCHER
+////////////////////////////////
+
+watch(perPage, async () => {
+  await fetchRepositories();
+});
+
+watch(search, async (newSearch) => {
+  if (newSearch === null) {
+    search.value = '';
+    await fetchRepositories();
   }
-};
+});
 
 ////////////////////////////////
 // ON MOUNTED
 ////////////////////////////////
 
-// Fetch repositories and areas when the component is mounted
-onMounted(async () => {
-  await getRepositories();
-  await getAreas();
-  loading.value = false;
-});
+// Fetch repositories when the component is mounted
+onMounted(() => fetchRepositories());
 </script>
 
 <template>
@@ -75,65 +102,68 @@ onMounted(async () => {
           <v-card variant="flat" class="mx-auto" max-width="1000">
             <div class="d-flex align-center mt-1 mb-4">
               <h1><Warehouse /> Repositories</h1>
-              <v-chip v-if="repositories.length > 0" class="me-1 my-1 mx-2">
-                {{ repositories.length }}
+              <v-chip v-if="count > 0" class="me-1 my-1 mx-2">
+                {{ count }}
               </v-chip>
             </div>
-            <v-card class="mt-5" color="grey-lighten-4">
+            <v-card class="mt-5 mb-5" color="grey-lighten-4">
               <v-card-text>
-                We would like to conform to
-                <nuxt-link href="https://www.go-fair.org/fair-principles/" target="_blank">
-                  the FAIR (Findable, Accessible, Interoperable, Reusable) principles.
-                </nuxt-link>
-                According to them, several organizations have created repositories to promote Open
-                Data. For instance, Zenodo and Dataverse can be used to store data for free and to
-                generate for each of them a DOI (Digital Object Identifier) for each of them. DOI
-                are increasingly requested by the publishers to render data available.<br />
+                We aim to follow
+                <nuxt-link href="https://www.go-fair.org/fair-principles/" target="_blank"
+                  >the FAIR (Findable, Accessible, Interoperable, Reusable) principles</nuxt-link
+                >
+                by encouraging the use of trusted scientific repositories such as Zenodo and
+                Dataverse for data storage and DOI generation.<br />
+                Storing your data in these repositories helps ensure accessibility and reliability,
+                and is increasingly required by publishers.<br />
+                Please check that your shared links remain valid and update them with
+                repository-generated links and DOIs if needed.<br />
+                If you use Zenodo, you can select the mouseTube community when uploading your files.
                 <br />
-                If the available data are linked to FAIR repositories, mouseTube will become also
-                FAIR and finally everyone will benefit of this.<br />
-                <br />
-                On mouseTube, we noticed a number of broken links for shared files. Therefore, we
-                strongly recommend to put your files on a scientific repository such as the ones
-                cited above. We encourage you to create an account on one of these repositories and
-                store data there instead of on your own server. We added a DOI field in the
-                mouseTube database, so that the DOI can be entered in addition of the link. For
-                files that are already linked in mouseTube, please check whether the link is still
-                working. If not, please use the link and DOI generated by a repository to update the
-                data. If you host your files on Zenodo, you can select the mouseTube community
-                (communities section) when you enter your file information.<br />
-                Thank you for taking this information into consideration.
+                Thank you for supporting open and reliable data sharing.
               </v-card-text>
             </v-card>
-
-            <v-skeleton-loader class="mt-5" type="table-heading, list-item-two-line" v-if="loading">
-            </v-skeleton-loader>
-
-            <v-skeleton-loader class="mt-5" type="table-heading, list-item-two-line" v-if="loading">
-            </v-skeleton-loader>
+            <v-toolbar rounded="lg" class="px-2 border-sm">
+              <v-text-field
+                v-model="search"
+                @input="onSearch"
+                clearable
+                density="comfortable"
+                hide-details
+                placeholder="Search"
+                prepend-inner-icon="mdi-magnify"
+                style="max-width: 300px"
+                variant="solo"
+              ></v-text-field>
+            </v-toolbar>
+            <!-- Loading spinner  -->
+            <v-progress-circular
+              v-if="!dataLoaded"
+              indeterminate
+              color="primary"
+              class="d-block mx-auto my-5"
+            ></v-progress-circular>
+            <!-- No data message -->
+            <v-alert
+              v-else-if="count === 0 && dataLoaded"
+              class="mt-5 border"
+              type="info"
+              color="grey-lighten-2"
+            >
+              <v-row>
+                <v-col class="text-center">
+                  <h3>No repositories available</h3>
+                  <p>Try to change the search term.</p>
+                </v-col>
+              </v-row>
+            </v-alert>
 
             <v-data-iterator
               v-else
               class="mt-5"
-              :items="repositories"
-              :items-per-page="15"
-              :search="search"
+              :items="repositoriesList"
+              :items-per-page="perPage"
             >
-              <template v-slot:header>
-                <v-toolbar rounded="lg" class="px-2 border-sm">
-                  <v-text-field
-                    v-model="search"
-                    clearable
-                    density="comfortable"
-                    hide-details
-                    placeholder="Search"
-                    prepend-inner-icon="mdi-magnify"
-                    style="max-width: 300px"
-                    variant="solo"
-                  ></v-text-field>
-                </v-toolbar>
-              </template>
-
               <template v-slot:default="{ items }">
                 <v-container class="pa-2" fluid>
                   <v-card

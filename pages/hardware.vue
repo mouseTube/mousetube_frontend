@@ -116,6 +116,7 @@ onMounted(() => {
             <v-toolbar rounded="lg" class="px-2 border-sm">
               <v-text-field
                 v-model="search"
+                @input="onSearch"
                 clearable
                 density="comfortable"
                 hide-details
@@ -181,19 +182,13 @@ onMounted(() => {
             >
               <v-row>
                 <v-col class="text-center">
-                  <h3>No Hardware available</h3>
+                  <h3>No hardware available</h3>
                   <p>Try to change the search term or remove the filters.</p>
                 </v-col>
               </v-row>
             </v-alert>
 
-            <v-data-iterator
-              v-else
-              class="mt-5"
-              :items="hardwareList"
-              :items-per-page="15"
-              :search="search"
-            >
+            <v-data-iterator v-else class="mt-5" :items="hardwareList" :items-per-page="perPage">
               <template v-slot:default="{ items }">
                 <v-container class="pa-2" fluid>
                   <v-card
