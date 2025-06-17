@@ -71,7 +71,12 @@ const handleLogout = async () => {
       </v-col>
 
       <!-- Login button -->
-      <v-col cols="auto" v-if="!smAndDown" class="d-flex align-center" style="width: 186px">
+      <v-col
+        cols="auto"
+        v-if="!smAndDown"
+        class="d-flex align-center flex-nowrap"
+        style="width: 200px"
+      >
         <template v-if="currentUser">
           <nuxt-link to="/account" class="nuxt-link nav-item px-2" exact-active-class="active-link">
             <span class="nav-link-content mr-2">
@@ -137,7 +142,7 @@ const handleLogout = async () => {
               <v-list-item-title>{{ currentUser }}</v-list-item-title>
             </nuxt-link>
             <template #append>
-              <v-btn color="red darken-2" variant="text" size="small" @click="handleLogout">
+              <v-btn color="primary" variant="text" size="small" @click="handleLogout">
                 Log out
               </v-btn>
             </template>

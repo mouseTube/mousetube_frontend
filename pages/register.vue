@@ -4,8 +4,16 @@ import axios from 'axios';
 const apiBaseUrl = useApiBaseUrl();
 
 const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
+
+const loginForm = ref(null);
 const showPassword = ref(false);
 const showPassword2 = ref(false);
+
+const requiredRule = (v) => (!!v && v.trim() !== '') || 'This field is required';
+const emailRule = (v) => /.+@.+\..+/.test(v) || 'Invalid email';
+const serverMessage = ref('');
+const alertType = ref(''); // 'success' or 'error'
+
 const form = ref({
   username: '',
   email: '',
@@ -15,14 +23,30 @@ const form = ref({
   password2: '',
 });
 
+const errors = ref({
+  username: [],
+  email: [],
+  first_name: [],
+  last_name: [],
+  password: [],
+  password2: [],
+});
+
 const passwordError = computed(
   () => form.value.password !== form.value.password2 && form.value.password2.length > 0
 );
 
 const handleRegister = async () => {
-  if (passwordError.value) {
-    return;
-  }
+  serverMessage.value = '';
+  alertType.value = '';
+  const result = await loginForm.value?.validate();
+  if (!result?.valid || passwordError.value) return;
+
+  // Reset errors
+  Object.keys(errors.value).forEach((key) => {
+    errors.value[key] = [];
+  });
+
   try {
     await axios.post(`${baseUrl.value}/auth/users/`, {
       username: form.value.username,
@@ -31,17 +55,20 @@ const handleRegister = async () => {
       first_name: form.value.first_name,
       last_name: form.value.last_name,
     });
-    alert('Check your email to activate your account.');
+    serverMessage.value = 'Check your email to activate your account.';
+    alertType.value = 'success';
   } catch (error) {
     const data = error?.response?.data;
     if (data && typeof data === 'object') {
-      const msg = Object.entries(data)
-        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
-        .join('\n');
-      alert(`Registration failed:\n${msg}`);
+      Object.entries(data).forEach(([field, messages]) => {
+        if (field in errors.value) {
+          errors.value[field] = messages;
+        }
+      });
     } else {
-      alert('An unknown error occurred');
+      serverMessage.value = 'An unknown error occurred';
     }
+    alertType.value = 'error';
   }
 };
 </script>
@@ -67,23 +94,25 @@ const handleRegister = async () => {
       class="pa-6"
       style="border-radius: 20px; max-width: 360px; width: 100%; box-shadow: 0 4px 16px #00000015"
     >
-      <v-form @submit.prevent="handleRegister">
+      <v-form ref="loginForm" @submit.prevent="handleRegister">
         <v-text-field
           v-model="form.username"
-          label="Username"
+          label="Username *"
           variant="outlined"
           density="comfortable"
-          hide-details
-          class="mb-4"
+          :rules="[requiredRule]"
+          :error-messages="errors.username"
+          class="mb-2"
           required
         />
         <v-text-field
           v-model="form.email"
-          label="Email"
+          label="Email *"
           variant="outlined"
           density="comfortable"
-          hide-details
-          class="mb-4"
+          :rules="[requiredRule, emailRule]"
+          :error-messages="errors.email"
+          class="mb-2"
           required
         />
         <v-text-field
@@ -91,27 +120,25 @@ const handleRegister = async () => {
           label="First name"
           variant="outlined"
           density="comfortable"
-          hide-details
-          class="mb-4"
-          required
+          :error-messages="errors.first_name"
+          class="mb-2"
         />
         <v-text-field
           v-model="form.last_name"
           label="Last name"
           variant="outlined"
           density="comfortable"
-          hide-details
-          class="mb-4"
-          required
+          :error-messages="errors.last_name"
+          class="mb-2"
         />
         <v-text-field
           v-model="form.password"
           :type="showPassword ? 'text' : 'password'"
-          label="Password"
+          label="Password *"
           variant="outlined"
           density="comfortable"
-          hide-details
-          class="mb-4"
+          :error-messages="errors.password"
+          class="mb-2"
           required
         >
           <template #append-inner>
@@ -124,13 +151,12 @@ const handleRegister = async () => {
         <v-text-field
           v-model="form.password2"
           :type="showPassword2 ? 'text' : 'password'"
-          label="Confirm Password"
+          label="Confirm Password *"
           variant="outlined"
           density="comfortable"
-          hide-details
-          class="mb-4"
           :error="passwordError"
-          :error-messages="passwordError ? ['Passwords do not match'] : []"
+          :error-messages="passwordError ? ['Passwords do not match'] : errors.password2"
+          class="mb-2"
           required
         >
           <template #append-inner>
@@ -139,6 +165,19 @@ const handleRegister = async () => {
             </v-icon>
           </template>
         </v-text-field>
+
+        <!-- Server message -->
+        <v-alert
+          v-if="serverMessage"
+          :type="alertType"
+          class="mb-4"
+          border="left"
+          prominent
+          elevation="2"
+        >
+          {{ serverMessage }}
+        </v-alert>
+
         <v-btn color="primary" style="width: 100%" type="submit" class="mt-2">
           Create Account
         </v-btn>

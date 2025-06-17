@@ -29,8 +29,7 @@ export function useAuth() {
         error.response?.data?.non_field_errors?.[0] ||
         error.response?.data?.username?.[0] ||
         error.message;
-      alert(`Login failed: ${msg}`);
-      return false;
+      throw new Error(msg);
     }
   };
 

@@ -4,14 +4,38 @@ const password = ref('');
 const router = useRouter();
 const auth = useAuth();
 const showPassword = ref(false);
+const loginErrorMessage = ref('');
+const loginForm = ref(null);
+const formValid = ref(true);
 
 const handleLogin = async () => {
+  loginErrorMessage.value = ''; // reset
+
+  const validationResult = await loginForm.value?.validate();
+  if (!validationResult?.valid) return;
+
   try {
-    await auth.login(username.value, password.value);
-    router.push('/account');
+    const success = await auth.login(username.value, password.value);
+    if (success) {
+      router.push('/account');
+    } else {
+      loginErrorMessage.value = 'Invalid username or password.';
+    }
   } catch (error) {
-    console.error('Login failed:', error);
-    alert('Connexion échouée');
+    const response = error?.response;
+    const data = response?.data || error?.data;
+
+    if (data?.detail) {
+      loginErrorMessage.value = data.detail;
+    } else if (data?.non_field_errors?.length) {
+      loginErrorMessage.value = data.non_field_errors[0];
+    } else if (typeof data === 'string') {
+      loginErrorMessage.value = data;
+    } else if (error?.message) {
+      loginErrorMessage.value = error.message;
+    } else {
+      loginErrorMessage.value = 'An unexpected error occurred. Please try again.';
+    }
   }
 };
 </script>
@@ -37,23 +61,23 @@ const handleLogin = async () => {
       class="pa-6"
       style="border-radius: 20px; max-width: 360px; width: 100%; box-shadow: 0 4px 16px #00000015"
     >
-      <v-form>
+      <v-form ref="loginForm" @submit.prevent="handleLogin" v-model="formValid">
         <v-text-field
           v-model="username"
+          :rules="[(v) => !!v || 'Username is required']"
           label="Username"
           variant="outlined"
           density="comfortable"
-          hide-details
           class="mb-4"
           required
         />
         <v-text-field
           v-model="password"
+          :rules="[(v) => !!v || 'Password is required']"
           :type="showPassword ? 'text' : 'password'"
           label="Password"
           variant="outlined"
           density="comfortable"
-          hide-details
           class="mb-4"
           required
         >
@@ -64,12 +88,23 @@ const handleLogin = async () => {
           </template>
         </v-text-field>
 
+        <v-alert
+          v-if="loginErrorMessage"
+          type="error"
+          variant="tonal"
+          class="mb-4"
+          border="start"
+          color="error"
+        >
+          {{ loginErrorMessage }}
+        </v-alert>
+
         <!-- Red button -->
         <v-btn
           color="primary"
           class="mt-2"
           style="width: 100%; border-radius: 12px"
-          @click="handleLogin"
+          type="submit"
           size="large"
         >
           Log in
