@@ -35,6 +35,11 @@ const search = ref('');
 ////////////////////////////
 // METHODS
 ////////////////////////////
+
+/**
+ * Fetch hardware data from the API
+ * @param {string} url - The URL to fetch hardware data from
+ */
 const fetchHardware = async (
   url = `${apiBaseUrl}/hardware/?page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`
 ) => {
