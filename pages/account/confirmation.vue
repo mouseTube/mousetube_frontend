@@ -13,7 +13,7 @@ const activate = async () => {
       token: route.query.token,
     });
     alert('Account activated !');
-    router.push('/login');
+    router.push('/account/login');
   } catch (err) {
     alert('Activation error.');
   }

@@ -29,7 +29,7 @@ const links = [
 
 const handleLogout = async () => {
   logout();
-  router.push('/login');
+  router.push('/account/login');
 };
 </script>
 
@@ -78,7 +78,11 @@ const handleLogout = async () => {
         style="width: 200px"
       >
         <template v-if="currentUser">
-          <nuxt-link to="/account" class="nuxt-link nav-item px-2" exact-active-class="active-link">
+          <nuxt-link
+            to="/account/details"
+            class="nuxt-link nav-item px-2"
+            exact-active-class="active-link"
+          >
             <span class="nav-link-content mr-2">
               <User class="nav-icon audio-hover-icon" />
               <span class="nav-label">{{ currentUser }}</span>
@@ -95,7 +99,11 @@ const handleLogout = async () => {
           </v-btn>
         </template>
         <template v-else>
-          <nuxt-link to="/login" class="nuxt-link nav-item px-2" exact-active-class="active-link">
+          <nuxt-link
+            to="/account/login"
+            class="nuxt-link nav-item px-2"
+            exact-active-class="active-link"
+          >
             <span class="nav-link-content">
               <User class="nav-icon audio-hover-icon" />
               <span class="nav-label">Login</span>
@@ -135,7 +143,7 @@ const handleLogout = async () => {
               <User class="me-3 nav-icon audio-icon audio-hover-icon" size="20" />
             </template>
             <nuxt-link
-              to="/account"
+              to="/account/details"
               class="nuxt-link nav-item px-2"
               exact-active-class="active-link"
             >
@@ -149,7 +157,7 @@ const handleLogout = async () => {
           </v-list-item>
         </template>
         <template v-else>
-          <v-list-item to="/login" exact-active-class="active-link">
+          <v-list-item to="/account/login" exact-active-class="active-link">
             <template #prepend>
               <User class="me-3 nav-icon audio-icon audio-hover-icon" size="20" />
             </template>

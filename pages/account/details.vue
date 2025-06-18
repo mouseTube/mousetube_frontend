@@ -76,7 +76,7 @@ watch(
   () => currentUser.value,
   (val) => {
     if (!val && !isLoadingUser.value) {
-      router.push('/login');
+      router.push('/account/login');
     }
   }
 );

@@ -17,7 +17,7 @@ const handleLogin = async () => {
   try {
     const success = await auth.login(username.value, password.value);
     if (success) {
-      router.push('/account');
+      router.push('/account/details');
     } else {
       loginErrorMessage.value = 'Invalid username or password.';
     }
@@ -87,6 +87,9 @@ const handleLogin = async () => {
             </v-icon>
           </template>
         </v-text-field>
+        <p class="text-caption text-end">
+          <a href="/account/forgot-password" class="text-primary">Forgot your password?</a>
+        </p>
 
         <v-alert
           v-if="loginErrorMessage"
@@ -119,7 +122,7 @@ const handleLogin = async () => {
           variant="outlined"
           color="primary"
           style="width: 100%; border-radius: 12px"
-          @click="router.push('/register')"
+          @click="router.push('/account/register')"
           size="large"
         >
           Create an account
