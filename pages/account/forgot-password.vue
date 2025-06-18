@@ -15,9 +15,6 @@ const sendResetEmail = async () => {
     await axios.post(`${baseUrl.value}/auth/users/reset_password/`, {
       email: email.value,
     });
-    console.log('Reset password email sent to:', email.value);
-    console.log('API Base URL:', apiBaseUrl);
-    console.log('Base URL:', baseUrl.value);
     emailSent.value = true;
   } catch (error) {
     errorMessage.value = 'An error occurred. Please check the email address.';
