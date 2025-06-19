@@ -1,4 +1,7 @@
 <script setup>
+import { useRoute } from 'vue-router';
+
+const route = useRoute();
 const username = ref('');
 const password = ref('');
 const router = useRouter();
@@ -7,6 +10,8 @@ const showPassword = ref(false);
 const loginErrorMessage = ref('');
 const loginForm = ref(null);
 const formValid = ref(true);
+// const apiBaseUrl = useApiBaseUrl();
+const baseUrl = ref('https://dane-aware-vaguely.ngrok-free.app');
 
 const handleLogin = async () => {
   loginErrorMessage.value = ''; // reset
@@ -38,6 +43,16 @@ const handleLogin = async () => {
     }
   }
 };
+const redirectToOrcid = () => {
+  window.location.href = `${baseUrl.value}/accounts/orcid/login/`;
+};
+
+onMounted(() => {
+  const errorParam = route.query.error;
+  if (errorParam === 'no_token') {
+    loginErrorMessage.value = 'Authentication failed. Please try again.';
+  }
+});
 </script>
 
 <template>
@@ -126,6 +141,16 @@ const handleLogin = async () => {
           size="large"
         >
           Create an account
+        </v-btn>
+        <v-btn
+          variant="outlined"
+          color="success"
+          style="width: 100%; border-radius: 12px; margin-top: 12px"
+          @click="redirectToOrcid"
+          size="large"
+        >
+          <v-icon start>mdi-account-circle</v-icon>
+          Sign in with ORCID
         </v-btn>
       </v-form>
     </v-card>

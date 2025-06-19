@@ -1,8 +1,9 @@
 <script setup>
 import { ref, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 const apiBaseUrl = useApiBaseUrl();
-
+const route = useRoute();
 const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
 
 const loginForm = ref(null);
@@ -13,12 +14,14 @@ const requiredRule = (v) => (!!v && v.trim() !== '') || 'This field is required'
 const emailRule = (v) => /.+@.+\..+/.test(v) || 'Invalid email';
 const serverMessage = ref('');
 const alertType = ref(''); // 'success' or 'error'
+const hasOrcid = ref(false);
 
 const form = ref({
   username: '',
   email: '',
   first_name: '',
   last_name: '',
+  orcid: '',
   password: '',
   password2: '',
 });
@@ -28,6 +31,7 @@ const errors = ref({
   email: [],
   first_name: [],
   last_name: [],
+  orcid: [],
   password: [],
   password2: [],
 });
@@ -54,6 +58,7 @@ const handleRegister = async () => {
       password: form.value.password,
       first_name: form.value.first_name,
       last_name: form.value.last_name,
+      orcid: form.value.orcid,
     });
     serverMessage.value = 'Check your email to activate your account.';
     alertType.value = 'success';
@@ -71,6 +76,17 @@ const handleRegister = async () => {
     alertType.value = 'error';
   }
 };
+
+onMounted(() => {
+  // Remplir les champs depuis query params si présents
+  const q = route.query;
+  if (q.first_name) form.value.first_name = q.first_name;
+  if (q.last_name) form.value.last_name = q.last_name;
+  if (q.orcid) {
+    form.value.orcid = q.orcid;
+    hasOrcid.value = true;
+  }
+});
 </script>
 
 <template>
@@ -129,6 +145,15 @@ const handleRegister = async () => {
           variant="outlined"
           density="comfortable"
           :error-messages="errors.last_name"
+          class="mb-2"
+        />
+        <v-text-field
+          v-if="hasOrcid"
+          v-model="form.orcid"
+          label="ORCID"
+          readonly
+          variant="outlined"
+          density="comfortable"
           class="mb-2"
         />
         <v-text-field

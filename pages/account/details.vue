@@ -109,7 +109,7 @@ watch(
               <p><strong>Email:</strong> {{ userProfile?.user?.email }}</p>
               <p><strong>First name:</strong> {{ userProfile?.user?.first_name }}</p>
               <p><strong>Last name:</strong> {{ userProfile?.user?.last_name }}</p>
-              <p><strong>Orcid:</strong> {{ userProfile?.user?.orcid || 'No orcid available' }}</p>
+              <p><strong>Orcid:</strong> {{ userProfile?.orcid || 'No orcid available' }}</p>
               <p>
                 <strong>Unit:</strong>
                 {{ userProfile?.laboratory?.unit || 'No unit available' }}

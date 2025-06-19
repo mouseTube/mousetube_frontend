@@ -4,12 +4,23 @@ import axios from 'axios'
 
 export const currentUser = ref<string | null>(null)
 export const id_user = ref<number | null>(null)
-export const token = useStorage<string | null>('auth_token', null)
-export const refresh = useStorage<string | null>('refresh_token', null)
+export const token = useStorage<string | null>('auth_token', null, localStorage)
+export const refresh = useStorage<string | null>('refresh_token', null, localStorage)
 
 export function useAuth() {
   const apiBaseUrl = useApiBaseUrl();
   const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''))
+
+  const init = async () => {
+    if (token.value) {
+      try {
+        await fetchUser()
+      } catch (e) {
+        console.warn('[auth] Token invalid, logging out')
+        logout()
+      }
+    }
+  }
 
   const login = async (username: string, password: string) => {
     try {
@@ -38,6 +49,27 @@ export function useAuth() {
     token.value = null
     refresh.value = null
   }
+
+  const loginWithToken = async (accessToken: string) => {
+    try {
+      token.value = accessToken;
+      console.log(token.value)
+
+      const res = await axios.get(`${baseUrl.value}/auth/users/me/`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      currentUser.value = res.data.username;
+      console.log(currentUser.value)
+      id_user.value = res.data.id;
+      return true;
+    } catch (error: any) {
+      logout();
+      throw new Error('Invalid token');
+    }
+  };
 
   const fetchUser = async () => {
     if (!token.value) return null
@@ -69,5 +101,7 @@ export function useAuth() {
     logout,
     fetchUser,
     refreshToken,
+    loginWithToken,
+    init
   }
 }
