@@ -78,13 +78,16 @@ const handleRegister = async () => {
 };
 
 onMounted(() => {
-  // Remplir les champs depuis query params si présents
   const q = route.query;
   if (q.first_name) form.value.first_name = q.first_name;
   if (q.last_name) form.value.last_name = q.last_name;
   if (q.orcid) {
     form.value.orcid = q.orcid;
     hasOrcid.value = true;
+    serverMessage.value =
+      'No mouseTube user found with the given ORCID.\n' +
+      'Please complete this form to finish your registration.\n' +
+      'If you already have an account, log in and then link your ORCID to your profile.';
   }
 });
 </script>
@@ -199,7 +202,11 @@ onMounted(() => {
           border="left"
           prominent
           elevation="2"
+          style="white-space: pre-line"
         >
+          <template #prepend>
+            <v-icon>mdi-information</v-icon>
+          </template>
           {{ serverMessage }}
         </v-alert>
 

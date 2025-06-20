@@ -21,6 +21,7 @@ const hardware = ref([]);
 const software = ref([]);
 const apiBaseUrl = useApiBaseUrl();
 const isLoadingUser = ref(true);
+const baseUrl = ref('https://dane-aware-vaguely.ngrok-free.app');
 
 ////////////////////////////
 // METHODS
@@ -54,6 +55,11 @@ const fetchSoftware = async () => {
     headers: { Authorization: `Bearer ${token.value}` },
   });
   software.value = res.data.results || res.data;
+};
+
+const linkOrcid = () => {
+  const state = btoa(JSON.stringify({ process: 'connect' }));
+  window.location.href = `${baseUrl.value}/accounts/orcid/login/?process=connect`;
 };
 
 //////////////////////////////
@@ -109,7 +115,23 @@ watch(
               <p><strong>Email:</strong> {{ userProfile?.user?.email }}</p>
               <p><strong>First name:</strong> {{ userProfile?.user?.first_name }}</p>
               <p><strong>Last name:</strong> {{ userProfile?.user?.last_name }}</p>
-              <p><strong>Orcid:</strong> {{ userProfile?.orcid || 'No orcid available' }}</p>
+              <p>
+                <strong>Orcid: </strong>
+                <template v-if="userProfile?.orcid">
+                  {{ userProfile.orcid }}
+                </template>
+                <template v-else>
+                  <v-btn
+                    color="green darken-2"
+                    size="small"
+                    class="ml-2"
+                    @click="linkOrcid"
+                    prepend-icon="mdi-link"
+                  >
+                    Link my Orcid account
+                  </v-btn>
+                </template>
+              </p>
               <p>
                 <strong>Unit:</strong>
                 {{ userProfile?.laboratory?.unit || 'No unit available' }}
