@@ -127,30 +127,29 @@ onMounted(() => {
         >
           Log in
         </v-btn>
-
-        <v-divider class="my-4" />
-        <p class="text-center text-body-2 mb-4" style="color: #666">
-          Don't have an account? <br />
-          <span class="font-weight-bold">Create one now!</span>
-        </p>
         <v-btn
           variant="outlined"
           color="primary"
-          style="width: 100%; border-radius: 12px"
+          style="width: 100%; border-radius: 12px; margin-top: 12px"
           @click="router.push('/account/register')"
           size="large"
         >
           Create an account
         </v-btn>
+
+        <v-divider class="my-4" />
+        <p class="text-center text-body-2 mb-4" style="color: #666">
+          Sign in or create an account via Orcid
+        </p>
         <v-btn
           variant="outlined"
           color="success"
-          style="width: 100%; border-radius: 12px; margin-top: 12px"
+          style="width: 100%; border-radius: 12px"
           @click="redirectToOrcid"
           size="large"
         >
           <v-icon start>mdi-account-circle</v-icon>
-          Sign in with ORCID
+          ORCID
         </v-btn>
       </v-form>
     </v-card>
