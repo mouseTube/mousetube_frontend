@@ -32,8 +32,8 @@ const perPage = ref(10);
 const showFilters = ref(false);
 const filters = ref(['is_valid_link']);
 const apiBaseUrl = useApiBaseUrl();
-
 const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
+const viewMode = ref('cards');
 
 ////////////////////////////////
 // METHODS
@@ -153,6 +153,16 @@ onMounted(() => fetchFiles());
                 :autofocus="true"
               />
               <v-spacer></v-spacer>
+              <v-btn
+                icon
+                variant="text"
+                @click="viewMode = viewMode === 'cards' ? 'table' : 'cards'"
+                :title="viewMode === 'cards' ? 'Switch to Table View' : 'Switch to Card View'"
+                class="me-2"
+              >
+                <v-icon>{{ viewMode === 'cards' ? 'mdi-table' : 'mdi-view-module' }}</v-icon>
+              </v-btn>
+
               <v-select
                 v-model="perPage"
                 :items="[10, 20, 50, 100]"
@@ -211,6 +221,71 @@ onMounted(() => fetchFiles());
                 </v-col>
               </v-row>
             </v-alert>
+            <v-data-table
+              v-if="viewMode === 'table'"
+              :items="files"
+              :headers="[
+                { title: 'Name', value: 'name' },
+                { title: 'Author', value: 'author' },
+                { title: 'Protocol', value: 'recording_session.protocol.name' },
+                { title: 'Date', value: 'recording_session.date' },
+                { title: 'Format', value: 'format' },
+                { title: 'Duration', value: 'duration' },
+                { title: 'Download', value: 'downloads' },
+              ]"
+              :items-per-page="perPage"
+              class="elevation-1 mt-5"
+              :loading="!dataLoaded"
+              loading-text="Loading..."
+              density="comfortable"
+              hide-default-footer
+              :footer-props="{
+                showFirstLastPage: false,
+                showCurrentPage: false,
+                itemsPerPageOptions: [],
+              }"
+            >
+              <!-- Exemple : colonne nom avec lien -->
+              <template #item.name="{ item }">
+                <span style="white-space: nowrap">{{
+                  item.name || item.link.split('/').pop()
+                }}</span>
+              </template>
+
+              <!-- Auteur -->
+              <template #item.author="{ item }">
+                {{ item.recording_session?.protocol?.user?.first_name_user }}
+                {{ item.recording_session?.protocol?.user?.name_user }}
+              </template>
+
+              <!-- Lien de téléchargement -->
+              <template #item.downloads="{ item }">
+                <v-btn
+                  v-if="item.is_valid_link"
+                  color="red-darken-4"
+                  prepend-icon="mdi-download"
+                  variant="tonal"
+                  elevation="4"
+                  class="ma-1 hover-effect border-sm"
+                  @click="incrementDownloads(item.id, item.link)"
+                >
+                  Download
+                </v-btn>
+                <v-btn
+                  v-else
+                  color="grey"
+                  prepend-icon="mdi-alert-circle"
+                  variant="tonal"
+                  elevation="4"
+                  class="ma-1 border-sm"
+                  :href="item.link"
+                  target="_blank"
+                >
+                  Invalid link
+                </v-btn>
+              </template>
+            </v-data-table>
+
             <!-- Data display -->
             <v-data-iterator v-else class="mt-5" :items="files" :items-per-page="perPage">
               <template v-slot:default="{ items }">
@@ -674,5 +749,9 @@ a {
 
 li {
   list-style: none;
+}
+
+::v-deep(.v-data-table-footer) {
+  display: none !important;
 }
 </style>

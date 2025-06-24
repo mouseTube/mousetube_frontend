@@ -24,6 +24,7 @@ const showFilters = ref(false);
 const filters = ref(['all']);
 const apiBaseUrl = useApiBaseUrl();
 const softwareTypeFilter = ref('all');
+const viewMode = ref('cards');
 
 ////////////////////////////////
 // METHODS
@@ -115,6 +116,19 @@ onMounted(() => fetchSoftware());
               />
               <v-spacer></v-spacer>
 
+              <!-- Toggle view button -->
+              <v-btn
+                icon
+                variant="text"
+                @click="viewMode = viewMode === 'cards' ? 'table' : 'cards'"
+                :title="viewMode === 'cards' ? 'Switch to Table View' : 'Switch to Card View'"
+                class="me-2"
+              >
+                <v-icon>
+                  {{ viewMode === 'cards' ? 'mdi-table' : 'mdi-view-module' }}
+                </v-icon>
+              </v-btn>
+
               <v-select
                 v-model="perPage"
                 :items="[10, 20, 50, 100]"
@@ -174,7 +188,123 @@ onMounted(() => fetchSoftware());
                 </v-col>
               </v-row>
             </v-alert>
-            <!-- Data display -->
+
+            <!-- Table View -->
+            <v-data-table
+              v-if="viewMode === 'table'"
+              :items="softwareList"
+              :headers="[
+                { title: 'Name', value: 'name' },
+                { title: 'Type', value: 'type' },
+                { title: 'Made by', value: 'made_by' },
+                { title: 'References', value: 'references' },
+                { title: 'Contact', value: 'users' },
+              ]"
+              :items-per-page="perPage"
+              class="elevation-1 mt-5"
+              :loading="!dataLoaded"
+              loading-text="Loading..."
+              density="comfortable"
+            >
+              <!-- Name with tooltip -->
+              <template #item.name="{ item }">
+                <v-tooltip location="top">
+                  <template #activator="{ props }">
+                    <span
+                      v-bind="props"
+                      class="text-truncate"
+                      style="max-width: 250px; display: inline-block; cursor: help"
+                    >
+                      {{ item.name }}
+                    </span>
+                  </template>
+                  <span>{{ item.description }}</span>
+                </v-tooltip>
+              </template>
+
+              <!-- Made by with ellipsis + tooltip -->
+              <template #item.made_by="{ item }">
+                <v-tooltip location="top">
+                  <template #activator="{ props }">
+                    <span
+                      v-bind="props"
+                      style="
+                        max-width: 300px;
+                        display: inline-block;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        cursor: help;
+                      "
+                    >
+                      {{ item.made_by }}
+                    </span>
+                  </template>
+                  <span>{{ item.made_by }}</span>
+                </v-tooltip>
+              </template>
+              <!-- References with tooltip and ellipsis -->
+              <template #item.references="{ item }">
+                <v-tooltip location="top">
+                  <template #activator="{ props }">
+                    <span
+                      v-bind="props"
+                      style="
+                        max-width: 250px;
+                        display: inline-block;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        cursor: help;
+                      "
+                    >
+                      <template v-if="item.references && item.references.length">
+                        {{ item.references.map((ref) => ref.url).join(', ') }}
+                      </template>
+                      <template v-else>-</template>
+                    </span>
+                  </template>
+                  <span>
+                    <template v-if="item.references && item.references.length">
+                      {{ item.references.map((ref) => ref.url).join(', ') }}
+                    </template>
+                    <template v-else>-</template>
+                  </span>
+                </v-tooltip>
+              </template>
+
+              <!-- Contact with tooltip and ellipsis -->
+              <template #item.users="{ item }">
+                <v-tooltip location="top">
+                  <template #activator="{ props }">
+                    <span
+                      v-bind="props"
+                      style="
+                        max-width: 250px;
+                        display: inline-block;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        cursor: help;
+                      "
+                    >
+                      <template v-if="item.users && item.users.length">
+                        {{ item.users.map((u) => u.email_user).join(', ') }}
+                      </template>
+                      <template v-else>-</template>
+                    </span>
+                  </template>
+                  <span>
+                    <template v-if="item.users && item.users.length">
+                      {{ item.users.map((u) => u.email_user).join(', ') }}
+                    </template>
+                    <template v-else>-</template>
+                  </span>
+                </v-tooltip>
+              </template>
+            </v-data-table>
+
+            <!-- Cards View -->
             <v-data-iterator v-else class="mt-5" :items="softwareList" :items-per-page="perPage">
               <template v-slot:default="{ items }">
                 <v-container class="pa-2" fluid>
@@ -331,5 +461,15 @@ a {
 
 li {
   list-style: none;
+}
+
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+::v-deep(.v-data-table-footer) {
+  display: none !important;
 }
 </style>
