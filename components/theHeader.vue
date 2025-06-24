@@ -71,12 +71,7 @@ const handleLogout = async () => {
       </v-col>
 
       <!-- Login button -->
-      <v-col
-        cols="auto"
-        v-if="!smAndDown"
-        class="d-flex align-center flex-nowrap"
-        style="width: 200px"
-      >
+      <v-col cols="auto" v-if="!smAndDown" class="d-flex align-center flex-nowrap">
         <template v-if="currentUser">
           <nuxt-link
             to="/account/details"
