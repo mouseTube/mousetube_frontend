@@ -25,7 +25,7 @@ const confirmLink = async () => {
   try {
     await axios.post(
       `${apiBaseUrl}/link-orcid/`,
-      { orcid },
+      { orcid, firstName, lastName },
       { headers: { Authorization: `Bearer ${auth.token.value}` } }
     );
 

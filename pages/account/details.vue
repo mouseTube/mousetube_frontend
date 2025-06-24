@@ -72,6 +72,9 @@ onMounted(async () => {
   fetchUserProfile();
   fetchHardware();
   fetchSoftware();
+  if (currentUser.value === null) {
+    router.push('/account/login');
+  }
 });
 
 ////////////////////////////////
