@@ -1,0 +1,219 @@
+<script setup>
+import { ref, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import axios from 'axios';
+const apiBaseUrl = useApiBaseUrl();
+const route = useRoute();
+const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
+
+const loginForm = ref(null);
+const showPassword = ref(false);
+const showPassword2 = ref(false);
+
+const requiredRule = (v) => (!!v && v.trim() !== '') || 'This field is required';
+const emailRule = (v) => /.+@.+\..+/.test(v) || 'Invalid email';
+const serverMessage = ref('');
+const alertType = ref(''); // 'success' or 'error'
+const hasOrcid = ref(false);
+
+const form = ref({
+  username: '',
+  email: '',
+  first_name: '',
+  last_name: '',
+  orcid: '',
+  password: '',
+  password2: '',
+});
+
+const errors = ref({
+  username: [],
+  email: [],
+  first_name: [],
+  last_name: [],
+  orcid: [],
+  password: [],
+  password2: [],
+});
+
+const passwordError = computed(
+  () => form.value.password !== form.value.password2 && form.value.password2.length > 0
+);
+
+const handleRegister = async () => {
+  serverMessage.value = '';
+  alertType.value = '';
+  const result = await loginForm.value?.validate();
+  if (!result?.valid || passwordError.value) return;
+
+  // Reset errors
+  Object.keys(errors.value).forEach((key) => {
+    errors.value[key] = [];
+  });
+
+  try {
+    await axios.post(`${baseUrl.value}/auth/users/`, {
+      username: form.value.username,
+      email: form.value.email,
+      password: form.value.password,
+      first_name: form.value.first_name,
+      last_name: form.value.last_name,
+      orcid: form.value.orcid,
+    });
+    serverMessage.value = 'Check your email to activate your account.';
+    alertType.value = 'success';
+  } catch (error) {
+    const data = error?.response?.data;
+    if (data && typeof data === 'object') {
+      Object.entries(data).forEach(([field, messages]) => {
+        if (field in errors.value) {
+          errors.value[field] = messages;
+        }
+      });
+    } else {
+      serverMessage.value = 'An unknown error occurred';
+    }
+    alertType.value = 'error';
+  }
+};
+
+onMounted(() => {
+  const q = route.query;
+  if (q.first_name) form.value.first_name = q.first_name;
+  if (q.last_name) form.value.last_name = q.last_name;
+  if (q.orcid) {
+    form.value.orcid = q.orcid;
+    hasOrcid.value = true;
+    serverMessage.value =
+      'No mouseTube user found with the given ORCID.\n' +
+      'Please complete this form to finish your registration.\n' +
+      'If you already have an account, log in and then link your ORCID to your profile.';
+  }
+});
+</script>
+
+<template>
+  <v-main
+    class="d-flex flex-column align-center justify-center"
+    style="min-height: 100vh; background-color: white"
+  >
+    <!-- Logo -->
+    <img
+      src="/logo_mousetube_big.png"
+      alt="mouseTube Logo"
+      style="width: 300px; margin-bottom: 12px"
+    />
+
+    <!-- Title -->
+    <h2 class="text-h5 font-weight-medium mb-1">Create your mouseTube account</h2>
+    <p class="text-body-2 mb-6" style="color: #666">Please fill in the form to register.</p>
+
+    <!-- Card -->
+    <v-card
+      class="pa-6"
+      style="border-radius: 20px; max-width: 360px; width: 100%; box-shadow: 0 4px 16px #00000015"
+    >
+      <v-form ref="loginForm" @submit.prevent="handleRegister">
+        <v-text-field
+          v-model="form.username"
+          label="Username *"
+          variant="outlined"
+          density="comfortable"
+          :rules="[requiredRule]"
+          :error-messages="errors.username"
+          class="mb-2"
+          required
+        />
+        <v-text-field
+          v-model="form.email"
+          label="Email *"
+          variant="outlined"
+          density="comfortable"
+          :rules="[requiredRule, emailRule]"
+          :error-messages="errors.email"
+          class="mb-2"
+          required
+        />
+        <v-text-field
+          v-model="form.first_name"
+          label="First name"
+          variant="outlined"
+          density="comfortable"
+          :error-messages="errors.first_name"
+          class="mb-2"
+        />
+        <v-text-field
+          v-model="form.last_name"
+          label="Last name"
+          variant="outlined"
+          density="comfortable"
+          :error-messages="errors.last_name"
+          class="mb-2"
+        />
+        <v-text-field
+          v-if="hasOrcid"
+          v-model="form.orcid"
+          label="ORCID"
+          readonly
+          variant="outlined"
+          density="comfortable"
+          class="mb-2"
+        />
+        <v-text-field
+          v-model="form.password"
+          :type="showPassword ? 'text' : 'password'"
+          label="Password *"
+          variant="outlined"
+          density="comfortable"
+          :error-messages="errors.password"
+          class="mb-2"
+          required
+        >
+          <template #append-inner>
+            <v-icon @click="showPassword = !showPassword" class="cursor-pointer">
+              {{ showPassword ? 'mdi-eye-off' : 'mdi-eye' }}
+            </v-icon>
+          </template>
+        </v-text-field>
+
+        <v-text-field
+          v-model="form.password2"
+          :type="showPassword2 ? 'text' : 'password'"
+          label="Confirm Password *"
+          variant="outlined"
+          density="comfortable"
+          :error="passwordError"
+          :error-messages="passwordError ? ['Passwords do not match'] : errors.password2"
+          class="mb-2"
+          required
+        >
+          <template #append-inner>
+            <v-icon @click="showPassword2 = !showPassword2" class="cursor-pointer">
+              {{ showPassword2 ? 'mdi-eye-off' : 'mdi-eye' }}
+            </v-icon>
+          </template>
+        </v-text-field>
+
+        <!-- Server message -->
+        <v-alert
+          v-if="serverMessage"
+          :type="alertType"
+          class="mb-4"
+          border="left"
+          prominent
+          elevation="2"
+          style="white-space: pre-line"
+        >
+          <template #prepend>
+            <v-icon>mdi-information</v-icon>
+          </template>
+          {{ serverMessage }}
+        </v-alert>
+
+        <v-btn color="primary" style="width: 100%" type="submit" class="mt-2">
+          Create Account
+        </v-btn>
+      </v-form>
+    </v-card>
+  </v-main>
+</template>

@@ -7,7 +7,12 @@ PHENOMIN, CNRS UMR7104, INSERM U964, Université de Strasbourg
 Code under GPL v3.0 licence
 -->
 
-<script setup lang="ts"></script>
+<script setup>
+import { useAuth } from '@/composables/useAuth';
+
+const auth = useAuth();
+await auth.init();
+</script>
 
 <template>
   <div class="page-wrapper">

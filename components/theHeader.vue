@@ -10,9 +10,13 @@ Code under GPL v3.0 licence
 import { Users, AudioLines, MonitorCog, Mic, Warehouse, Database, User } from 'lucide-vue-next';
 import { ref } from 'vue';
 import { useDisplay } from 'vuetify';
+import { useAuth } from '@/composables/useAuth';
+import { useRouter } from 'vue-router';
 
 const drawer = ref(false);
 const { smAndDown } = useDisplay();
+const { currentUser, logout } = useAuth();
+const router = useRouter();
 
 const links = [
   { to: '/vocalizations', label: 'Vocalizations', icon: AudioLines },
@@ -22,6 +26,11 @@ const links = [
   { to: '/dataset', label: 'Dataset', icon: Database },
   { to: '/team', label: 'Team', icon: Users },
 ];
+
+const handleLogout = async () => {
+  logout();
+  router.push('/account/login');
+};
 </script>
 
 <template>
@@ -61,14 +70,41 @@ const links = [
         </template>
       </v-col>
 
-      <!-- Bouton Login -->
-      <v-col cols="auto" v-if="!smAndDown" class="d-flex align-center" style="width: 186px">
-        <nuxt-link to="/" class="nuxt-link nav-item px-2" exact-active-class="active-link">
-          <span class="nav-link-content">
-            <User class="nav-icon audio-hover-icon" />
-            <span class="nav-label">Login</span>
-          </span>
-        </nuxt-link>
+      <!-- Login button -->
+      <v-col cols="auto" v-if="!smAndDown" class="d-flex align-center flex-nowrap">
+        <template v-if="currentUser">
+          <nuxt-link
+            to="/account/details"
+            class="nuxt-link nav-item px-2"
+            exact-active-class="active-link"
+          >
+            <span class="nav-link-content mr-2">
+              <User class="nav-icon audio-hover-icon" />
+              <span class="nav-label">{{ currentUser }}</span>
+            </span>
+          </nuxt-link>
+          <v-btn
+            class="ml-n2"
+            color="red darken-2"
+            variant="text"
+            size="small"
+            @click="handleLogout"
+          >
+            Log out
+          </v-btn>
+        </template>
+        <template v-else>
+          <nuxt-link
+            to="/account/login"
+            class="nuxt-link nav-item px-2"
+            exact-active-class="active-link"
+          >
+            <span class="nav-link-content">
+              <User class="nav-icon audio-hover-icon" />
+              <span class="nav-label">Login</span>
+            </span>
+          </nuxt-link>
+        </template>
       </v-col>
     </v-row>
   </v-app-bar>
@@ -96,12 +132,33 @@ const links = [
       <v-divider color="white" />
 
       <v-list nav dense>
-        <v-list-item to="/" exact-active-class="active-link">
-          <template #prepend>
-            <User class="me-3 nav-icon audio-icon audio-hover-icon" size="20" />
-          </template>
-          <v-list-item-title>Login</v-list-item-title>
-        </v-list-item>
+        <template v-if="currentUser">
+          <v-list-item>
+            <template #prepend>
+              <User class="me-3 nav-icon audio-icon audio-hover-icon" size="20" />
+            </template>
+            <nuxt-link
+              to="/account/details"
+              class="nuxt-link nav-item px-2"
+              exact-active-class="active-link"
+            >
+              <v-list-item-title>{{ currentUser }}</v-list-item-title>
+            </nuxt-link>
+            <template #append>
+              <v-btn color="primary" variant="text" size="small" @click="handleLogout">
+                Log out
+              </v-btn>
+            </template>
+          </v-list-item>
+        </template>
+        <template v-else>
+          <v-list-item to="/account/login" exact-active-class="active-link">
+            <template #prepend>
+              <User class="me-3 nav-icon audio-icon audio-hover-icon" size="20" />
+            </template>
+            <v-list-item-title>Login</v-list-item-title>
+          </v-list-item>
+        </template>
       </v-list>
     </div>
   </v-navigation-drawer>
