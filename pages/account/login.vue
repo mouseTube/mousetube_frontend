@@ -10,8 +10,8 @@ const showPassword = ref(false);
 const loginErrorMessage = ref('');
 const loginForm = ref(null);
 const formValid = ref(true);
-// const apiBaseUrl = useApiBaseUrl();
-const baseUrl = ref('https://dane-aware-vaguely.ngrok-free.app');
+const apiBaseUrl = useApiBaseUrl();
+const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
 
 const handleLogin = async () => {
   loginErrorMessage.value = ''; // reset

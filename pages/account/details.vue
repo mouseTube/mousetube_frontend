@@ -19,9 +19,9 @@ const tab = ref('info');
 const userProfile = ref(null);
 const hardware = ref([]);
 const software = ref([]);
-const apiBaseUrl = useApiBaseUrl();
 const isLoadingUser = ref(true);
-const baseUrl = ref('https://dane-aware-vaguely.ngrok-free.app');
+const apiBaseUrl = useApiBaseUrl();
+const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
 
 ////////////////////////////
 // METHODS
