@@ -1,16 +1,8 @@
 <script setup>
-////////////////////////////////
-// IMPORT
-////////////////////////////////
-
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { debounce } from 'lodash';
 import { MonitorCog } from 'lucide-vue-next';
-
-////////////////////////////////
-// DATA
-////////////////////////////////
 
 const dataLoaded = ref(false);
 const search = ref('');
@@ -23,17 +15,21 @@ const perPage = ref(10);
 const showFilters = ref(false);
 const filters = ref(['all']);
 const apiBaseUrl = useApiBaseUrl();
-const softwareTypeFilter = ref('all');
 const viewMode = ref('cards');
+const showFiltersMobile = ref(false);
+const showFiltersDesktop = ref(false);
+const isDesktop = ref(window.innerWidth >= 960);
 
-////////////////////////////////
-// METHODS
-////////////////////////////////
+function updateIsDesktop() {
+  isDesktop.value = window.innerWidth >= 960;
+  if (isDesktop.value) {
+    showFiltersDesktop.value = false;
+    showFiltersMobile.value = false;
+  } else {
+    showFiltersDesktop.value = false;
+  }
+}
 
-/**
- * Fetch software from the API
- * @param {string} url - The URL to fetch data from
- */
 const fetchSoftware = async (
   url = `${apiBaseUrl}/software/?page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`
 ) => {
@@ -53,56 +49,81 @@ const fetchSoftware = async (
   }
 };
 
-/**
- * Debounced search function
- * @param {string} searchTerm - The search term to filter software
- */
 const onSearch = debounce(() => {
   fetchSoftware(
     `${apiBaseUrl}/software/?search=${encodeURIComponent(search.value)}&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`
   );
 }, 600);
 
-////////////////////////////////
-// WATCHER
-////////////////////////////////
-
-watch(perPage, async () => {
-  await fetchSoftware();
-});
-
+watch(perPage, fetchSoftware);
 watch(search, async (newSearch) => {
   if (newSearch === null) {
     search.value = '';
     await fetchSoftware();
   }
 });
-
-// Watch filters value and trigger fetchSoftware
-watch(filters, () => {
+watch(filters, () => fetchSoftware());
+onMounted(() => {
   fetchSoftware();
+  updateIsDesktop();
+  window.addEventListener('resize', updateIsDesktop);
 });
 
-////////////////////////////////
-// ONMOUNTED
-////////////////////////////////
-onMounted(() => fetchSoftware());
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateIsDesktop);
+});
 </script>
 
 <template>
   <v-main>
-    <v-container>
+    <v-container fluid>
       <v-row>
-        <v-col>
+        <!-- Drawer Mobile -->
+        <v-navigation-drawer
+          v-model="showFiltersMobile"
+          location="left"
+          temporary
+          class="d-md-none"
+        >
+          <v-sheet color="grey-lighten-4" class="pa-4">
+            <h3 class="text-subtitle-1 mb-2">Filters</h3>
+            <v-select
+              v-model="filters"
+              :items="['all', 'acquisition', 'analysis', 'acquisition and analysis']"
+              label="Filter by Software Type"
+              density="compact"
+              hide-details
+            />
+          </v-sheet>
+        </v-navigation-drawer>
+
+        <!-- Sidebar desktop (panel filtre) -->
+        <v-sheet v-if="showFiltersDesktop && isDesktop" class="filter-overlay" elevation="8">
+          <v-btn
+            icon="mdi-close"
+            @click="showFiltersDesktop = false"
+            variant="text"
+            aria-label="Close filter panel"
+          />
+          <h3>Filters</h3>
+          <v-select
+            v-model="filters"
+            :items="['all', 'acquisition', 'analysis', 'acquisition and analysis']"
+            label="Filter by Software Type"
+            density="comfortable"
+            variant="outlined"
+          />
+        </v-sheet>
+
+        <!-- Main Content -->
+        <v-col :cols="12">
           <v-card variant="flat" class="mx-auto" max-width="1000">
             <div class="d-flex align-center mt-1 mb-4">
               <h1><MonitorCog /> Software</h1>
-              <v-chip v-if="count > 0" class="me-1 my-1 mx-2">
-                {{ count }}
-              </v-chip>
+              <v-chip v-if="count > 0" class="me-1 my-1 mx-2">{{ count }}</v-chip>
             </div>
-            <!-- Search bar  -->
-            <v-toolbar rounded="lg" class="px-2 border-sm">
+
+            <v-toolbar rounded="lg" class="px-2 border-sm mb-4">
               <v-text-field
                 v-model="search"
                 @input="onSearch"
@@ -116,7 +137,6 @@ onMounted(() => fetchSoftware());
               />
               <v-spacer></v-spacer>
 
-              <!-- Toggle view button -->
               <v-btn
                 icon
                 variant="text"
@@ -136,37 +156,20 @@ onMounted(() => fetchSoftware());
                 variant="outlined"
                 style="max-width: 100px; font-size: 12px"
                 attach="body"
-                :menu-props="{ contentClass: 'select-dropdown-zfix' }"
                 hide-details
               />
 
-              <v-btn icon="mdi-filter-variant" @click="showFilters = !showFilters" variant="text" />
+              <v-btn
+                icon="mdi-filter-variant"
+                @click="
+                  isDesktop
+                    ? (showFiltersDesktop = !showFiltersDesktop)
+                    : (showFiltersMobile = true)
+                "
+                variant="text"
+              />
             </v-toolbar>
-            <!-- Filtres -->
-            <div class="px-10">
-              <v-expand-transition>
-                <v-sheet
-                  v-if="showFilters"
-                  color="grey-lighten-4"
-                  class="pa-4 mt-2 mb-4 rounded-lg border elevation-1"
-                  mx-auto
-                >
-                  <h3 class="text-subtitle-1 mb-2">Filters</h3>
-                  <v-row>
-                    <v-col cols="12" sm="4">
-                      <v-select
-                        v-model="filters"
-                        :items="['all', 'acquisition', 'analysis', 'acquisition and analysis']"
-                        label="Filter by Software Type"
-                        dense
-                        hide-details
-                        class="py-0"
-                      />
-                    </v-col>
-                  </v-row>
-                </v-sheet>
-              </v-expand-transition>
-            </div>
+
             <!-- Loading spinner  -->
             <v-progress-circular
               v-if="!dataLoaded"
@@ -342,7 +345,6 @@ onMounted(() => fetchSoftware());
                       <v-label class="mr-2"></v-label>{{ software.description }}<br />
                     </v-card-item>
 
-                    <!-- References Section -->
                     <v-expansion-panels>
                       <v-expansion-panel title="References" bg-color="grey-lighten-2">
                         <v-expansion-panel-text>
@@ -387,7 +389,9 @@ onMounted(() => fetchSoftware());
                         </v-expansion-panel-text>
                       </v-expansion-panel>
                     </v-expansion-panels>
+
                     <v-divider class="mx-4"></v-divider>
+
                     <v-card-actions v-if="software.users && software.users.length" class="pl-4">
                       <div class="d-flex flex-wrap align-center ga-4">
                         <div
@@ -445,9 +449,53 @@ onMounted(() => fetchSoftware());
 </template>
 
 <style scoped>
+.filter-overlay {
+  position: fixed;
+  top: 80px;
+  left: 20px;
+  width: 320px;
+  max-height: calc(100vh - 100px);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 24px 24px 32px;
+  z-index: 1500;
+  overflow-y: auto;
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.filter-overlay .v-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  color: #666;
+  transition: color 0.2s ease;
+}
+
+.filter-overlay .v-btn:hover {
+  color: #d32f2f;
+}
+
+.filter-overlay h3 {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20px;
+  user-select: none;
+}
+
+.filter-overlay .v-select {
+  --v-theme-primary: #d32f2f;
+  margin-top: 0 !important;
+}
+
 .hover-effect:hover {
   transform: scale(1.05);
-  background-color: rgb(247, 226, 226);
+  background-color: #f7e2e2;
+  transition:
+    background-color 0.3s ease,
+    transform 0.3s ease;
 }
 
 a {
@@ -457,10 +505,6 @@ a {
 
 .doi:hover {
   text-decoration: underline;
-}
-
-li {
-  list-style: none;
 }
 
 .text-truncate {
