@@ -171,7 +171,7 @@ watch(
           </v-window-item>
           <v-window-item value="params">
             <div>
-              <p>Choose your default software view mode:</p>
+              <p>Choose your default view mode:</p>
               <v-radio-group v-model="viewMode" row>
                 <v-radio label="Cards" value="cards" />
                 <v-radio label="Table" value="table" />
