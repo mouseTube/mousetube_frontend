@@ -22,6 +22,7 @@ const software = ref([]);
 const isLoadingUser = ref(true);
 const apiBaseUrl = useApiBaseUrl();
 const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
+const viewMode = ref('cards');
 
 ////////////////////////////
 // METHODS
@@ -35,6 +36,26 @@ const fetchUserProfile = async () => {
     headers: { Authorization: `Bearer ${token.value}` },
   });
   userProfile.value = res.data[0];
+  if (userProfile.value?.view_mode) {
+    viewMode.value = userProfile.value.view_mode;
+  }
+};
+
+/**
+ * Fetch user profile saved view mode
+ */
+const saveViewMode = async (newMode) => {
+  if (!userProfile.value) return;
+  try {
+    const patchData = { view_mode: newMode };
+    await axios.patch(`${apiBaseUrl}/user_profile/${userProfile.value.id}/`, patchData, {
+      headers: { Authorization: `Bearer ${token.value}` },
+    });
+    userProfile.value.view_mode = newMode; // mise à jour locale
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to save view mode:', error);
+  }
 };
 
 /**
@@ -81,6 +102,9 @@ onMounted(async () => {
 // WATCHER
 ////////////////////////////////
 
+watch(viewMode, (newVal) => {
+  saveViewMode(newVal);
+});
 watch(
   () => currentUser.value,
   (val) => {
@@ -147,7 +171,11 @@ watch(
           </v-window-item>
           <v-window-item value="params">
             <div>
-              <p>Parameters tab content (add your settings here).</p>
+              <p>Choose your default software view mode:</p>
+              <v-radio-group v-model="viewMode" row>
+                <v-radio label="Cards" value="cards" />
+                <v-radio label="Table" value="table" />
+              </v-radio-group>
             </div>
           </v-window-item>
           <v-window-item value="token">

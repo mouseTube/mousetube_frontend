@@ -1,8 +1,18 @@
 <script setup>
+////////////////////////////////
+// IMPORT
+////////////////////////////////
 import { ref, onMounted, watch, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import { debounce } from 'lodash';
 import { MonitorCog } from 'lucide-vue-next';
+import { useAuth } from '@/composables/useAuth';
+
+const { token, id_user, fetchUser } = useAuth();
+
+////////////////////////////////
+// DATA
+////////////////////////////////
 
 const dataLoaded = ref(false);
 const search = ref('');
@@ -12,20 +22,21 @@ const previous = ref(null);
 const count = ref(0);
 const currentPage = ref(1);
 const perPage = ref(10);
-const showFilters = ref(false);
 const filters = ref(['all']);
 const apiBaseUrl = useApiBaseUrl();
 const viewMode = ref('cards');
 const showFiltersMobile = ref(false);
 const showFiltersDesktop = ref(false);
 const isDesktop = ref(window.innerWidth >= 960);
+const userProfile = ref(null);
+
+////////////////////////////////
+// METHODS
+////////////////////////////////
 
 function updateIsDesktop() {
   isDesktop.value = window.innerWidth >= 960;
-  if (isDesktop.value) {
-    showFiltersDesktop.value = false;
-    showFiltersMobile.value = false;
-  } else {
+  if (!isDesktop.value) {
     showFiltersDesktop.value = false;
   }
 }
@@ -55,6 +66,48 @@ const onSearch = debounce(() => {
   );
 }, 600);
 
+const lastPage = computed(() => Math.ceil(count.value / perPage.value));
+
+const lastPageUrl = computed(() => {
+  return `${apiBaseUrl}/software/?page=${lastPage.value}&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`;
+});
+
+const firstPageUrl = computed(() => {
+  return `${apiBaseUrl}/software/?page=1&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`;
+});
+
+async function fetchUserProfile() {
+  if (!id_user.value || !token.value) return;
+
+  const res = await axios.get(`${apiBaseUrl}/user_profile/?user_id=${id_user.value}`, {
+    headers: { Authorization: `Bearer ${token.value}` },
+  });
+  userProfile.value = res.data[0];
+}
+
+async function loadUserPreferences() {
+  try {
+    await fetchUser();
+    await fetchUserProfile();
+
+    if (userProfile.value?.view_mode) {
+      viewMode.value = userProfile.value.view_mode;
+    } else {
+      viewMode.value = 'cards';
+    }
+
+    await fetchSoftware();
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error loading user preferences or software:', error);
+    await fetchSoftware();
+  }
+}
+
+////////////////////////////////
+// WATCHER
+////////////////////////////////
+
 watch(perPage, fetchSoftware);
 watch(search, async (newSearch) => {
   if (newSearch === null) {
@@ -63,9 +116,13 @@ watch(search, async (newSearch) => {
   }
 });
 watch(filters, () => fetchSoftware());
-onMounted(() => {
-  fetchSoftware();
-  updateIsDesktop();
+
+////////////////////////////////
+// ONMOUNTED
+////////////////////////////////
+
+onMounted(async () => {
+  await loadUserPreferences();
   window.addEventListener('resize', updateIsDesktop);
 });
 
@@ -86,7 +143,10 @@ onBeforeUnmount(() => {
           class="d-md-none"
         >
           <v-sheet color="grey-lighten-4" class="pa-4">
-            <h3 class="text-subtitle-1 mb-2">Filters</h3>
+            <div class="d-flex justify-space-between align-center mb-2">
+              <h3 class="text-subtitle-1 mb-2">Filters</h3>
+              <v-chip v-if="count > 0" class="me-1 my-1 mx-2">{{ count }}</v-chip>
+            </div>
             <v-select
               v-model="filters"
               :items="['all', 'acquisition', 'analysis', 'acquisition and analysis']"
@@ -422,6 +482,14 @@ onBeforeUnmount(() => {
             <!-- Pagination -->
             <div class="d-flex align-center justify-center pa-4">
               <v-btn
+                :disabled="currentPage == 1"
+                icon="mdi-skip-backward"
+                density="comfortable"
+                variant="tonal"
+                rounded
+                @click="fetchSoftware(firstPageUrl)"
+              ></v-btn>
+              <v-btn
                 :disabled="!previous"
                 icon="mdi-arrow-left"
                 density="comfortable"
@@ -439,6 +507,14 @@ onBeforeUnmount(() => {
                 variant="tonal"
                 rounded
                 @click="fetchSoftware(next)"
+              ></v-btn>
+              <v-btn
+                :disabled="currentPage == Math.ceil(count / perPage)"
+                icon="mdi-skip-forward"
+                density="comfortable"
+                variant="tonal"
+                rounded
+                @click="fetchSoftware(lastPageUrl)"
               ></v-btn>
             </div>
           </v-card>

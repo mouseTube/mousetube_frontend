@@ -16,6 +16,9 @@ import { ref, onMounted, watch, computed } from 'vue';
 import axios from 'axios';
 import { debounce } from 'lodash';
 import { AudioLines } from 'lucide-vue-next';
+import { useAuth } from '@/composables/useAuth';
+
+const { token, id_user, fetchUser } = useAuth();
 
 ////////////////////////////////
 // DATA
@@ -34,10 +37,21 @@ const filters = ref(['is_valid_link']);
 const apiBaseUrl = useApiBaseUrl();
 const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
 const viewMode = ref('cards');
+const showFiltersMobile = ref(false);
+const showFiltersDesktop = ref(false);
+const isDesktop = ref(window.innerWidth >= 960);
+const userProfile = ref(null);
 
 ////////////////////////////////
 // METHODS
 ////////////////////////////////
+
+function updateIsDesktop() {
+  isDesktop.value = window.innerWidth >= 960;
+  if (!isDesktop.value) {
+    showFiltersDesktop.value = false;
+  }
+}
 
 /**
  * Fetch files from the API
@@ -105,6 +119,44 @@ const incrementDownloads = async (fileId, fileLink) => {
   }
 };
 
+const lastPage = computed(() => Math.ceil(count.value / perPage.value));
+
+const lastPageUrl = computed(() => {
+  return `${apiBaseUrl}/file/?page=${lastPage.value}&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`;
+});
+
+const firstPageUrl = computed(() => {
+  return `${apiBaseUrl}/file/?page=1&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`;
+});
+
+async function fetchUserProfile() {
+  if (!id_user.value || !token.value) return;
+
+  const res = await axios.get(`${apiBaseUrl}/user_profile/?user_id=${id_user.value}`, {
+    headers: { Authorization: `Bearer ${token.value}` },
+  });
+  userProfile.value = res.data[0];
+}
+
+async function loadUserPreferences() {
+  try {
+    await fetchUser();
+    await fetchUserProfile();
+
+    if (userProfile.value?.view_mode) {
+      viewMode.value = userProfile.value.view_mode;
+    } else {
+      viewMode.value = 'cards';
+    }
+
+    await fetchFiles();
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error loading user preferences or software:', error);
+    await fetchFiles();
+  }
+}
+
 ////////////////////////////////
 // WATCHER
 ////////////////////////////////
@@ -123,13 +175,62 @@ watch(search, async (newSearch) => {
 ////////////////////////////////
 // ONMOUNTED
 ////////////////////////////////
-onMounted(() => fetchFiles());
+
+onMounted(async () => {
+  await loadUserPreferences();
+  window.addEventListener('resize', updateIsDesktop);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateIsDesktop);
+});
 </script>
 
 <template>
   <v-main>
-    <v-container>
+    <v-container fluid>
       <v-row>
+        <!-- Drawer Mobile -->
+        <v-navigation-drawer
+          v-model="showFiltersMobile"
+          location="left"
+          temporary
+          class="d-md-none"
+        >
+          <v-sheet color="grey-lighten-4" class="pa-4">
+            <div class="d-flex justify-space-between align-center mb-2">
+              <h3 class="text-subtitle-1 mb-2">Filters</h3>
+              <v-chip v-if="count > 0" class="me-1 my-1 mx-2">{{ count }}</v-chip>
+            </div>
+            <v-checkbox
+              :model-value="filters.includes('is_valid_link')"
+              @change="() => toggleFilter('is_valid_link')"
+              label="Valid links"
+              density="compact"
+              hide-details
+              class="py-0"
+            />
+          </v-sheet>
+        </v-navigation-drawer>
+
+        <!-- Sidebar desktop (panel filtre) -->
+        <v-sheet v-if="showFiltersDesktop && isDesktop" class="filter-overlay" elevation="8">
+          <v-btn
+            icon="mdi-close"
+            @click="showFiltersDesktop = false"
+            variant="text"
+            aria-label="Close filter panel"
+          />
+          <h3>Filters</h3>
+          <v-checkbox
+            :model-value="filters.includes('is_valid_link')"
+            @change="() => toggleFilter('is_valid_link')"
+            label="Valid links"
+            density="compact"
+            hide-details
+            class="py-0"
+          />
+        </v-sheet>
         <v-col>
           <v-card variant="flat" class="mx-auto" max-width="1000">
             <div class="d-flex align-center mt-1 mb-4">
@@ -173,33 +274,16 @@ onMounted(() => fetchFiles());
                 :menu-props="{ contentClass: 'select-dropdown-zfix' }"
                 hide-details
               />
-              <v-btn icon="mdi-filter-variant" @click="showFilters = !showFilters" variant="text" />
+              <v-btn
+                icon="mdi-filter-variant"
+                @click="
+                  isDesktop
+                    ? (showFiltersDesktop = !showFiltersDesktop)
+                    : (showFiltersMobile = true)
+                "
+                variant="text"
+              />
             </v-toolbar>
-            <!-- Filtres -->
-            <div class="px-10">
-              <v-expand-transition>
-                <v-sheet
-                  v-if="showFilters"
-                  color="grey-lighten-4"
-                  class="pa-4 mt-2 mb-4 rounded-lg border elevation-1"
-                  mx-auto
-                >
-                  <h3 class="text-subtitle-1 mb-2">Filters</h3>
-                  <v-row>
-                    <v-col cols="12" sm="4">
-                      <v-checkbox
-                        :model-value="filters.includes('is_valid_link')"
-                        @change="() => toggleFilter('is_valid_link')"
-                        label="Valid links"
-                        density="compact"
-                        hide-details
-                        class="py-0"
-                      />
-                    </v-col>
-                  </v-row>
-                </v-sheet>
-              </v-expand-transition>
-            </div>
             <!-- Loading spinner  -->
             <v-progress-circular
               v-if="!dataLoaded"
@@ -706,6 +790,14 @@ onMounted(() => fetchFiles());
             <!-- Pagination -->
             <div class="d-flex align-center justify-center pa-4">
               <v-btn
+                :disabled="currentPage == 1"
+                icon="mdi-skip-backward"
+                density="comfortable"
+                variant="tonal"
+                rounded
+                @click="fetchFiles(firstPageUrl)"
+              ></v-btn>
+              <v-btn
                 :disabled="!previous"
                 icon="mdi-arrow-left"
                 density="comfortable"
@@ -724,6 +816,14 @@ onMounted(() => fetchFiles());
                 rounded
                 @click="fetchFiles(next)"
               ></v-btn>
+              <v-btn
+                :disabled="currentPage == Math.ceil(count / perPage)"
+                icon="mdi-skip-forward"
+                density="comfortable"
+                variant="tonal"
+                rounded
+                @click="fetchFiles(lastPageUrl)"
+              ></v-btn>
             </div>
           </v-card>
         </v-col>
@@ -733,9 +833,53 @@ onMounted(() => fetchFiles());
 </template>
 
 <style scoped>
+.filter-overlay {
+  position: fixed;
+  top: 80px;
+  left: 20px;
+  width: 320px;
+  max-height: calc(100vh - 100px);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 24px 24px 32px;
+  z-index: 1500;
+  overflow-y: auto;
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.filter-overlay .v-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  color: #666;
+  transition: color 0.2s ease;
+}
+
+.filter-overlay .v-btn:hover {
+  color: #d32f2f;
+}
+
+.filter-overlay h3 {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20px;
+  user-select: none;
+}
+
+.filter-overlay .v-select {
+  --v-theme-primary: #d32f2f;
+  margin-top: 0 !important;
+}
+
 .hover-effect:hover {
   transform: scale(1.05);
-  background-color: rgb(247, 226, 226);
+  background-color: #f7e2e2;
+  transition:
+    background-color 0.3s ease,
+    transform 0.3s ease;
 }
 
 a {
