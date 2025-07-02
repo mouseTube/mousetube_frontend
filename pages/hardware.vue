@@ -565,4 +565,8 @@ a {
 a:hover {
   text-decoration: underline;
 }
+
+::v-deep(.v-data-table-footer) {
+  display: none !important;
+}
 </style>
