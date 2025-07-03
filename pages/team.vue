@@ -82,7 +82,7 @@ watch(
 
 <template>
   <v-main>
-    <v-container>
+    <v-container fluid>
       <v-row>
         <v-col>
           <v-card variant="flat" class="mx-auto" max-width="800">

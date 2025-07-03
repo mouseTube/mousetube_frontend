@@ -11,7 +11,7 @@ Code under GPL v3.0 licence
 
 <template>
   <v-main>
-    <v-container>
+    <v-container fluid>
       <h1>Dataset</h1>
       <v-card>
         <v-card-title>Mouse dataset</v-card-title>
