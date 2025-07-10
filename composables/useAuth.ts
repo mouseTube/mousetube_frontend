@@ -92,11 +92,14 @@ export function useAuth() {
     token.value = res.data.access;
   };
 
+  const loggedIn = computed(() => !!token.value);
+
   return {
     currentUser,
     token,
     refresh,
     id_user,
+    loggedIn,
     login,
     logout,
     fetchUser,

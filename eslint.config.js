@@ -1,7 +1,8 @@
 import vue from 'eslint-plugin-vue';
 import nuxt from 'eslint-plugin-nuxt';
 import prettier from 'eslint-plugin-prettier';
-import parser from 'vue-eslint-parser';
+import vueParser from 'vue-eslint-parser';
+import tsParser from '@typescript-eslint/parser';
 import globals from 'globals';
 
 export default [
@@ -11,8 +12,9 @@ export default [
   {
     files: ['**/*.vue', '**/*.js'],
     languageOptions: {
-      parser,
+      parser: vueParser,
       parserOptions: {
+        parser: tsParser,
         ecmaVersion: 2022,
         sourceType: 'module',
         ecmaFeatures: {
