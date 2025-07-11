@@ -103,7 +103,7 @@ const handleLogout = async () => {
             </template>
 
             <v-list bg-color="black" class="text-white">
-              <v-list-item @click="() => router.push('/files/create')">
+              <v-list-item @click="() => router.push('/vocalization/create')">
                 <template #prepend>
                   <AudioLines size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
                 </template>

@@ -12,19 +12,25 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@koumoul/vjsf": "^3.16.1",
     "@mdi/font": "^7.2.96",
     "@pinia/nuxt": "^0.4.11",
     "@vueuse/core": "^13.3.0",
+    "ajv": "^8.17.1",
+    "ajv-errors": "^3.0.0",
+    "ajv-formats": "^3.0.1",
+    "ajv-i18n": "^4.2.0",
     "axios": "^1.4.0",
     "chart.js": "^4.3.0",
     "lucide-vue-next": "^0.488.0",
     "nuxt": "^3.8.0",
     "pinia": "^2.1.4",
     "sass": "^1.69.5",
+    "vite-plugin-vuetify": "^2.1.1",
     "vue": "latest",
     "vue-chartjs": "^5.2.0",
     "vue-router": "latest",
-    "vuetify": "^3.3.23"
+    "vuetify": "^3.8.12"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
