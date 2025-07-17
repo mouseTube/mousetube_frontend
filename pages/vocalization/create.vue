@@ -72,10 +72,6 @@ function onValidate(tabName, validation) {
   tabToUpdate.hasErrors = validation.hasErrors;
   tabToUpdate.errorMessage = validation.message || '';
 }
-
-function onSave(tabName) {
-  alert(`Save requested for ${tabName}`);
-}
 </script>
 
 <template>
@@ -109,9 +105,6 @@ function onSave(tabName) {
       <v-window v-model="tab">
         <v-window-item v-for="(item, index) in tabs" :key="item.name" :value="index">
           <component :is="item.component" @validate="onValidate(item.name, $event)" />
-          <div class="d-flex justify-end mt-4">
-            <v-btn color="primary" @click="onSave(item.name)">Save</v-btn>
-          </div>
         </v-window-item>
       </v-window>
     </v-card>
