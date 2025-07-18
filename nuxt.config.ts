@@ -1,11 +1,13 @@
 import vuetify from 'vite-plugin-vuetify'
-import { commonjsDeps } from '@koumoul/vjsf/utils/build.js'
 
 export default defineNuxtConfig({
   devtools: { enabled: true },
-  css: ['vuetify/lib/styles/main.sass', '@mdi/font/css/materialdesignicons.min.css'],
+  css: [
+    'vuetify/lib/styles/main.sass',
+    '@mdi/font/css/materialdesignicons.min.css'
+  ],
   build: {
-    transpile: ['vuetify', 'chart.js', '@koumoul/vjsf'],
+    transpile: ['vuetify', 'chart.js'],
   },
   app: {
     head: {
@@ -23,24 +25,8 @@ export default defineNuxtConfig({
   ssr: false,
   vite: {
     plugins: [vuetify()],
-    optimizeDeps: {
-      include: [...commonjsDeps, 'ajv-i18n'],
-    },
-    ssr: {
-      noExternal: ['ajv-i18n', '@koumoul/vjsf', '@json-layout/core', '@json-layout/vocabulary'],
-    },
-    build: {
-      commonjsOptions: {
-        transformMixedEsModules: true,
-      },
-    },
     define: {
       'process.env.DEBUG': false,
-    },
-    resolve: {
-      alias: {
-        'ajv-i18n': require.resolve('ajv-i18n'),
-      },
     },
   },
 })

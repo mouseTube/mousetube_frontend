@@ -5,13 +5,13 @@ import RecordingSessionTab from '@/components/tabs/RecordingSessionTab.vue';
 import ProtocolTab from '@/components/tabs/ProtocolTab.vue';
 import AnimalProfileTab from '@/components/tabs/AnimalProfileTab.vue';
 import FileTab from '@/components/tabs/FileTab.vue';
-import SoftwareTab from '@/components/tabs/SoftwareTab.vue';
-import HardwareTab from '@/components/tabs/HardwareTab.vue';
+// import SoftwareTab from '@/components/tabs/SoftwareTab.vue';
+// import HardwareTab from '@/components/tabs/HardwareTab.vue';
 import { AudioLines } from 'lucide-vue-next';
 import { markRaw } from 'vue';
 
 const tab = ref(0);
-
+const selectedProtocolId = ref(null);
 const tabs = [
   {
     name: 'recordingSession',
@@ -45,22 +45,22 @@ const tabs = [
     hasErrors: false,
     errorMessage: '',
   },
-  {
-    name: 'software',
-    label: 'Software',
-    component: markRaw(SoftwareTab),
-    disabled: false,
-    hasErrors: false,
-    errorMessage: '',
-  },
-  {
-    name: 'hardware',
-    label: 'Hardware',
-    component: markRaw(HardwareTab),
-    disabled: false,
-    hasErrors: false,
-    errorMessage: '',
-  },
+  // {
+  //   name: 'software',
+  //   label: 'Software',
+  //   component: markRaw(SoftwareTab),
+  //   disabled: false,
+  //   hasErrors: false,
+  //   errorMessage: '',
+  // },
+  // {
+  //   name: 'hardware',
+  //   label: 'Hardware',
+  //   component: markRaw(HardwareTab),
+  //   disabled: false,
+  //   hasErrors: false,
+  //   errorMessage: '',
+  // },
 ];
 
 const validationState = reactive({});
@@ -71,6 +71,9 @@ function onValidate(tabName, validation) {
 
   tabToUpdate.hasErrors = validation.hasErrors;
   tabToUpdate.errorMessage = validation.message || '';
+}
+function onProtocolSelected(protocolId) {
+  selectedProtocolId.value = protocolId;
 }
 </script>
 
@@ -104,7 +107,12 @@ function onValidate(tabName, validation) {
 
       <v-window v-model="tab">
         <v-window-item v-for="(item, index) in tabs" :key="item.name" :value="index">
-          <component :is="item.component" @validate="onValidate(item.name, $event)" />
+          <component
+            :is="item.component"
+            @validate="onValidate(item.name, $event)"
+            @protocol-selected="onProtocolSelected"
+            :selected-protocol-id="item.name === 'protocol' ? selectedProtocolId : undefined"
+          />
         </v-window-item>
       </v-window>
     </v-card>

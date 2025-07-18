@@ -1,353 +1,448 @@
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue';
-import Vjsf from '@koumoul/vjsf';
-import {
-  VForm,
-  VSnackbar,
-  VBtn,
-  VIcon,
-  VSelect,
-  VAutocomplete,
-  VToolbar,
-  VSpacer,
-} from 'vuetify/components';
-import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 import { useAuth } from '@/composables/useAuth';
 
-const data = ref({});
-const schema = ref(null);
+const emit = defineEmits(['validate', 'protocol-selected']);
+
 const apiBaseUrl = useApiBaseUrl();
 const { token } = useAuth();
 
-const vjsfRef = ref(null);
 const formRef = ref(null);
+const dateMenu = ref(false);
+const date = ref(null);
+const time = ref(null);
 const snackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('');
-const isSaving = ref(false);
 
-const recordId = ref(null);
-const recordingSessions = ref([]);
-const selectedRecordingSession = ref(null);
+const recordingSessionsOptions = ref([]);
+const selectedSessionId = ref('new');
 
-// --- Études déjà existantes
-const studiesOptions = ref([]); // tableau d'objets {id, name}
-const studySearch = ref('');
-
-// Fetch études depuis API
-async function fetchStudies() {
-  try {
-    const headers = token ? { Authorization: `Bearer ${token.value}` } : {};
-    const res = await fetch(`${apiBaseUrl}/study/`, { headers });
-    if (res.ok) {
-      const json = await res.json();
-      studiesOptions.value = json.results ?? json;
-    }
-  } catch (e) {
-    console.error(e);
-    showSnackbar('Error fetching studies', 'error');
-  }
-}
-
-// Fonction création nouvelle étude
-async function createNewStudy(name) {
-  if (!name || name.trim() === '') return;
-  try {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token.value}` } : {}),
-    };
-    const res = await fetch(`${apiBaseUrl}/study/`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ name }),
-    });
-    if (!res.ok) throw new Error('Failed to create study');
-    const newStudy = await res.json();
-    studiesOptions.value.push(newStudy);
-    if (!data.value.studies) data.value.studies = [];
-    // Ajouter objet complet (pas seulement l'id)
-    data.value.studies.push(newStudy);
-    studySearch.value = '';
-    showSnackbar(`Study "${name}" created`, 'success');
-  } catch (e) {
-    console.error(e);
-    showSnackbar('Error creating study', 'error');
-  }
-}
-
-// Computed list pour VAutocomplete avec option création dynamique
-const computedStudies = computed(() => {
-  const searchLower = studySearch.value.toLowerCase();
-  const filtered = studiesOptions.value.filter((s) => s.name.toLowerCase().includes(searchLower));
-  const exactMatch = filtered.some(
-    (s) => s.name.toLowerCase() === searchLower && searchLower !== ''
-  );
-  if (studySearch.value !== '' && !exactMatch) {
-    return [...filtered, { id: -1, name: `Create new study "${studySearch.value}"` }];
-  }
-  return filtered;
+const formData = ref({
+  name: '',
+  description: '',
+  date: '',
+  duration: null,
+  studies: [],
+  context: {
+    temperature: { value: null, unit: '°C' },
+    brightness: null,
+  },
+  equipment: {
+    channels: '',
+    sound_isolation: '',
+    soundcards: [],
+    microphones: [],
+    amplifiers: [],
+    speakers: [],
+    acquisition_software: [],
+  },
 });
 
-// Watcher pour gérer sélection option "Créer"
-function onStudiesChange(newValue) {
-  if (!Array.isArray(newValue)) return;
-  if (newValue.some((item) => item.id === -1)) {
-    // Retirer l'option "Créer"
-    const filtered = newValue.filter((item) => item.id !== -1);
-    data.value.studies = filtered;
-    createNewStudy(studySearch.value);
-  } else {
-    data.value.studies = newValue;
+const studiesOptions = ref([]);
+const hardwareOptions = ref([]);
+const softwareOptions = ref([]);
+
+const formattedDate = computed(() => {
+  if (date.value && time.value) {
+    return `${date.value} ${time.value}`;
   }
-}
+  return '';
+});
 
-// --- Utils & fonctions restantes
-
-const baseUrl = `${apiBaseUrl}/schema/`;
-
-async function resolveRefs(obj, baseUrl) {
-  if (typeof obj !== 'object' || obj === null) return obj;
-  if (obj.$ref && !obj.$ref.startsWith('http')) {
-    const refUrl = baseUrl + obj.$ref;
-    const refSchema = await fetch(refUrl).then((res) => res.json());
-    delete refSchema.$schema;
-    return resolveRefs(refSchema, baseUrl);
-  }
-  for (const key in obj) {
-    obj[key] = await resolveRefs(obj[key], baseUrl);
-  }
-  delete obj.$schema;
-  return obj;
-}
-
-function removeIdFieldsFromSchema(schema) {
-  if (schema.type === 'object' && schema.properties) {
-    const newSchema = { ...schema, properties: { ...schema.properties } };
-    delete newSchema.properties.id;
-    if (newSchema.required) {
-      newSchema.required = newSchema.required.filter((field) => field !== 'id');
-    }
-    for (const key in newSchema.properties) {
-      newSchema.properties[key] = removeIdFieldsFromSchema(newSchema.properties[key]);
-    }
-    return newSchema;
-  } else if (schema.type === 'array' && schema.items) {
-    return { ...schema, items: removeIdFieldsFromSchema(schema.items) };
-  }
-  return schema;
-}
-
-function convertToIdFields(payload) {
-  const newPayload = { ...payload };
-  const idMappings = [
-    ['protocol', 'protocol_id'],
-    ['studies', 'study_ids'],
-    ['laboratory', 'laboratory_id'],
-    ['animal_profiles', 'animal_profile_ids'],
-    ['equipment_acquisition_software', 'equipment_acquisition_software_ids'],
-    ['equipment_acquisition_hardware_soundcards', 'equipment_acquisition_hardware_soundcard_ids'],
-    ['equipment_acquisition_hardware_speakers', 'equipment_acquisition_hardware_speaker_ids'],
-    ['equipment_acquisition_hardware_amplifiers', 'equipment_acquisition_hardware_amplifier_ids'],
-    ['equipment_acquisition_hardware_microphones', 'equipment_acquisition_hardware_microphone_ids'],
-  ];
-
-  idMappings.forEach(([field, idField]) => {
-    if (newPayload[field]) {
-      if (Array.isArray(newPayload[field])) {
-        newPayload[idField] = newPayload[field].map((item) => item.id ?? item);
-      } else if (newPayload[field]?.id) {
-        newPayload[idField] = newPayload[field].id;
-      }
-      delete newPayload[field];
-    }
-  });
-
-  return newPayload;
-}
-
-function showSnackbar(message, color = 'success') {
+function showSnackbar(message, color) {
   snackbarMessage.value = message;
   snackbarColor.value = color;
   snackbar.value = true;
 }
 
-async function fetchRecordingSessions() {
-  try {
-    const headers = token ? { Authorization: `Bearer ${token.value}` } : {};
-    const res = await fetch(`${apiBaseUrl}/recording-session/`, { headers });
-    const dataRes = await res.json();
-    recordingSessions.value = dataRes.results ?? dataRes;
-  } catch (e) {
-    console.error(e);
-    showSnackbar('Error fetching recording sessions', 'error');
+function resetForm() {
+  formData.value = {
+    name: '',
+    description: '',
+    date: '',
+    duration: null,
+    studies: [],
+    context: {
+      temperature: { value: null, unit: '°C' },
+      brightness: null,
+    },
+    equipment: {
+      channels: '',
+      sound_isolation: '',
+      soundcards: [],
+      microphones: [],
+      amplifiers: [],
+      speakers: [],
+      acquisition_software: [],
+    },
+  };
+  date.value = null;
+  time.value = null;
+}
+
+function updateDate(val) {
+  date.value = val;
+}
+function updateTime(val) {
+  time.value = val;
+}
+function saveDateTime() {
+  if (date.value && time.value) {
+    const isoString = new Date(`${date.value}T${time.value}`).toISOString();
+    formData.value.date = isoString;
+    dateMenu.value = false;
   }
 }
 
-async function loadSchema() {
-  try {
-    const res = await fetch(`${baseUrl}recording_session.json`);
-    const jsonSchema = await res.json();
-    delete jsonSchema.$schema;
-    const resolved = await resolveRefs(jsonSchema, baseUrl);
-    schema.value = removeIdFieldsFromSchema(resolved);
-  } catch (e) {
-    console.error(e);
-    showSnackbar('Error loading schema', 'error');
-  }
+async function fetchSelectableData() {
+  const headers = token.value ? { Authorization: `Bearer ${token.value}` } : {};
+  const fetchAndAssign = async (endpoint, target) => {
+    try {
+      const res = await fetch(`${apiBaseUrl}/${endpoint}/`, { headers });
+      const data = await res.json();
+      target.value = data.results ?? data;
+    } catch (e) {
+      console.error(`Error loading ${endpoint}`, e);
+      showSnackbar(`Error loading ${endpoint}`, 'error');
+    }
+  };
+
+  await Promise.all([
+    fetchAndAssign('study', studiesOptions),
+    fetchAndAssign('hardware', hardwareOptions),
+    fetchAndAssign('software', softwareOptions),
+    fetchAndAssign('recording-session', recordingSessionsOptions),
+  ]);
 }
 
-// Lorsqu'on change de session, charger les données + s'assurer que studies est un tableau d'objets
-watch(selectedRecordingSession, async (newId) => {
-  if (!newId) {
-    data.value = {};
-    recordId.value = null;
+// Quand on change la session sélectionnée, on remplit ou reset le formulaire
+watch(selectedSessionId, (newId) => {
+  if (!newId || newId === 'new') {
+    resetForm();
+    emit('protocol-selected', null);
     return;
   }
-  try {
-    const res = await fetch(`${apiBaseUrl}/recording-session/${newId}/`, {
-      headers: token ? { Authorization: `Bearer ${token.value}` } : {},
-    });
-    const sessionData = await res.json();
-
-    // S'assurer que studies contient bien des objets complets {id, name}
-    if (sessionData.studies && Array.isArray(sessionData.studies)) {
-      sessionData.studies = sessionData.studies.map((study) => {
-        if (typeof study === 'object') return study;
-        return studiesOptions.value.find((s) => s.id === study) || { id: study, name: 'Unknown' };
-      });
-    }
-
-    data.value = sessionData;
-    recordId.value = newId;
-    showSnackbar('Recording session loaded', 'success');
-  } catch (e) {
-    console.error(e);
-    showSnackbar('Error loading recording session', 'error');
+  const session = recordingSessionsOptions.value.find((s) => s.id === newId);
+  if (session && session.protocol && session.protocol.id) {
+    emit('protocol-selected', session.protocol.id);
+  } else {
+    emit('protocol-selected', null);
   }
+  if (!session) return;
+
+  formData.value.name = session.name || '';
+  formData.value.description = session.description || '';
+  formData.value.duration = session.duration ?? null;
+
+  formData.value.date = session.date || '';
+  if (session.date) {
+    const d = new Date(session.date);
+    date.value = d.toISOString().slice(0, 10);
+    time.value = d.toTimeString().slice(0, 5);
+  } else {
+    date.value = null;
+    time.value = null;
+  }
+
+  formData.value.studies = Array.isArray(session.studies) ? session.studies.map((s) => s.id) : [];
+
+  formData.value.context.temperature.value = session.context_temperature_value ?? null;
+  formData.value.context.temperature.unit = session.context_temperature_unit || '°C';
+  formData.value.context.brightness = session.context_brightness ?? null;
+
+  formData.value.equipment.channels = session.equipment_channels || '';
+  formData.value.equipment.sound_isolation = session.equipment_sound_isolation || '';
+
+  formData.value.equipment.soundcards = Array.isArray(
+    session.equipment_acquisition_hardware_soundcards
+  )
+    ? session.equipment_acquisition_hardware_soundcards.map((h) => h.id)
+    : [];
+
+  formData.value.equipment.microphones = Array.isArray(
+    session.equipment_acquisition_hardware_microphones
+  )
+    ? session.equipment_acquisition_hardware_microphones.map((h) => h.id)
+    : [];
+
+  formData.value.equipment.amplifiers = Array.isArray(
+    session.equipment_acquisition_hardware_amplifiers
+  )
+    ? session.equipment_acquisition_hardware_amplifiers.map((h) => h.id)
+    : [];
+
+  formData.value.equipment.speakers = Array.isArray(session.equipment_acquisition_hardware_speakers)
+    ? session.equipment_acquisition_hardware_speakers.map((h) => h.id)
+    : [];
+
+  formData.value.equipment.acquisition_software = Array.isArray(
+    session.equipment_acquisition_software
+  )
+    ? session.equipment_acquisition_software.map((soft) => soft.software?.id || soft.id)
+    : [];
 });
 
-async function saveMetadata() {
+// Sauvegarde (POST ou PUT selon new ou existant)
+async function saveSession() {
   const isValid = await formRef.value.validate();
   if (!isValid) {
-    showSnackbar('Form is invalid, please check fields.', 'error');
+    showSnackbar('Please fill in all required fields.', 'error');
     return;
   }
 
-  isSaving.value = true;
-  const payload = convertToIdFields(data.value);
-  const url = recordId.value
-    ? `${apiBaseUrl}/recording-session/${recordId.value}/`
-    : `${apiBaseUrl}/recording-session/`;
-  const method = recordId.value ? 'PATCH' : 'POST';
+  if (date.value && time.value) {
+    formData.value.date = new Date(`${date.value}T${time.value}`).toISOString();
+  }
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token.value ? { Authorization: `Bearer ${token.value}` } : {}),
+  };
+
+  const method = selectedSessionId.value === 'new' ? 'POST' : 'PUT';
+  const url =
+    selectedSessionId.value === 'new'
+      ? `${apiBaseUrl}/recording-session/`
+      : `${apiBaseUrl}/recording-session/${selectedSessionId.value}/`;
 
   try {
     const res = await fetch(url, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token.value}` } : {}),
-      },
-      body: JSON.stringify(payload),
+      headers,
+      body: JSON.stringify(formData.value),
     });
 
     if (!res.ok) {
       const err = await res.json();
       console.error(err);
-      showSnackbar('Error saving metadata', 'error');
+      showSnackbar(`Error saving session: ${err.detail || 'Unknown error'}`, 'error');
       return;
     }
 
-    const result = await res.json();
-    showSnackbar(recordId.value ? 'Recording session updated!' : 'Recording session created!');
+    showSnackbar(`Session ${method === 'POST' ? 'created' : 'updated'} successfully!`, 'success');
 
-    if (!recordId.value) {
-      data.value = {};
-      await fetchRecordingSessions();
+    // Si nouveau, recharger la liste pour inclure le nouvel id
+    if (method === 'POST') {
+      await fetchSelectableData();
+      selectedSessionId.value = 'new';
+      resetForm();
     } else {
-      data.value = result;
+      // Pour PUT, mettre à jour localement l’option
+      await fetchSelectableData();
     }
   } catch (e) {
-    console.error(e);
-    showSnackbar('Network error while saving.', 'error');
-  } finally {
-    isSaving.value = false;
+    console.error('Error saving session', e);
+    showSnackbar('Error saving session.', 'error');
   }
 }
 
-// Init
-onMounted(async () => {
-  await loadSchema();
-  await fetchRecordingSessions();
-  await fetchStudies();
+onMounted(() => {
+  fetchSelectableData();
 });
 </script>
 
 <template>
-  <v-form ref="formRef">
-    <!-- Recording Session Selector -->
-    <v-select
-      class="mb-4 mt-2"
-      v-model="selectedRecordingSession"
-      :items="recordingSessions.map((s) => ({ title: s.name, value: s.id }))"
-      label="Select Recording Session to Edit"
-      clearable
-    />
+  <v-container>
+    <v-card class="pa-6" max-width="900">
+      <v-card-title>Recording Session</v-card-title>
+      <v-card-text>
+        <v-form ref="formRef" lazy-validation>
+          <v-select
+            v-model="selectedSessionId"
+            :items="[{ id: 'new', name: 'Create New Session' }, ...recordingSessionsOptions]"
+            item-title="name"
+            item-value="id"
+            label="Select Recording Session"
+            outlined
+            dense
+            class="mb-6"
+          />
 
-    <!-- Study selector multi-creatable -->
-    <v-autocomplete
-      v-model="data.studies"
-      :items="computedStudies"
-      item-title="name"
-      item-value="id"
-      label="Associated Studies"
-      multiple
-      chips
-      deletable-chips
-      :search-input.sync="studySearch"
-      hide-selected
-      clearable
-      small-chips
-      :filter="
-        (item, queryText, itemText) => item.name.toLowerCase().includes(queryText.toLowerCase())
-      "
-      @change="onStudiesChange"
-      class="mb-4"
-    />
+          <!-- Session Name -->
+          <v-text-field
+            v-model="formData.name"
+            label="Session Name"
+            outlined
+            required
+            :rules="[(v) => !!v || 'Name is required']"
+            class="mb-4"
+          />
 
-    <div class="d-none d-sm-flex align-center mb-4" style="width: 100%">
-      <h3>Metadata for recording session</h3>
-      <v-spacer />
-      <v-btn color="primary" :loading="isSaving" @click="saveMetadata">
-        <v-icon start>mdi-content-save</v-icon>
-        Save
-      </v-btn>
-    </div>
+          <!-- Description -->
+          <v-textarea v-model="formData.description" label="Description" outlined class="mb-4" />
 
-    <!-- Schema Form (sans studies car géré au-dessus) -->
-    <vjsf
-      v-if="schema"
-      ref="vjsfRef"
-      v-model="data"
-      :schema="schema"
-      :options="{ titleDepth: 4 }"
-      style="width: 100%; box-sizing: border-box"
-    />
-    <div v-else>Loading schema...</div>
+          <!-- Date & Time picker -->
+          <v-menu
+            v-model="dateMenu"
+            :close-on-content-click="false"
+            transition="scale-transition"
+            offset-y
+            max-width="300"
+            min-width="300"
+          >
+            <template #activator="{ props }">
+              <v-text-field
+                v-model="formattedDate"
+                label="Recording Date"
+                readonly
+                outlined
+                class="mb-4"
+                v-bind="props"
+                :rules="[(v) => !!v || 'Recording Date is required']"
+              />
+            </template>
 
-    <!-- Save Button Mobile -->
-    <v-toolbar app bottom class="d-flex d-sm-none" color="background" elevation="4">
-      <v-spacer />
-      <v-btn color="primary" :loading="isSaving" @click="saveMetadata">
-        <v-icon start>mdi-content-save</v-icon>
-        Save
-      </v-btn>
-      <v-spacer />
-    </v-toolbar>
+            <v-card>
+              <v-date-picker v-model="date" @update:modelValue="updateDate" />
+              <v-time-picker v-model="time" @update:modelValue="updateTime" />
+              <v-card-actions>
+                <v-spacer />
+                <v-btn text @click="saveDateTime">OK</v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-menu>
 
-    <!-- Snackbar -->
-    <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000" location="top">
+          <!-- Duration -->
+          <v-text-field
+            v-model="formData.duration"
+            label="Duration (seconds)"
+            type="number"
+            outlined
+            class="mb-4"
+          />
+
+          <!-- Associated Studies -->
+          <v-autocomplete
+            v-model="formData.studies"
+            :items="studiesOptions"
+            item-title="name"
+            item-value="id"
+            label="Associated Studies"
+            multiple
+            outlined
+            chips
+            class="mb-4"
+          />
+
+          <!-- Context -->
+          <v-card class="pa-4 mb-4" outlined>
+            <v-card-title>Context</v-card-title>
+            <v-card-text>
+              <v-row>
+                <v-col cols="6">
+                  <v-text-field
+                    v-model="formData.context.temperature.value"
+                    label="Temperature Value"
+                    type="number"
+                    outlined
+                  />
+                </v-col>
+                <v-col cols="6">
+                  <v-select
+                    v-model="formData.context.temperature.unit"
+                    :items="['°C', '°F']"
+                    label="Temperature Unit"
+                    outlined
+                  />
+                </v-col>
+                <v-col cols="12">
+                  <v-text-field
+                    v-model="formData.context.brightness"
+                    label="Brightness (Lux)"
+                    type="number"
+                    outlined
+                  />
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
+
+          <!-- Equipment -->
+          <v-card class="pa-4 mb-4" outlined>
+            <v-card-title>Equipment</v-card-title>
+            <v-card-text>
+              <v-select
+                v-model="formData.equipment.channels"
+                :items="['mono', 'stereo', 'more than 2']"
+                label="Channels"
+                outlined
+                class="mb-4"
+              />
+              <v-select
+                v-model="formData.equipment.sound_isolation"
+                :items="['soundproof room', 'soundproof cage', 'no specific sound isolation']"
+                label="Sound Isolation"
+                outlined
+                class="mb-4"
+              />
+              <v-autocomplete
+                v-model="formData.equipment.soundcards"
+                :items="hardwareOptions.filter((h) => h.type === 'soundcard')"
+                item-title="name"
+                item-value="id"
+                label="Soundcards"
+                multiple
+                outlined
+                chips
+                class="mb-4"
+              />
+              <v-autocomplete
+                v-model="formData.equipment.microphones"
+                :items="hardwareOptions.filter((h) => h.type === 'microphone')"
+                item-title="name"
+                item-value="id"
+                label="Microphones"
+                multiple
+                outlined
+                chips
+                class="mb-4"
+              />
+              <v-autocomplete
+                v-model="formData.equipment.amplifiers"
+                :items="hardwareOptions.filter((h) => h.type === 'amplifier')"
+                item-title="name"
+                item-value="id"
+                label="Amplifiers"
+                multiple
+                outlined
+                chips
+                class="mb-4"
+              />
+              <v-autocomplete
+                v-model="formData.equipment.speakers"
+                :items="hardwareOptions.filter((h) => h.type === 'speaker')"
+                item-title="name"
+                item-value="id"
+                label="Speakers"
+                multiple
+                outlined
+                chips
+                class="mb-4"
+              />
+              <v-autocomplete
+                v-model="formData.equipment.acquisition_software"
+                :items="softwareOptions"
+                item-title="name"
+                item-value="id"
+                label="Acquisition Software"
+                multiple
+                outlined
+                chips
+                class="mb-4"
+              />
+            </v-card-text>
+          </v-card>
+        </v-form>
+      </v-card-text>
+      <v-card-actions>
+        <v-btn color="primary" @click="saveSession">Save</v-btn>
+      </v-card-actions>
+    </v-card>
+
+    <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000">
       {{ snackbarMessage }}
     </v-snackbar>
-  </v-form>
+  </v-container>
 </template>
