@@ -8,6 +8,8 @@ const emit = defineEmits(['update:modelValue', 'created']);
 const animalProfileStore = useAnimalProfileStore();
 
 const formData = ref({
+  name: '',
+  description: '',
   strain: '',
   sex: '',
   genotype: '',
@@ -35,8 +37,20 @@ async function handleSubmit() {
     <v-card>
       <v-card-title>Create Animal Profile</v-card-title>
       <v-card-text>
+        <!-- Name -->
+        <v-text-field v-model="formData.name" outlined required class="mb-4">
+          <template #label> Profile Name <span style="color: red">*</span> </template>
+        </v-text-field>
+
+        <!-- Description -->
+        <v-textarea v-model="formData.description" outlined class="mb-4">
+          <template #label> Description</template>
+        </v-textarea>
+
         <!-- Strain -->
-        <v-text-field v-model="formData.strain" label="Strain" outlined required class="mb-4" />
+        <v-text-field v-model="formData.strain" outlined required class="mb-4">
+          <template #label> Strain <span style="color: red">*</span> </template>
+        </v-text-field>
 
         <!-- Sex -->
         <v-select
@@ -46,13 +60,19 @@ async function handleSubmit() {
           outlined
           required
           class="mb-4"
-        />
+        >
+          <template #label> Sex <span style="color: red">*</span> </template>
+        </v-select>
 
         <!-- Genotype -->
-        <v-text-field v-model="formData.genotype" label="Genotype" outlined required class="mb-4" />
+        <v-text-field v-model="formData.genotype" outlined required class="mb-4">
+          <template #label> Genotype <span style="color: red">*</span> </template>
+        </v-text-field>
 
         <!-- Treatment -->
-        <v-text-field v-model="formData.treatment" label="Treatment" outlined class="mb-4" />
+        <v-text-field v-model="formData.treatment" outlined class="mb-4">
+          <template #label> Treatment </template>
+        </v-text-field>
       </v-card-text>
       <v-card-actions>
         <v-spacer />

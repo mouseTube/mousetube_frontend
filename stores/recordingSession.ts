@@ -15,10 +15,25 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
       this.error = null
       try {
         const apiBaseUrl = useApiBaseUrl()
-        const res = await axios.get(`${apiBaseUrl}/recording-session/`)
-        this.sessions = res.data.results ?? res.data
+        let url = `${apiBaseUrl}/recording-session/`
+        const allSessions = []
+
+        while (url) {
+          const res = await axios.get(url)
+          if (Array.isArray(res.data.results)) {
+            allSessions.push(...res.data.results)
+          } else {
+            // Si pagination désactivée côté DRF, récupère les données directement
+            allSessions.push(...res.data)
+            break
+          }
+          url = res.data.next // DRF renvoie null si plus de pages
+        }
+
+        this.sessions = allSessions
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch recording sessions'
+        this.sessions = []
       } finally {
         this.loading = false
       }

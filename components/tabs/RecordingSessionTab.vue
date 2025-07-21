@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 import { useAuth } from '@/composables/useAuth';
 
-const emit = defineEmits(['validate', 'protocol-selected']);
+const emit = defineEmits(['validate', 'session-selected']);
 
 const apiBaseUrl = useApiBaseUrl();
 const { token } = useAuth();
@@ -121,14 +121,17 @@ async function fetchSelectableData() {
 watch(selectedSessionId, (newId) => {
   if (!newId || newId === 'new') {
     resetForm();
-    emit('protocol-selected', null);
+    emit('session-selected', null);
     return;
   }
   const session = recordingSessionsOptions.value.find((s) => s.id === newId);
-  if (session && session.protocol && session.protocol.id) {
-    emit('protocol-selected', session.protocol.id);
+  if (session && session.id && session.protocol.id) {
+    emit('session-selected', {
+      sessionId: session.id,
+      protocolId: session.protocol.id,
+    });
   } else {
-    emit('protocol-selected', null);
+    emit('session-selected', null);
   }
   if (!session) return;
 
@@ -245,30 +248,37 @@ onMounted(() => {
 
 <template>
   <v-container>
-    <v-card class="pa-6" max-width="900">
-      <v-card-title>Recording Session</v-card-title>
+    <v-select
+      v-model="selectedSessionId"
+      :items="[{ id: 'new', name: 'Create New Session' }, ...recordingSessionsOptions]"
+      item-title="name"
+      item-value="id"
+      label="Select Recording Session"
+      outlined
+      dense
+      class="mb-4"
+    >
+    </v-select>
+    <v-card class="pa-6" outlined>
+      <v-card-title class="d-flex justify-space-between align-center mb-4">
+        <h3>Recording Session Metadata</h3>
+        <div>
+          <v-btn color="grey" variant="outlined" @click="resetForm" class="mr-2"> Reset </v-btn>
+          <v-btn color="primary" @click="saveSession"> Save </v-btn>
+        </div>
+      </v-card-title>
       <v-card-text>
         <v-form ref="formRef" lazy-validation>
-          <v-select
-            v-model="selectedSessionId"
-            :items="[{ id: 'new', name: 'Create New Session' }, ...recordingSessionsOptions]"
-            item-title="name"
-            item-value="id"
-            label="Select Recording Session"
-            outlined
-            dense
-            class="mb-6"
-          />
-
           <!-- Session Name -->
           <v-text-field
             v-model="formData.name"
-            label="Session Name"
             outlined
             required
             :rules="[(v) => !!v || 'Name is required']"
             class="mb-4"
-          />
+          >
+            <template #label> Name <span style="color: red">*</span> </template>
+          </v-text-field>
 
           <!-- Description -->
           <v-textarea v-model="formData.description" label="Description" outlined class="mb-4" />
@@ -285,13 +295,14 @@ onMounted(() => {
             <template #activator="{ props }">
               <v-text-field
                 v-model="formattedDate"
-                label="Recording Date"
                 readonly
                 outlined
                 class="mb-4"
-                v-bind="props"
                 :rules="[(v) => !!v || 'Recording Date is required']"
-              />
+                v-bind="props"
+              >
+                <template #label> Recording Date <span style="color: red">*</span> </template>
+              </v-text-field>
             </template>
 
             <v-card>
@@ -436,9 +447,6 @@ onMounted(() => {
           </v-card>
         </v-form>
       </v-card-text>
-      <v-card-actions>
-        <v-btn color="primary" @click="saveSession">Save</v-btn>
-      </v-card-actions>
     </v-card>
 
     <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000">
@@ -446,3 +454,9 @@ onMounted(() => {
     </v-snackbar>
   </v-container>
 </template>
+
+<style scoped>
+:deep(.v-row) {
+  margin: 0 !important;
+}
+</style>

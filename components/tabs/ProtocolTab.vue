@@ -1,17 +1,17 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
 import { useProtocolStore } from '@/stores/protocol';
 
-const props = defineProps({
-  selectedProtocolId: {
-    type: [Number, String],
-    default: null,
-  },
-});
+const props = defineProps<{
+  selectedProtocolId: number | null;
+}>();
+
+const emit = defineEmits<{
+  (e: 'update:selectedProtocolId', value: number | null): void;
+}>();
 
 const protocolStore = useProtocolStore();
 
-const { selectedProtocolId } = props;
 const formData = ref({
   name: '',
   description: '',
@@ -35,78 +35,64 @@ const formData = ref({
   },
 });
 
-// Charger la liste des protocoles au montage
-onMounted(() => {
-  protocolStore.fetchProtocols();
-});
+// Snackbar state
+const snackbar = ref(false);
+const snackbarMessage = ref('');
+const snackbarColor = ref('');
 
+// selectedId est toujours string ou null
+const selectedId = ref<string | null>(
+  props.selectedProtocolId !== null ? String(props.selectedProtocolId) : null
+);
+
+// Sync local selectedId with parent prop (string conversion)
 watch(
-  () => selectedProtocolId,
+  () => props.selectedProtocolId,
   (newId) => {
-    if (!newId) {
-      resetForm();
-    } else {
-      const protocol = protocolStore.getProtocolById(newId);
-      if (protocol) {
-        formData.value = JSON.parse(JSON.stringify(protocol));
-      }
+    const idStr = newId !== null ? String(newId) : null;
+    if (selectedId.value !== idStr) {
+      selectedId.value = idStr;
     }
   },
   { immediate: true }
 );
 
-// Met à jour formData quand l'utilisateur change de protocole sélectionné
-watch(selectedProtocolId, (newId) => {
-  if (newId === null) {
-    // Réinitialiser le formulaire pour créer un nouveau protocole
-    formData.value = {
-      name: '',
-      description: '',
-      animals: {
-        sex: '',
-        age: '',
-        housing: '',
-        species: '',
-      },
-      context: {
-        'number of animals': null,
-        duration: '',
-        cage: '',
-        bedding: '',
-        light_cycle: '',
-        temperature: {
-          value: '',
-          unit: '',
-        },
-        brightness: null,
-      },
-    };
-  } else {
-    const protocol = protocolStore.getProtocolById(newId);
-    if (protocol) {
-      // Clone profond pour éviter les références partagées
-      formData.value = JSON.parse(JSON.stringify(protocol));
-    }
-  }
-});
+const protocolsLoaded = computed(
+  () => !protocolStore.loading && protocolStore.protocols.results.length > 0
+);
 
-// Soumission du formulaire
-async function onSubmit() {
-  try {
-    if (selectedProtocolId.value) {
-      await protocolStore.updateProtocol(selectedProtocolId.value, formData.value);
-      alert('Protocol updated.');
-    } else {
-      const created = await protocolStore.createProtocol(formData.value);
-      selectedProtocolId.value = created.id;
-      alert('Protocol created.');
+watch(
+  [selectedId, protocolsLoaded],
+  ([newId, loaded]) => {
+    if (!loaded) return; // on attend que les protocols soient chargés
+
+    if (newId === 'new') {
+      resetForm();
+      emit('update:selectedProtocolId', null);
+      return;
     }
-    await protocolStore.fetchProtocols();
-  } catch (e) {
-    alert('Error saving protocol.');
-    console.error(e);
-  }
-}
+    if (newId === null) {
+      resetForm();
+      emit('update:selectedProtocolId', null);
+    } else {
+      const idNumber = Number(newId);
+      if (!isNaN(idNumber)) {
+        const protocol = protocolStore.getProtocolById(idNumber);
+        console.log('Selected protocol:', protocol);
+        if (protocol) {
+          formData.value = JSON.parse(JSON.stringify(protocol));
+        } else {
+          resetForm();
+        }
+        emit('update:selectedProtocolId', idNumber);
+      } else {
+        resetForm();
+        emit('update:selectedProtocolId', null);
+      }
+    }
+  },
+  { immediate: true }
+);
 
 function resetForm() {
   formData.value = {
@@ -131,43 +117,72 @@ function resetForm() {
       brightness: null,
     },
   };
+  selectedId.value = null;
 }
+
+async function onSubmit() {
+  try {
+    if (selectedId.value !== null && selectedId.value !== 'new') {
+      const idNumber = Number(selectedId.value);
+      if (isNaN(idNumber)) throw new Error('Invalid protocol ID');
+      await protocolStore.updateProtocol(idNumber, formData.value);
+      snackbarMessage.value = 'Protocol updated successfully.';
+      snackbarColor.value = 'success';
+    } else {
+      const created = await protocolStore.createProtocol(formData.value);
+      selectedId.value = String(created.id);
+      snackbarMessage.value = 'Protocol created successfully.';
+      snackbarColor.value = 'success';
+    }
+    snackbar.value = true;
+    await protocolStore.fetchAllProtocols();
+  } catch (e) {
+    snackbarMessage.value = 'Error saving protocol.';
+    snackbarColor.value = 'error';
+    snackbar.value = true;
+    console.error(e);
+  }
+}
+
+onMounted(async () => {
+  await protocolStore.fetchAllProtocols();
+});
 </script>
 
 <template>
   <v-container>
-    <!-- Sélection du protocole -->
     <v-select
-      v-model="selectedProtocolId"
-      :items="protocolStore.protocols"
+      v-model="selectedId"
+      :items="[
+        { id: 'new', name: 'Create New Protocol' },
+        ...(protocolStore.protocols.results?.map((p) => ({ id: String(p.id), name: p.name })) ??
+          []),
+      ]"
       item-title="name"
       item-value="id"
       label="Select Protocol to Edit or Create New"
       outlined
       class="mb-4"
-    >
-      <template #prepend-item>
-        <v-list-item @click="selectedProtocolId = null" title="-- Create New Protocol --" />
-      </template>
-    </v-select>
+    />
 
-    <!-- Formulaire -->
+    <!-- Form Card -->
     <v-card class="pa-6" outlined>
-      <v-card-title>Protocol Form</v-card-title>
-      <v-card-text>
-        <!-- Nom du protocole -->
-        <v-text-field
-          v-model="formData.name"
-          label="Protocol Name"
-          outlined
-          required
-          class="mb-4"
-        />
+      <v-card-title class="d-flex justify-space-between align-center mb-4">
+        <h3>Protocol Metadata</h3>
+        <div>
+          <v-btn color="grey" variant="outlined" @click="resetForm" class="mr-2"> Reset </v-btn>
+          <v-btn color="primary" @click="onSubmit"> Save </v-btn>
+        </div>
+      </v-card-title>
 
-        <!-- Description -->
+      <v-card-text>
+        <!-- Nom et description -->
+        <v-text-field v-model="formData.name" outlined required class="mb-4">
+          <template #label> Protocol Name <span style="color: red">*</span> </template>
+        </v-text-field>
         <v-textarea v-model="formData.description" label="Description" outlined class="mb-4" />
 
-        <!-- Informations sur les animaux -->
+        <!-- Animal Information -->
         <v-card class="pa-4 mb-4" outlined>
           <v-card-title>Animal Information</v-card-title>
           <v-card-text>
@@ -201,7 +216,7 @@ function resetForm() {
           </v-card-text>
         </v-card>
 
-        <!-- Contexte expérimental -->
+        <!-- Experimental Context -->
         <v-card class="pa-4 mb-4" outlined>
           <v-card-title>Experimental Context</v-card-title>
           <v-card-text>
@@ -268,9 +283,11 @@ function resetForm() {
           </v-card-text>
         </v-card>
       </v-card-text>
-      <v-card-actions>
-        <v-btn color="primary" @click="onSubmit">Save Protocol</v-btn>
-      </v-card-actions>
     </v-card>
+
+    <!-- Snackbar -->
+    <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000" location="top right">
+      {{ snackbarMessage }}
+    </v-snackbar>
   </v-container>
 </template>

@@ -1,114 +1,88 @@
-<script setup>
-import { ref, watch } from 'vue';
-import { useStrainStore } from '@/stores/strain'; // Exemple store Pinia pour strains
-import { useSpeciesStore } from '@/stores/species'; // Store pour species
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { useAnimalProfileStore } from '@/stores/animalProfile';
+import CreateAnimalProfileModal from '@/components/modals/CreateAnimalProfileModal.vue';
+import { useDisplay } from 'vuetify';
 
-const strainStore = useStrainStore();
-const speciesStore = useSpeciesStore();
+const { mdAndUp } = useDisplay();
+const animalProfileStore = useAnimalProfileStore();
 
-const showCreateStrainModal = ref(false);
-const showCreateSpeciesModal = ref(false);
-
-const strainsOptions = ref([]);
-const speciesOptions = ref([]);
-
+const animalProfileOptions = ref<{ id: number; name: string }[]>([]);
 const formData = ref({
-  strain: null, // ID ou objet strain sélectionné
-  species: null, // ID ou objet species sélectionné (lié à strain ou séparé)
-  sex: '',
-  genotype: '',
-  treatment: '',
+  animal_profiles: [] as number[],
+  // autres champs si nécessaire
 });
 
-// Charger options strains et species au départ
-async function fetchOptions() {
-  strainsOptions.value = await strainStore.fetchAll(); // Format [{label, value, ...}]
-  speciesOptions.value = await speciesStore.fetchAll();
+const showCreateModal = ref(false);
+const snackbar = ref(false);
+const snackbarText = ref('');
+
+async function fetchAnimalProfiles() {
+  animalProfileOptions.value = await animalProfileStore.fetchAnimalProfiles();
 }
-fetchOptions();
 
-// Quand on change le strain, on peut mettre à jour species par défaut
-watch(
-  () => formData.value.strain,
-  (newStrain) => {
-    if (newStrain?.species) {
-      formData.value.species = newStrain.species.id || null;
-    } else {
-      formData.value.species = null;
-    }
-  }
-);
+onMounted(fetchAnimalProfiles);
 
-function onCreatedStrain(newStrain) {
-  strainsOptions.value.push({
-    label: newStrain.name,
-    value: newStrain.id,
-    species: newStrain.species,
+function handleCreated(newAnimalProfile: { id: number; name: string }) {
+  // Ajoute le nouvel élément aux options
+  animalProfileOptions.value.push({
+    id: newAnimalProfile.id,
+    name: newAnimalProfile.name,
   });
-  formData.value.strain = newStrain.id;
-  if (newStrain.species) {
-    speciesOptions.value.push({ label: newStrain.species.name, value: newStrain.species.id });
-    formData.value.species = newStrain.species.id;
-  }
-  showCreateStrainModal.value = false;
-}
-
-function onCreatedSpecies(newSpecies) {
-  speciesOptions.value.push({ label: newSpecies.name, value: newSpecies.id });
-  formData.value.species = newSpecies.id;
-  showCreateSpeciesModal.value = false;
+  // Le sélectionne automatiquement
+  formData.value.animal_profiles.push(newAnimalProfile.id);
+  // Feedback
+  snackbarText.value = 'Animal profile created successfully.';
+  snackbar.value = true;
 }
 
 function handleSubmit() {
-  console.log('Submit clicked', formData.value);
-  // ajoute ici la logique d'envoi / validation
+  console.log('Animal profiles IDs:', formData.value.animal_profiles);
+  snackbarText.value = 'Animal profiles saved.';
+  snackbar.value = true;
 }
 </script>
 
 <template>
   <v-container>
-    <v-card class="pa-6" max-width="800">
-      <v-card-title>Animal Profile Form</v-card-title>
+    <v-card class="pa-6" outlined>
+      <v-card-title class="d-flex justify-space-between align-center mb-4">
+        <h3>Animal Profiles</h3>
+        <div>
+          <v-btn color="primary" @click="handleSubmit">Save</v-btn>
+        </div>
+      </v-card-title>
+
       <v-card-text>
-        <!-- Strain -->
         <v-select
-          v-model="formData.strain"
-          :items="strainsOptions"
-          item-title="label"
-          item-value="value"
-          label="Strain"
+          v-model="formData.animal_profiles"
+          :items="animalProfileOptions"
+          item-title="name"
+          item-value="id"
+          label="Animal Profiles"
+          multiple
+          chips
+          clearable
           outlined
-          required
         />
-        <v-btn @click="showCreateStrainModal = true" class="mb-4">Create New Strain</v-btn>
-
-        <!-- Sex -->
-        <v-select
-          v-model="formData.sex"
-          :items="[
-            { label: 'male', value: 'male' },
-            { label: 'female', value: 'female' },
-          ]"
-          item-title="label"
-          item-value="value"
-          label="Sex"
-          outlined
-          required
-          class="mb-4"
-        />
-
-        <!-- Genotype -->
-        <v-text-field v-model="formData.genotype" label="Genotype" outlined required class="mb-4" />
-
-        <!-- Treatment -->
-        <v-textarea v-model="formData.treatment" label="Treatment" outlined class="mb-4" />
       </v-card-text>
       <v-card-actions>
-        <v-btn color="primary" @click="handleSubmit">Save</v-btn>
+        <v-spacer />
+        <v-btn color="primary" @click="showCreateModal = true">Create New Profile</v-btn>
       </v-card-actions>
     </v-card>
 
-    <!-- Modales -->
-    <CreateStrainModal v-model:show="showCreateStrainModal" @created="onCreatedStrain" />
+    <!-- Modale de création -->
+    <CreateAnimalProfileModal v-model="showCreateModal" @created="handleCreated" />
+
+    <!-- Snackbar feedback -->
+    <v-snackbar v-model="snackbar" :timeout="3000" location="top right">
+      {{ snackbarText }}
+      <template #actions>
+        <v-btn icon @click="snackbar = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </template>
+    </v-snackbar>
   </v-container>
 </template>

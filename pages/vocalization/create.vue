@@ -1,18 +1,24 @@
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, watch, computed } from 'vue';
+import { markRaw } from 'vue';
+import { AudioLines } from 'lucide-vue-next';
 
 import RecordingSessionTab from '@/components/tabs/RecordingSessionTab.vue';
 import ProtocolTab from '@/components/tabs/ProtocolTab.vue';
 import AnimalProfileTab from '@/components/tabs/AnimalProfileTab.vue';
 import FileTab from '@/components/tabs/FileTab.vue';
-// import SoftwareTab from '@/components/tabs/SoftwareTab.vue';
-// import HardwareTab from '@/components/tabs/HardwareTab.vue';
-import { AudioLines } from 'lucide-vue-next';
-import { markRaw } from 'vue';
+
+import { useFileStore } from '@/stores/file';
 
 const tab = ref(0);
 const selectedProtocolId = ref(null);
-const tabs = [
+const selectedRecordingSessionId = ref(null);
+
+const fileStore = useFileStore();
+
+const filesCount = computed(() => fileStore.files.length);
+
+const tabs = reactive([
   {
     name: 'recordingSession',
     label: 'Recording Session',
@@ -25,7 +31,7 @@ const tabs = [
     name: 'protocol',
     label: 'Protocol',
     component: markRaw(ProtocolTab),
-    disabled: false,
+    disabled: true,
     hasErrors: false,
     errorMessage: '',
   },
@@ -33,7 +39,7 @@ const tabs = [
     name: 'animalProfile',
     label: 'Animal Profile',
     component: markRaw(AnimalProfileTab),
-    disabled: false,
+    disabled: true,
     hasErrors: false,
     errorMessage: '',
   },
@@ -41,39 +47,42 @@ const tabs = [
     name: 'file',
     label: 'File',
     component: markRaw(FileTab),
-    disabled: false,
+    disabled: true,
     hasErrors: false,
     errorMessage: '',
   },
-  // {
-  //   name: 'software',
-  //   label: 'Software',
-  //   component: markRaw(SoftwareTab),
-  //   disabled: false,
-  //   hasErrors: false,
-  //   errorMessage: '',
-  // },
-  // {
-  //   name: 'hardware',
-  //   label: 'Hardware',
-  //   component: markRaw(HardwareTab),
-  //   disabled: false,
-  //   hasErrors: false,
-  //   errorMessage: '',
-  // },
-];
+]);
 
-const validationState = reactive({});
+watch(selectedRecordingSessionId, async (newId) => {
+  const shouldEnable = !!newId;
+  tabs.forEach((tabItem) => {
+    if (tabItem.name !== 'recordingSession') {
+      tabItem.disabled = !shouldEnable;
+    }
+  });
+  if (shouldEnable) {
+    await fileStore.fetchFilesBySessionId(newId);
+  } else {
+    fileStore.files = [];
+  }
+});
 
 function onValidate(tabName, validation) {
   const tabToUpdate = tabs.find((t) => t.name === tabName);
   if (!tabToUpdate) return;
-
   tabToUpdate.hasErrors = validation.hasErrors;
   tabToUpdate.errorMessage = validation.message || '';
 }
-function onProtocolSelected(protocolId) {
-  selectedProtocolId.value = protocolId;
+
+function onSessionSelected(payload) {
+  console.log('Session selected:', payload);
+  if (!payload) {
+    selectedRecordingSessionId.value = null;
+    selectedProtocolId.value = null;
+  } else {
+    selectedRecordingSessionId.value = payload.sessionId;
+    selectedProtocolId.value = payload.protocolId ?? null;
+  }
 }
 </script>
 
@@ -81,28 +90,55 @@ function onProtocolSelected(protocolId) {
   <v-container fluid>
     <v-card variant="flat" class="mx-auto mt-16 mb-4" max-width="1000">
       <div class="d-flex align-center mt-1 mb-4">
-        <h1><AudioLines /> New Vocalization</h1>
+        <h1><AudioLines class="mr-2" /> New Vocalization</h1>
       </div>
+
       <v-card-text>
         <p>Fill in the details for the new vocalization.</p>
       </v-card-text>
+
       <v-tabs v-model="tab" background-color="black" dark class="w-100 overflow-x-auto">
-        <v-tab
-          v-for="(item, index) in tabs"
-          :key="item.name"
-          :disabled="item.disabled"
-          class="d-flex align-center"
-        >
-          {{ item.label }}
-          <v-tooltip v-if="item.hasErrors" bottom>
-            <template #activator="{ on, attrs }">
-              <v-icon color="warning" class="ms-2" v-bind="attrs" v-on="on"
-                >mdi-alert-circle-outline</v-icon
+        <v-hover v-for="(item, index) in tabs" :key="item.name" v-slot="{ isHovering, props }">
+          <div class="position-relative">
+            <v-tab v-bind="props" :disabled="item.disabled" class="d-flex align-center">
+              {{ item.label }}
+              <v-icon
+                v-if="item.disabled && item.name !== 'recordingSession'"
+                color="grey"
+                size="small"
+                class="ms-1"
+                >mdi-lock</v-icon
               >
-            </template>
-            <span>{{ item.errorMessage }}</span>
-          </v-tooltip>
-        </v-tab>
+
+              <v-chip
+                v-if="item.name === 'file' && filesCount > 0"
+                small
+                class="ms-2"
+                color="primary"
+                text-color="white"
+              >
+                {{ filesCount }}
+              </v-chip>
+
+              <v-icon v-if="item.hasErrors" color="warning" class="ms-2">
+                mdi-alert-circle-outline
+              </v-icon>
+            </v-tab>
+
+            <!-- Tooltip simulation using v-menu + open-on-hover -->
+            <v-menu
+              v-if="item.disabled && item.name !== 'recordingSession'"
+              :open="isHovering"
+              activator="parent"
+              location="bottom"
+              max-width="250"
+            >
+              <v-card class="pa-2 text-body-2">
+                Please create or select a Recording Session first
+              </v-card>
+            </v-menu>
+          </div>
+        </v-hover>
       </v-tabs>
 
       <v-window v-model="tab">
@@ -110,8 +146,11 @@ function onProtocolSelected(protocolId) {
           <component
             :is="item.component"
             @validate="onValidate(item.name, $event)"
-            @protocol-selected="onProtocolSelected"
-            :selected-protocol-id="item.name === 'protocol' ? selectedProtocolId : undefined"
+            @session-selected="onSessionSelected"
+            v-bind="{
+              ...(item.name === 'protocol' ? { selectedProtocolId } : {}),
+              ...(item.name === 'file' ? { recordingSessionId: selectedRecordingSessionId } : {}),
+            }"
           />
         </v-window-item>
       </v-window>
