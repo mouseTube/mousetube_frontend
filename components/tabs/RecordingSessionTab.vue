@@ -1,28 +1,69 @@
-<script setup>
+<script setup lang="ts">
+////////////////////////////////
+// IMPORTS
+////////////////////////////////
 import { ref, computed, onMounted, watch } from 'vue';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 import { useAuth } from '@/composables/useAuth';
+import { useRecordingSessionStore } from '@/stores/recordingSession';
+
+////////////////////////////////
+// DATA & STATE
+////////////////////////////////
 
 const emit = defineEmits(['validate', 'session-selected']);
 
 const apiBaseUrl = useApiBaseUrl();
 const { token } = useAuth();
+const recordingSessionStore = useRecordingSessionStore();
 
-const formRef = ref(null);
+const formRef = ref();
 const dateMenu = ref(false);
-const date = ref(null);
-const time = ref(null);
+const date = ref<string | null>(null);
+const time = ref<string | null>(null);
 const snackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('');
 
-const recordingSessionsOptions = ref([]);
-const selectedSessionId = ref('new');
+const selectedSessionId = ref<'new' | number>('new');
+const recordingSessionsOptions = computed(() => recordingSessionStore.sessions);
 
-const formData = ref({
+const laboratoriesOptions = ref<
+  {
+    id: number;
+    name: string;
+    institution?: string;
+    unit?: string;
+    address?: string;
+    country?: string;
+    contact?: string;
+  }[]
+>([]);
+
+const formData = ref<{
+  name: string;
+  description: string;
+  date: string | null;
+  duration: number | null;
+  studies: number[];
+  context: {
+    temperature: { value: string | null; unit: '°C' | '°F' };
+    brightness: number | null;
+  };
+  equipment: {
+    channels: '' | 'mono' | 'stereo' | 'more than 2';
+    sound_isolation: '' | 'soundproof room' | 'soundproof cage' | 'no specific sound isolation';
+    soundcards: number[];
+    microphones: number[];
+    amplifiers: number[];
+    speakers: number[];
+    acquisition_software: number[];
+  };
+  laboratory: number | null;
+}>({
   name: '',
   description: '',
-  date: '',
+  date: null,
   duration: null,
   studies: [],
   context: {
@@ -38,11 +79,16 @@ const formData = ref({
     speakers: [],
     acquisition_software: [],
   },
+  laboratory: null,
 });
 
-const studiesOptions = ref([]);
-const hardwareOptions = ref([]);
-const softwareOptions = ref([]);
+const studiesOptions = ref<{ id: number; name: string }[]>([]);
+const hardwareOptions = ref<{ id: number; name: string; type: string }[]>([]);
+const softwareOptions = ref<{ id: number; name: string; type: string }[]>([]);
+
+////////////////////////////////
+// COMPUTED
+////////////////////////////////
 
 const formattedDate = computed(() => {
   if (date.value && time.value) {
@@ -51,7 +97,11 @@ const formattedDate = computed(() => {
   return '';
 });
 
-function showSnackbar(message, color) {
+////////////////////////////////
+// METHODS
+////////////////////////////////
+
+function showSnackbar(message: string, color: string) {
   snackbarMessage.value = message;
   snackbarColor.value = color;
   snackbar.value = true;
@@ -77,28 +127,35 @@ function resetForm() {
       speakers: [],
       acquisition_software: [],
     },
+    laboratory: null,
   };
   date.value = null;
   time.value = null;
 }
 
-function updateDate(val) {
+function updateDate(val: string | null) {
   date.value = val;
 }
-function updateTime(val) {
+
+function updateTime(val: string | null) {
   time.value = val;
 }
+
 function saveDateTime() {
   if (date.value && time.value) {
-    const isoString = new Date(`${date.value}T${time.value}`).toISOString();
-    formData.value.date = isoString;
+    formData.value.date = new Date(`${date.value}T${time.value}`).toISOString();
     dateMenu.value = false;
   }
 }
 
+// Récupérer les données des listes
 async function fetchSelectableData() {
-  const headers = token.value ? { Authorization: `Bearer ${token.value}` } : {};
-  const fetchAndAssign = async (endpoint, target) => {
+  const headers: Record<string, string> = {};
+  if (token.value) {
+    headers.Authorization = `Bearer ${token.value}`;
+  }
+
+  const fetchAndAssign = async (endpoint: string, target: any) => {
     try {
       const res = await fetch(`${apiBaseUrl}/${endpoint}/`, { headers });
       const data = await res.json();
@@ -113,19 +170,21 @@ async function fetchSelectableData() {
     fetchAndAssign('study', studiesOptions),
     fetchAndAssign('hardware', hardwareOptions),
     fetchAndAssign('software', softwareOptions),
-    fetchAndAssign('recording-session', recordingSessionsOptions),
+    fetchAndAssign('laboratory', laboratoriesOptions),
   ]);
 }
 
-// Quand on change la session sélectionnée, on remplit ou reset le formulaire
+// Watch sélection session
 watch(selectedSessionId, (newId) => {
   if (!newId || newId === 'new') {
     resetForm();
     emit('session-selected', null);
     return;
   }
-  const session = recordingSessionsOptions.value.find((s) => s.id === newId);
-  if (session && session.id && session.protocol.id) {
+
+  const idNum = Number(newId);
+  const session = recordingSessionStore.getSessionById(idNum);
+  if (session && session.id && session.protocol?.id) {
     emit('session-selected', {
       sessionId: session.id,
       protocolId: session.protocol.id,
@@ -133,6 +192,7 @@ watch(selectedSessionId, (newId) => {
   } else {
     emit('session-selected', null);
   }
+
   if (!session) return;
 
   formData.value.name = session.name || '';
@@ -149,8 +209,9 @@ watch(selectedSessionId, (newId) => {
     time.value = null;
   }
 
-  formData.value.studies = Array.isArray(session.studies) ? session.studies.map((s) => s.id) : [];
-
+  formData.value.studies = Array.isArray(session.studies)
+    ? session.studies.map((s: any) => s.id)
+    : [];
   formData.value.context.temperature.value = session.context_temperature_value ?? null;
   formData.value.context.temperature.unit = session.context_temperature_unit || '°C';
   formData.value.context.brightness = session.context_brightness ?? null;
@@ -158,36 +219,20 @@ watch(selectedSessionId, (newId) => {
   formData.value.equipment.channels = session.equipment_channels || '';
   formData.value.equipment.sound_isolation = session.equipment_sound_isolation || '';
 
-  formData.value.equipment.soundcards = Array.isArray(
-    session.equipment_acquisition_hardware_soundcards
-  )
-    ? session.equipment_acquisition_hardware_soundcards.map((h) => h.id)
-    : [];
+  formData.value.equipment.soundcards =
+    session.equipment_acquisition_hardware_soundcards?.map((h: any) => h.id) ?? [];
+  formData.value.equipment.microphones =
+    session.equipment_acquisition_hardware_microphones?.map((h: any) => h.id) ?? [];
+  formData.value.equipment.amplifiers =
+    session.equipment_acquisition_hardware_amplifiers?.map((h: any) => h.id) ?? [];
+  formData.value.equipment.speakers =
+    session.equipment_acquisition_hardware_speakers?.map((h: any) => h.id) ?? [];
+  formData.value.equipment.acquisition_software =
+    session.equipment_acquisition_software?.map((soft: any) => soft.software?.id || soft.id) ?? [];
 
-  formData.value.equipment.microphones = Array.isArray(
-    session.equipment_acquisition_hardware_microphones
-  )
-    ? session.equipment_acquisition_hardware_microphones.map((h) => h.id)
-    : [];
-
-  formData.value.equipment.amplifiers = Array.isArray(
-    session.equipment_acquisition_hardware_amplifiers
-  )
-    ? session.equipment_acquisition_hardware_amplifiers.map((h) => h.id)
-    : [];
-
-  formData.value.equipment.speakers = Array.isArray(session.equipment_acquisition_hardware_speakers)
-    ? session.equipment_acquisition_hardware_speakers.map((h) => h.id)
-    : [];
-
-  formData.value.equipment.acquisition_software = Array.isArray(
-    session.equipment_acquisition_software
-  )
-    ? session.equipment_acquisition_software.map((soft) => soft.software?.id || soft.id)
-    : [];
+  formData.value.laboratory = session.laboratory?.id ?? null;
 });
 
-// Sauvegarde (POST ou PUT selon new ou existant)
 async function saveSession() {
   const isValid = await formRef.value.validate();
   if (!isValid) {
@@ -199,41 +244,14 @@ async function saveSession() {
     formData.value.date = new Date(`${date.value}T${time.value}`).toISOString();
   }
 
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token.value ? { Authorization: `Bearer ${token.value}` } : {}),
-  };
-
-  const method = selectedSessionId.value === 'new' ? 'POST' : 'PUT';
-  const url =
-    selectedSessionId.value === 'new'
-      ? `${apiBaseUrl}/recording-session/`
-      : `${apiBaseUrl}/recording-session/${selectedSessionId.value}/`;
-
   try {
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: JSON.stringify(formData.value),
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      console.error(err);
-      showSnackbar(`Error saving session: ${err.detail || 'Unknown error'}`, 'error');
-      return;
-    }
-
-    showSnackbar(`Session ${method === 'POST' ? 'created' : 'updated'} successfully!`, 'success');
-
-    // Si nouveau, recharger la liste pour inclure le nouvel id
-    if (method === 'POST') {
-      await fetchSelectableData();
-      selectedSessionId.value = 'new';
-      resetForm();
+    if (selectedSessionId.value === 'new') {
+      const created = await recordingSessionStore.createSession(formData.value);
+      showSnackbar('Session created successfully!', 'success');
+      selectedSessionId.value = created.id;
     } else {
-      // Pour PUT, mettre à jour localement l’option
-      await fetchSelectableData();
+      await recordingSessionStore.updateSession(Number(selectedSessionId.value), formData.value);
+      showSnackbar('Session updated successfully!', 'success');
     }
   } catch (e) {
     console.error('Error saving session', e);
@@ -241,24 +259,88 @@ async function saveSession() {
   }
 }
 
-onMounted(() => {
-  fetchSelectableData();
+////////////////////////////////
+// AJOUT LABORATOIRE À LA VOLÉE
+////////////////////////////////
+
+const newLabDialog = ref(false);
+
+const newLabForm = ref({
+  name: '',
+  institution: '',
+  unit: '',
+  address: '',
+  country: '',
+  contact: '',
+});
+
+async function createNewLaboratory() {
+  if (!newLabForm.value.name.trim()) {
+    showSnackbar('Laboratory name is required.', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${apiBaseUrl}/laboratory/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token.value ? { Authorization: `Bearer ${token.value}` } : {}),
+      },
+      body: JSON.stringify(newLabForm.value),
+    });
+
+    if (!res.ok) throw new Error('Failed to create laboratory');
+
+    const createdLab = await res.json();
+
+    laboratoriesOptions.value.push(createdLab);
+    formData.value.laboratory = createdLab.id;
+
+    newLabDialog.value = false;
+    newLabForm.value = {
+      name: '',
+      institution: '',
+      unit: '',
+      address: '',
+      country: '',
+      contact: '',
+    };
+
+    showSnackbar('Laboratory created and added successfully.', 'success');
+  } catch (e) {
+    console.error(e);
+    showSnackbar('Error creating laboratory.', 'error');
+  }
+}
+
+////////////////////////////////
+// LIFECYCLE
+////////////////////////////////
+
+onMounted(async () => {
+  await fetchSelectableData();
+  await recordingSessionStore.fetchSessions();
 });
 </script>
 
 <template>
   <v-container>
+    <!-- Sélection de la session -->
     <v-select
       v-model="selectedSessionId"
-      :items="[{ id: 'new', name: 'Create New Session' }, ...recordingSessionsOptions]"
+      :items="[
+        { id: 'new', name: 'Create New Session' },
+        ...recordingSessionsOptions.map((s) => ({ id: s.id, name: s.name })),
+      ]"
       item-title="name"
       item-value="id"
       label="Select Recording Session"
       outlined
       dense
       class="mb-4"
-    >
-    </v-select>
+    />
+
     <v-card class="pa-6" outlined>
       <v-card-title class="d-flex justify-space-between align-center mb-4">
         <h3>Recording Session Metadata</h3>
@@ -267,9 +349,10 @@ onMounted(() => {
           <v-btn color="primary" @click="saveSession"> Save </v-btn>
         </div>
       </v-card-title>
+
       <v-card-text>
         <v-form ref="formRef" lazy-validation>
-          <!-- Session Name -->
+          <!-- Nom de la session -->
           <v-text-field
             v-model="formData.name"
             outlined
@@ -283,7 +366,7 @@ onMounted(() => {
           <!-- Description -->
           <v-textarea v-model="formData.description" label="Description" outlined class="mb-4" />
 
-          <!-- Date & Time picker -->
+          <!-- Date et heure -->
           <v-menu
             v-model="dateMenu"
             :close-on-content-click="false"
@@ -326,7 +409,7 @@ onMounted(() => {
 
           <!-- Associated Studies -->
           <v-autocomplete
-            v-model="formData.studies"
+            v-model="formData.studies as any"
             :items="studiesOptions"
             item-title="name"
             item-value="id"
@@ -337,6 +420,31 @@ onMounted(() => {
             class="mb-4"
           />
 
+          <!-- Laboratories avec ajout à la volée -->
+          <v-row class="mb-4" align="center">
+            <v-col cols="10">
+              <v-select
+                v-model="formData.laboratory"
+                :items="laboratoriesOptions"
+                item-title="name"
+                item-value="id"
+                label="Laboratory"
+                outlined
+                clearable
+              />
+            </v-col>
+            <v-col cols="2" class="d-flex justify-center">
+              <v-btn
+                color="primary"
+                variant="outlined"
+                title="Add new laboratory"
+                @click="newLabDialog = true"
+              >
+                <v-icon left>mdi-plus</v-icon> Add
+              </v-btn>
+            </v-col>
+          </v-row>
+
           <!-- Context -->
           <v-card class="pa-4 mb-4" outlined>
             <v-card-title>Context</v-card-title>
@@ -346,7 +454,6 @@ onMounted(() => {
                   <v-text-field
                     v-model="formData.context.temperature.value"
                     label="Temperature Value"
-                    type="number"
                     outlined
                   />
                 </v-col>
@@ -449,14 +556,30 @@ onMounted(() => {
       </v-card-text>
     </v-card>
 
+    <!-- Dialog ajout laboratoire -->
+    <v-dialog v-model="newLabDialog" max-width="500px">
+      <v-card>
+        <v-card-title>Add New Laboratory</v-card-title>
+        <v-card-text>
+          <v-form>
+            <v-text-field v-model="newLabForm.name" label="Name *" required autofocus />
+            <v-text-field v-model="newLabForm.institution" label="Institution" />
+            <v-text-field v-model="newLabForm.unit" label="Unit" />
+            <v-text-field v-model="newLabForm.address" label="Address" />
+            <v-text-field v-model="newLabForm.country" label="Country" />
+            <v-text-field v-model="newLabForm.contact" label="Contact" />
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn text @click="newLabDialog = false">Cancel</v-btn>
+          <v-btn color="primary" @click="createNewLaboratory">Create</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000">
       {{ snackbarMessage }}
     </v-snackbar>
   </v-container>
 </template>
-
-<style scoped>
-:deep(.v-row) {
-  margin: 0 !important;
-}
-</style>

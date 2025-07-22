@@ -1,16 +1,20 @@
 <script setup lang="ts">
+////////////////////////////////
+// IMPORT
+////////////////////////////////
+
 import { ref, onMounted } from 'vue';
 import { useAnimalProfileStore } from '@/stores/animalProfile';
 import CreateAnimalProfileModal from '@/components/modals/CreateAnimalProfileModal.vue';
-import { useDisplay } from 'vuetify';
 
-const { mdAndUp } = useDisplay();
+////////////////////////////////
+// DATA
+////////////////////////////////
+
 const animalProfileStore = useAnimalProfileStore();
-
 const animalProfileOptions = ref<{ id: number; name: string }[]>([]);
 const formData = ref({
   animal_profiles: [] as number[],
-  // autres champs si nécessaire
 });
 
 const showCreateModal = ref(false);
@@ -21,17 +25,16 @@ async function fetchAnimalProfiles() {
   animalProfileOptions.value = await animalProfileStore.fetchAnimalProfiles();
 }
 
-onMounted(fetchAnimalProfiles);
+////////////////////////////////
+// METHODS
+////////////////////////////////
 
 function handleCreated(newAnimalProfile: { id: number; name: string }) {
-  // Ajoute le nouvel élément aux options
   animalProfileOptions.value.push({
     id: newAnimalProfile.id,
     name: newAnimalProfile.name,
   });
-  // Le sélectionne automatiquement
   formData.value.animal_profiles.push(newAnimalProfile.id);
-  // Feedback
   snackbarText.value = 'Animal profile created successfully.';
   snackbar.value = true;
 }
@@ -41,6 +44,12 @@ function handleSubmit() {
   snackbarText.value = 'Animal profiles saved.';
   snackbar.value = true;
 }
+
+////////////////////////////////
+// ON MOUNT
+////////////////////////////////
+
+onMounted(fetchAnimalProfiles);
 </script>
 
 <template>

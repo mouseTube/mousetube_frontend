@@ -33,7 +33,7 @@ interface File {
     modified_at: string;
     created_by: number;
   } | null;
-  
+
   subjects: Array<{
     id: number;
     name: string;
@@ -96,7 +96,7 @@ export const useFileStore = defineStore('file', {
       try {
         const apiBaseUrl = useApiBaseUrl()
         const res = await axios.get(`${apiBaseUrl}/file/`)
-        this.files = res.data.results  // <-- correction ici : récupérer .results
+        this.files = res.data.results
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch files'
       } finally {

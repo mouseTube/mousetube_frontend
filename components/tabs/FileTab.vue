@@ -1,7 +1,15 @@
 <script setup lang="ts">
+////////////////////////////////
+// IMPORT
+////////////////////////////////
+
 import { ref, computed, watch, onMounted } from 'vue';
 import { useFileStore } from '~/stores/file';
 import FileForm from '@/components/modals/CreateFileModal.vue';
+
+////////////////////////////////
+// DATA
+////////////////////////////////
 
 const props = defineProps<{
   recordingSessionId?: number | null;
@@ -12,38 +20,20 @@ const fileStore = useFileStore();
 const editingFile = ref<any>(null);
 const showFileForm = ref(false);
 
-watch(
-  () => props.recordingSessionId,
-  async (newId) => {
-    if (newId) {
-      await fileStore.fetchFilesBySessionId(newId);
-    } else {
-      // Vide le tableau en conservant la réactivité
-      fileStore.files.splice(0, fileStore.files.length);
-    }
-  },
-  { immediate: true }
-);
+////////////////////////////////
+// METHODS
+////////////////////////////////
 
-onMounted(async () => {
-  if (props.recordingSessionId) {
-    await fileStore.fetchFilesBySessionId(props.recordingSessionId);
-  }
-});
-
-// Ouvrir le formulaire en édition
 function editFile(file: any) {
   editingFile.value = { ...file };
   showFileForm.value = true;
 }
 
-// Créer un nouveau fichier
 function createNewFile() {
   editingFile.value = null;
   showFileForm.value = true;
 }
 
-// Rafraîchir la liste après save
 function handleSaved() {
   if (props.recordingSessionId) {
     fileStore.fetchFilesBySessionId(props.recordingSessionId);
@@ -58,6 +48,30 @@ const files = computed(() => fileStore.files);
 function openFileLink(link: string) {
   window.open(link, '_blank');
 }
+
+////////////////////////////////
+// WATCHERS
+////////////////////////////////
+watch(
+  () => props.recordingSessionId,
+  async (newId) => {
+    if (newId) {
+      await fileStore.fetchFilesBySessionId(newId);
+    } else {
+      fileStore.files.splice(0, fileStore.files.length);
+    }
+  },
+  { immediate: true }
+);
+
+////////////////////////////////
+// ON MOUNT
+////////////////////////////////
+onMounted(async () => {
+  if (props.recordingSessionId) {
+    await fileStore.fetchFilesBySessionId(props.recordingSessionId);
+  }
+});
 </script>
 
 <template>
@@ -73,7 +87,7 @@ function openFileLink(link: string) {
         </div>
       </v-card-title>
 
-      <!-- Liste des fichiers existants -->
+      <!-- List of existing files -->
       <v-table v-if="files.length > 0">
         <thead>
           <tr>
@@ -104,7 +118,7 @@ function openFileLink(link: string) {
 
       <p v-else>No files found for this session.</p>
 
-      <!-- Drawer ou modal pour formulaire -->
+      <!-- Drawer or modal for form -->
       <v-dialog v-model="showFileForm" max-width="600">
         <FileForm
           v-if="showFileForm"

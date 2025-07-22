@@ -1,17 +1,32 @@
 <script setup lang="ts">
+////////////////////////////////
+// IMPORT
+////////////////////////////////
 import { ref, watch, onMounted } from 'vue';
 import { useProtocolStore } from '@/stores/protocol';
+import { useRecordingSessionStore } from '@/stores/recordingSession';
 
+////////////////////////////////
+// PROPS
+////////////////////////////////
 const props = defineProps<{
   selectedProtocolId: number | null;
+  selectedRecordingSessionId: number | null;
 }>();
 
 const emit = defineEmits<{
   (e: 'update:selectedProtocolId', value: number | null): void;
 }>();
 
+////////////////////////////////
+// STORES
+////////////////////////////////
 const protocolStore = useProtocolStore();
+const recordingSessionStore = useRecordingSessionStore();
 
+////////////////////////////////
+// DATA
+////////////////////////////////
 const formData = ref({
   name: '',
   description: '',
@@ -35,64 +50,16 @@ const formData = ref({
   },
 });
 
-// Snackbar state
 const snackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('');
-
-// selectedId est toujours string ou null
 const selectedId = ref<string | null>(
   props.selectedProtocolId !== null ? String(props.selectedProtocolId) : null
 );
 
-// Sync local selectedId with parent prop (string conversion)
-watch(
-  () => props.selectedProtocolId,
-  (newId) => {
-    const idStr = newId !== null ? String(newId) : null;
-    if (selectedId.value !== idStr) {
-      selectedId.value = idStr;
-    }
-  },
-  { immediate: true }
-);
-
-const protocolsLoaded = computed(
-  () => !protocolStore.loading && protocolStore.protocols.results.length > 0
-);
-
-watch(
-  [selectedId, protocolsLoaded],
-  ([newId, loaded]) => {
-    if (!loaded) return; // on attend que les protocols soient chargés
-
-    if (newId === 'new') {
-      resetForm();
-      emit('update:selectedProtocolId', null);
-      return;
-    }
-    if (newId === null) {
-      resetForm();
-      emit('update:selectedProtocolId', null);
-    } else {
-      const idNumber = Number(newId);
-      if (!isNaN(idNumber)) {
-        const protocol = protocolStore.getProtocolById(idNumber);
-        console.log('Selected protocol:', protocol);
-        if (protocol) {
-          formData.value = JSON.parse(JSON.stringify(protocol));
-        } else {
-          resetForm();
-        }
-        emit('update:selectedProtocolId', idNumber);
-      } else {
-        resetForm();
-        emit('update:selectedProtocolId', null);
-      }
-    }
-  },
-  { immediate: true }
-);
+////////////////////////////////
+// FUNCTIONS
+////////////////////////////////
 
 function resetForm() {
   formData.value = {
@@ -122,20 +89,33 @@ function resetForm() {
 
 async function onSubmit() {
   try {
+    let protocolId: number;
+
     if (selectedId.value !== null && selectedId.value !== 'new') {
       const idNumber = Number(selectedId.value);
       if (isNaN(idNumber)) throw new Error('Invalid protocol ID');
-      await protocolStore.updateProtocol(idNumber, formData.value);
+      const updated = await protocolStore.updateProtocol(idNumber, formData.value);
+      protocolId = updated.id;
       snackbarMessage.value = 'Protocol updated successfully.';
       snackbarColor.value = 'success';
     } else {
       const created = await protocolStore.createProtocol(formData.value);
       selectedId.value = String(created.id);
+      protocolId = created.id;
       snackbarMessage.value = 'Protocol created successfully.';
       snackbarColor.value = 'success';
     }
+
     snackbar.value = true;
     await protocolStore.fetchAllProtocols();
+
+    if (props.selectedRecordingSessionId !== null) {
+      await recordingSessionStore.updateSessionProtocol(
+        props.selectedRecordingSessionId,
+        protocolId
+      );
+      snackbarMessage.value += ' Linked to recording session.';
+    }
   } catch (e) {
     snackbarMessage.value = 'Error saving protocol.';
     snackbarColor.value = 'error';
@@ -144,6 +124,59 @@ async function onSubmit() {
   }
 }
 
+////////////////////////////////
+// WATCHERS
+////////////////////////////////
+watch(
+  () => props.selectedProtocolId,
+  (newId) => {
+    const idStr = newId !== null ? String(newId) : null;
+    if (selectedId.value !== idStr) {
+      selectedId.value = idStr;
+    }
+  },
+  { immediate: true }
+);
+
+const protocolsLoaded = computed(
+  () => !protocolStore.loading && protocolStore.protocols.results.length > 0
+);
+
+watch(
+  [selectedId, protocolsLoaded],
+  ([newId, loaded]) => {
+    if (!loaded) return;
+
+    if (newId === 'new') {
+      resetForm();
+      emit('update:selectedProtocolId', null);
+      return;
+    }
+    if (newId === null) {
+      resetForm();
+      emit('update:selectedProtocolId', null);
+    } else {
+      const idNumber = Number(newId);
+      if (!isNaN(idNumber)) {
+        const protocol = protocolStore.getProtocolById(idNumber);
+        if (protocol) {
+          formData.value = JSON.parse(JSON.stringify(protocol));
+        } else {
+          resetForm();
+        }
+        emit('update:selectedProtocolId', idNumber);
+      } else {
+        resetForm();
+        emit('update:selectedProtocolId', null);
+      }
+    }
+  },
+  { immediate: true }
+);
+
+////////////////////////////////
+// ON MOUNT
+////////////////////////////////
 onMounted(async () => {
   await protocolStore.fetchAllProtocols();
 });

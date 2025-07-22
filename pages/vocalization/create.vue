@@ -148,7 +148,9 @@ function onSessionSelected(payload) {
             @validate="onValidate(item.name, $event)"
             @session-selected="onSessionSelected"
             v-bind="{
-              ...(item.name === 'protocol' ? { selectedProtocolId } : {}),
+              ...(item.name === 'protocol'
+                ? { selectedProtocolId, selectedRecordingSessionId }
+                : {}),
               ...(item.name === 'file' ? { recordingSessionId: selectedRecordingSessionId } : {}),
             }"
           />
