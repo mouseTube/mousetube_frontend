@@ -22,6 +22,21 @@ export const useSoftwareStore = defineStore('software', {
         this.loading = false
       }
     },
+    
+    async fetchSoftwareById(id: number) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        const res = await axios.get(`${apiBaseUrl}/software/${id}/`);
+        return res.data;
+      } catch (err: any) {
+        this.error = err.message || 'Failed to fetch software';
+        return null;
+      } finally {
+        this.loading = false;
+      }
+    },
 
     getSoftwareById(id: number) {
       return this.softwares.find(s => s.id === id) || null

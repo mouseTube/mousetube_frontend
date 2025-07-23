@@ -99,6 +99,31 @@ export const useLaboratoryStore = defineStore('laboratory', {
       }
     },
 
+    async fetchLaboratoryById(id: number) {
+      try {
+        const headers: Record<string, string> = {};
+        const apiBaseUrl = useApiBaseUrl();
+        const response = await fetch(`${apiBaseUrl}/laboratory/${id}`, { headers });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch laboratory with id ${id}`);
+        }
+        const lab = await response.json();
+
+        // Optionnel : mettre à jour la liste locale si tu veux
+        const index = this.laboratories.findIndex((l) => l.id === id);
+        if (index !== -1) {
+          this.laboratories[index] = lab;
+        } else {
+          this.laboratories.push(lab);
+        }
+
+        return lab;
+      } catch (error) {
+        console.error('Error fetching laboratory by ID:', error);
+        return null;
+      }
+    },
+
     getLaboratoryById(id: number): Laboratory | null {
       return this.laboratories.find((l) => l.id === id) ?? null;
     },
