@@ -8,7 +8,7 @@ export interface Hardware {
   type: 'soundcard' | 'microphone' | 'speaker' | 'amplifier' | '';
   made_by: string;
   description: string;
-  references?: number[]; // ou string[] selon ton API
+  references?: number[];
   created_at?: string;
   modified_at?: string;
   created_by?: number | null;

@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import axios from 'axios'
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl'
 
-// Interfaces pour typer les données subject
 interface Species {
   id: number
   name: string
@@ -80,7 +79,7 @@ export const useSubjectStore = defineStore('subject', {
           if (Array.isArray(res.data.results)) {
             allSubjects.push(...res.data.results)
           }
-          url = res.data.next // DRF renvoie null si plus de page
+          url = res.data.next
         }
 
         this.subjects = allSubjects

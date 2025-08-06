@@ -33,7 +33,7 @@ export interface ProtocolListResponse {
   results: Protocol[]
 }
 
-/** Transforme un objet plat (Django) en objet imbriqué (frontend) */
+
 function mapFlatProtocolToNested(flat: any): Protocol {
   return {
     id: flat.id,
@@ -60,7 +60,7 @@ function mapFlatProtocolToNested(flat: any): Protocol {
   }
 }
 
-/** Transforme un objet imbriqué (frontend) en objet plat (Django API) */
+
 function mapNestedProtocolToFlat(nested: Protocol | Omit<Protocol, 'id'>) {
   return {
     name: nested.name,
@@ -105,7 +105,7 @@ export const useProtocolStore = defineStore('protocol', {
           const res = await axios.get(url);
           const pageResults = res.data.results.map(mapFlatProtocolToNested);
           allResults = allResults.concat(pageResults);
-          url = res.data.next;  // URL de la page suivante, ou null si fin
+          url = res.data.next;
         }
 
         this.protocols = {
@@ -146,7 +146,6 @@ export const useProtocolStore = defineStore('protocol', {
       this.error = null
       try {
         const apiBaseUrl = useApiBaseUrl()
-        // Note: on peut convertir partiellement mais ici on assume full update
         const flatData = mapNestedProtocolToFlat(data as Protocol)
         const res = await axios.put(`${apiBaseUrl}/protocol/${id}/`, flatData)
         const nestedProtocol = mapFlatProtocolToNested(res.data)

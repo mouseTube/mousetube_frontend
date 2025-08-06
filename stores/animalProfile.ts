@@ -32,11 +32,10 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
           if (Array.isArray(res.data.results)) {
             allProfiles.push(...res.data.results);
           } else {
-            // Si pas de pagination, on récupère directement les données
             allProfiles.push(...res.data);
             break;
           }
-          url = res.data.next; // DRF renvoie null quand il n’y a plus de page
+          url = res.data.next;
         }
 
         this.animalProfiles = allProfiles;

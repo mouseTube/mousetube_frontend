@@ -118,7 +118,7 @@ export const useFileStore = defineStore('file', {
             recording_session: sessionId,
           },
         })
-        this.files = res.data.results  // même correction ici
+        this.files = res.data.results
         return this.files
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch files by session id'

@@ -33,11 +33,10 @@ const formData = ref({
   doi: '',
   number: null,
   subjects: [] as number[],
-  file: null as File | null, // fichier sélectionné
-  uploadedUrl: '' as string | null, // URL après upload
+  file: null as File | null,
+  uploadedUrl: '' as string | null,
 });
 
-// Charger les sujets disponibles
 function fetchSubjects() {
   subjectStore.fetchSubjects().then(() => {
     subjectOptions.value = subjectStore.subjects.map((s) => ({
@@ -47,7 +46,6 @@ function fetchSubjects() {
   });
 }
 
-// Pré-remplissage en édition
 watch(
   () => props.modelValue,
   (newVal) => {
@@ -90,7 +88,7 @@ watch(
 
 onMounted(fetchSubjects);
 
-// Upload le fichier seul puis associe l'URL dans formData.uploadedUrl
+// Upload the file, then associate the URL in formData.uploadedUrl
 async function uploadFile() {
   if (!formData.value.file) return;
 
@@ -107,7 +105,7 @@ async function uploadFile() {
   }
 }
 
-// Sauvegarder le File
+// Save the file data
 async function handleSubmit() {
   try {
     const { file, uploadedUrl, ...rest } = formData.value;
@@ -132,7 +130,6 @@ async function handleSubmit() {
   }
 }
 
-// Déterminer si le fichier est audio pour l'aperçu
 const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg|flac|aiff)$/i));
 </script>
 
@@ -143,7 +140,6 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
     </v-card-title>
 
     <v-card-text>
-      <!-- Champs texte -->
       <v-text-field v-model="formData.name" outlined required class="mb-3">
         <template #label> File Name <span style="color: red">*</span> </template>
       </v-text-field>
@@ -199,7 +195,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         class="mb-3"
       />
 
-      <!-- Sélecteur de sujets -->
+      <!-- Subject selector -->
       <v-select
         v-model="formData.subjects"
         :items="subjectOptions"
@@ -216,7 +212,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         <v-icon start>mdi-plus</v-icon> Add Subject
       </v-btn>
 
-      <!-- Upload de fichier -->
+      <!-- Upload file -->
       <v-file-input
         v-model="formData.file"
         label="Upload File"
@@ -231,7 +227,6 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         Upload File
       </v-btn>
 
-      <!-- Aperçu -->
       <div v-if="formData.uploadedUrl" class="mb-3">
         <v-alert type="success" class="mb-2">File uploaded successfully!</v-alert>
         <audio v-if="isAudio" controls :src="formData.uploadedUrl" class="w-full" />

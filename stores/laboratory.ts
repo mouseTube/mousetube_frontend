@@ -109,7 +109,6 @@ export const useLaboratoryStore = defineStore('laboratory', {
         }
         const lab = await response.json();
 
-        // Optionnel : mettre à jour la liste locale si tu veux
         const index = this.laboratories.findIndex((l) => l.id === id);
         if (index !== -1) {
           this.laboratories[index] = lab;

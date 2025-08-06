@@ -16,7 +16,7 @@ import HardwareModal from '@/components/modals/HardwareModal.vue';
 ////////////////////////////////
 // STORES
 ////////////////////////////////
-const apiBaseUrl = useApiBaseUrl();
+const apiBaseUrl: string = useApiBaseUrl();
 const { token } = useAuth();
 const recordingSessionStore = useRecordingSessionStore();
 const hardwareStore = useHardwareStore();
@@ -133,7 +133,7 @@ function resetForm() {
   emit('session-selected', null);
 }
 
-function updateDate(newDate: string) {
+function updateDate(newDate: string | null) {
   date.value = newDate;
   tryMergeDateTime();
 }
@@ -223,7 +223,6 @@ async function saveSession() {
       const created = await recordingSessionStore.createSession(formData.value);
       showSnackbar('Session created successfully!', 'success');
       selectedSessionId.value = created.id;
-      // Émettre avec le protocolId si disponible
       emit('session-selected', {
         sessionId: created.id,
         protocolId: created.protocol?.id || null,
@@ -231,7 +230,6 @@ async function saveSession() {
     } else {
       await recordingSessionStore.updateSession(Number(selectedSessionId.value), formData.value);
       showSnackbar('Session updated successfully!', 'success');
-      // Émettre avec le protocolId si disponible
       const session = recordingSessionStore.getSessionById(Number(selectedSessionId.value));
       emit('session-selected', {
         sessionId: selectedSessionId.value,
@@ -310,7 +308,6 @@ watch(selectedSessionId, (newId) => {
     session.equipment_acquisition_software?.map((soft: any) => soft.software?.id ?? soft.id) ?? [];
   formData.value.laboratory = session.laboratory?.id ?? null;
 
-  // Émettre avec le protocolId si disponible
   emit('session-selected', {
     sessionId: idNum,
     protocolId: session.protocol?.id || null,
@@ -732,10 +729,10 @@ onMounted(async () => {
       @saved="fetchSelectableData"
     />
 
-    <!-- Dialog création laboratoire -->
+    <!-- Dialog creation laboratory -->
     <LaboratoryModal v-model="newLabDialog" @saved="fetchSelectableData" />
 
-    <!-- Dialog édition laboratoire -->
+    <!-- Dialog edition laboratory -->
     <LaboratoryModal v-model="editLabDialog" :edit-id="editLabId" @saved="fetchSelectableData" />
     <!-- Snackbar notifications -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000">
