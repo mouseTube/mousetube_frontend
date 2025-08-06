@@ -35,7 +35,6 @@ watch(
   () => props.hardwareId,
   async (newId) => {
     if (newId) {
-      console.log('Loading hardware with ID:', newId);
       let existing = hardwareStore.getHardwareById(newId);
       if (!existing) {
         existing = await hardwareStore.fetchHardwareById(newId);
@@ -72,6 +71,7 @@ async function saveHardware() {
     emit('saved');
     emit('update:modelValue', false);
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error(err);
     alert('Error saving hardware.');
   }

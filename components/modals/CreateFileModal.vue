@@ -101,6 +101,7 @@ async function uploadFile() {
     });
     formData.value.uploadedUrl = response.data.file_url || response.data.url || null;
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Upload failed:', error);
   }
 }
@@ -126,6 +127,7 @@ async function handleSubmit() {
     emit('update:modelValue', null);
     emit('saved', saved);
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error(err);
   }
 }

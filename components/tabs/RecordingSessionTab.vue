@@ -160,6 +160,7 @@ async function fetchSelectableData() {
       const data = await res.json();
       target.value = data.results ?? data;
     } catch (e) {
+      // eslint-disable-next-line no-console
       console.error(`Error loading ${endpoint}`, e);
       showSnackbar(`Error loading ${endpoint}`, 'error');
     }
@@ -237,6 +238,7 @@ async function saveSession() {
       });
     }
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error('Error saving session', e);
     showSnackbar('Error saving session.', 'error');
   }

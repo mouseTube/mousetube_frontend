@@ -53,7 +53,6 @@ export function useAuth() {
   const loginWithToken = async (accessToken: string) => {
     try {
       token.value = accessToken;
-      console.log(token.value)
 
       const res = await axios.get(`${baseUrl.value}/auth/users/me/`, {
         headers: {
@@ -62,7 +61,6 @@ export function useAuth() {
       });
 
       currentUser.value = res.data.username;
-      console.log(currentUser.value)
       id_user.value = res.data.id;
       return true;
     } catch (error: any) {

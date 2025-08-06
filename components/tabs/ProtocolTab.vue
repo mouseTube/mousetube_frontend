@@ -120,6 +120,7 @@ async function onSubmit() {
     snackbarMessage.value = 'Error saving protocol.';
     snackbarColor.value = 'error';
     snackbar.value = true;
+    // eslint-disable-next-line no-console
     console.error(e);
   }
 }

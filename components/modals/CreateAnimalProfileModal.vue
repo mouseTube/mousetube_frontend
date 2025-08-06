@@ -22,6 +22,7 @@ async function handleSubmit() {
     emit('created', created);
     emit('update:modelValue', false);
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error(e);
     alert('Error creating animal profile.');
   }

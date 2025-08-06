@@ -40,7 +40,6 @@ function handleCreated(newAnimalProfile: { id: number; name: string }) {
 }
 
 function handleSubmit() {
-  console.log('Animal profiles IDs:', formData.value.animal_profiles);
   snackbarText.value = 'Animal profiles saved.';
   snackbar.value = true;
 }

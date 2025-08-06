@@ -75,7 +75,6 @@ function onValidate(tabName, validation) {
 }
 
 function onSessionSelected(payload) {
-  console.log('Session selected:', payload);
   if (!payload) {
     selectedRecordingSessionId.value = null;
     selectedProtocolId.value = null;

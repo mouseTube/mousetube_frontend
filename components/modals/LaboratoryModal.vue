@@ -42,13 +42,10 @@ async function loadLaboratory() {
   if (!props.editId) return;
   loading.value = true;
   try {
-    console.log('Loading laboratory with ID:', props.editId);
     let lab = labStore.getLaboratoryById(props.editId);
     if (!lab) {
-      console.log('Not found locally, fetching from API...');
       lab = await labStore.fetchLaboratoryById(props.editId);
     } else {
-      console.log('Found locally:', lab);
     }
     if (lab) {
       form.value = {
@@ -62,6 +59,7 @@ async function loadLaboratory() {
     }
   } catch (e) {
     showSnackbar('Error loading laboratory.', 'error');
+    // eslint-disable-next-line no-console
     console.error(e);
   } finally {
     loading.value = false;
@@ -86,6 +84,7 @@ async function save() {
     emit('update:modelValue', false);
   } catch (e) {
     showSnackbar('Error saving laboratory.', 'error');
+    // eslint-disable-next-line no-console
     console.error(e);
   } finally {
     loading.value = false;

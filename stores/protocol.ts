@@ -122,8 +122,6 @@ export const useProtocolStore = defineStore('protocol', {
     },
 
     getProtocolById(id: number): Protocol | null {
-      console.log('All protocol IDs:', this.protocols.results.map(p => p.id));
-      console.log('Requested ID:', id);
       return this.protocols.results.find(p => p.id === id) || null
     },
 

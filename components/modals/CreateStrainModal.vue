@@ -23,6 +23,7 @@ async function fetchSpecies() {
   try {
     speciesOptions.value = await strainStore.fetchSpecies(); // [{ label, value }]
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error('Error fetching species:', err);
   }
 }
@@ -47,6 +48,7 @@ async function submit() {
     emit('created', newStrain);
     emit('update:show', false);
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error('Error creating strain:', err);
   }
 }

@@ -36,6 +36,7 @@ async function createSoftwareVersion() {
     emit('created');
     emit('update:modelValue', false);
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error(e);
     alert('Error creating software version');
   }

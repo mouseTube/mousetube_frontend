@@ -29,7 +29,8 @@ async function submit() {
     emit('created', newSpecies);
     emit('update:show', false);
   } catch (err) {
-    console.error('Erreur création species:', err);
+    // eslint-disable-next-line no-console
+    console.error('Error creating species:', err);
   }
 }
 </script>

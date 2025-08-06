@@ -28,7 +28,6 @@ const formData = ref({
 watch(
   () => props.softwareId,
   async (newId) => {
-    console.log('Loading software with ID:', newId);
     if (props.editMode && newId) {
       const software = await softwareStore.fetchSoftwareById(newId);
       if (software) {
@@ -80,6 +79,7 @@ async function saveSoftware() {
     emit('saved');
     emit('update:modelValue', false);
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error(e);
     alert(props.editMode ? 'Error updating software' : 'Error creating software');
   }

@@ -29,6 +29,7 @@ async function createStudy() {
     });
     if (!res.ok) {
       const err = await res.json();
+      // eslint-disable-next-line no-console
       console.error(err);
       alert('Error creating study.');
       return;
@@ -36,6 +37,7 @@ async function createStudy() {
     emit('created');
     emit('update:modelValue', false);
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error(e);
     alert('Error creating study.');
   }
