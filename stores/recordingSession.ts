@@ -120,6 +120,9 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
     loadingStudies: false,
     errorSessions: null as string | null,
     errorStudies: null as string | null,
+    currentPage: 1,
+    totalPages: 1,
+    pageSize: 10,
   }),
   actions: {
     getAuthHeaders() {
@@ -148,6 +151,48 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         this.sessions = allSessions
       } catch (err: any) {
         this.errorSessions = err.message || 'Failed to fetch recording sessions'
+        this.sessions = []
+      } finally {
+        this.loadingSessions = false
+      }
+    },
+
+    async fetchSessionsPage(page = 1) {
+      this.loadingSessions = true;
+      this.errorSessions = null;
+
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        const res = await axios.get(`${apiBaseUrl}/recording-session/?page=${page}`, {
+          headers: this.getAuthHeaders(),
+        });
+
+        this.sessions = res.data.results;
+        this.currentPage = page;
+        this.totalPages = Math.ceil(res.data.count / this.pageSize);
+      } catch (err: any) {
+        this.errorSessions = err.message || 'Failed to fetch sessions';
+        this.sessions = [];
+      } finally {
+        this.loadingSessions = false;
+      }
+    },
+
+
+    async searchRecordingSessions(query: string) {
+      this.loadingSessions = true;
+      this.errorSessions = null;
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        const res = await axios.get(`${apiBaseUrl}/recording-session/`, {
+          headers: this.getAuthHeaders(),
+          params: { search: query },
+        });
+        this.sessions = res.data.results;
+        this.currentPage = 1;
+        this.totalPages = Math.ceil(res.data.count / this.pageSize);
+      } catch (err: any) {
+        this.errorSessions = err.message || 'Failed to search recording sessions'
         this.sessions = []
       } finally {
         this.loadingSessions = false
@@ -235,8 +280,30 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
       }
     },
 
-    getSessionById(id: number): RecordingSession | null {
-      return this.sessions.find(s => s.id === id) ?? null
+    async getSessionById(id: number): Promise<RecordingSession | null> {
+
+      if (!this.sessions || this.sessions.length === 0) {
+        // eslint-disable-next-line no-console
+        console.warn('No sessions available to search');
+      } else {
+        const session = this.sessions.find(s => s.id === id);
+        if (session) {
+          return session;
+        }
+      }
+
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        const res = await axios.get(`${apiBaseUrl}/recording-session/${id}/`, {
+          headers: this.getAuthHeaders(),
+        });
+        this.sessions.push(res.data);
+        return res.data;
+      } catch (err: any) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to fetch session from API:', err.message);
+        return null;
+      }
     },
 
     getStudyById(id: number): Study | null {

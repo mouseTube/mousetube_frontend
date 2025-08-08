@@ -69,7 +69,7 @@ const handleLogout = async () => {
         </nuxt-link>
       </v-col>
 
-      <!-- Liens navbar (hors mobile) -->
+      <!-- Navigation links -->
       <v-col cols="auto" class="nav-links d-flex justify-center align-center" v-if="!smAndDown">
         <template v-for="link in links" :key="link.to">
           <nuxt-link :to="link.to" class="nav-item px-2" exact-active-class="active-link">
@@ -175,7 +175,6 @@ const handleLogout = async () => {
             <v-list-item-title>{{ link.label }}</v-list-item-title>
           </v-list-item>
         </template>
-        <!-- Bloc Add corrigé -->
         <v-list-group v-if="currentUser">
           <template #activator="{ props, isOpen }">
             <v-list-item v-bind="props">

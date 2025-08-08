@@ -7,7 +7,7 @@ import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 import CreateSubjectModal from '~/components/modals/CreateSubjectModal.vue';
 
 const props = defineProps<{
-  modelValue: any; // utilisé avec v-model="editingFile"
+  modelValue: any;
   recordingSessionId?: number | null;
 }>();
 

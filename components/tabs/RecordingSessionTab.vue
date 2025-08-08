@@ -5,13 +5,14 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 import { useAuth } from '@/composables/useAuth';
-import { useRecordingSessionStore } from '@/stores/recordingSession';
+import { useRecordingSessionStore, type RecordingSession } from '@/stores/recordingSession';
 import { useHardwareStore } from '@/stores/hardware';
 import { useSoftwareStore } from '@/stores/software';
 import SoftwareModal from '@/components/modals/SoftwareModal.vue';
 import CreateSoftwareVersionModal from '@/components/modals/CreateSoftwareVersionModal.vue';
 import LaboratoryModal from '@/components/modals/LaboratoryModal.vue';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
+import SelectSessionModal from '@/components/modals/SessionModal.vue';
 
 ////////////////////////////////
 // STORES
@@ -30,7 +31,7 @@ const emit = defineEmits(['validate', 'session-selected']);
 ////////////////////////////////
 // DATA & STATE
 ////////////////////////////////
-const formRef = ref();
+const formRef = ref<any>();
 const dateMenu = ref(false);
 const date = ref<string | null>(null);
 const time = ref<string | null>(null);
@@ -39,8 +40,18 @@ const snackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('');
 
-const selectedSessionId = ref<'new' | number>('new');
-const recordingSessionsOptions = computed(() => recordingSessionStore.sessions);
+//
+// Keep an id-style v-model for the select, but we no longer rely on a global list.
+// selectedSessionId can be 'new' | 'select' | number
+//
+const selectedSessionId = ref<'new' | 'select' | number>('new');
+
+//
+// Store the full selected session object when chosen from the modal.
+// This is used to show the selected item in the v-select and to prefill the form.
+//
+const selectedSessionObject = ref<RecordingSession | null>(null);
+const selectedSessionName = ref<string>('');
 
 const laboratoriesOptions = ref<any[]>([]);
 const studiesOptions = ref<any[]>([]);
@@ -87,6 +98,8 @@ const newLabDialog = ref(false);
 const editLabDialog = ref(false);
 const editLabId = ref<number | null>(null);
 
+const showSessionSelectModal = ref(false);
+
 ////////////////////////////////
 // COMPUTED
 ////////////////////////////////
@@ -97,15 +110,32 @@ const formattedDate = computed(() => {
   return '';
 });
 
+//
+// Build the items for the v-select: only 'new', 'select', and the selected session (if any).
+//
+const selectItems = computed(() => {
+  const items: Array<{ id: string | number; name: string }> = [
+    { id: 'new', name: 'Create New Session' },
+    { id: 'select', name: 'Select Existing Session' },
+  ];
+  if (selectedSessionObject.value) {
+    items.push({ id: selectedSessionObject.value.id, name: selectedSessionObject.value.name });
+  }
+  return items;
+});
+
 ////////////////////////////////
 // METHODS
 ////////////////////////////////
+
+/* Show a snackbar notification with the given message and color. */
 function showSnackbar(message: string, color: string) {
   snackbarMessage.value = message;
   snackbarColor.value = color;
   snackbar.value = true;
 }
 
+/* Reset the form to empty values (used when 'new' is selected). */
 function resetForm() {
   formData.value = {
     name: '',
@@ -130,19 +160,24 @@ function resetForm() {
   };
   date.value = null;
   time.value = null;
+  selectedSessionObject.value = null;
+  selectedSessionName.value = '';
   emit('session-selected', null);
 }
 
+/* Update local date and try to merge with time into formData.date. */
 function updateDate(newDate: string | null) {
   date.value = newDate;
   tryMergeDateTime();
 }
 
+/* Update local time and try to merge with date into formData.date. */
 function updateTime(newTime: string) {
   time.value = newTime;
   tryMergeDateTime();
 }
 
+/* Merge date + time into an ISO string stored in formData.date and close the menu. */
 function tryMergeDateTime() {
   if (date.value && time.value) {
     formData.value.date = new Date(`${date.value}T${time.value}`).toISOString();
@@ -150,6 +185,7 @@ function tryMergeDateTime() {
   }
 }
 
+/* Fetch lists used to populate selects (studies, hardware, software, labs). */
 async function fetchSelectableData() {
   const headers: Record<string, string> = {};
   if (token.value) headers.Authorization = `Bearer ${token.value}`;
@@ -174,6 +210,7 @@ async function fetchSelectableData() {
   ]);
 }
 
+/* Called when a software item is created — open version modal for newest software. */
 function onSoftwareCreated() {
   createdSoftwareId.value = softwareStore.softwares.at(-1)?.id ?? null;
   if (createdSoftwareId.value) {
@@ -181,6 +218,7 @@ function onSoftwareCreated() {
   }
 }
 
+/* Returns the edit software data for the software modal when editing. */
 const editSoftwareData = computed(() => {
   if (editSoftwareId.value) {
     return softwareOptions.value.find((s) => s.id === editSoftwareId.value) ?? {};
@@ -188,6 +226,7 @@ const editSoftwareData = computed(() => {
   return {};
 });
 
+/* Open edit dialog for selected acquisition software. */
 function openEditSoftDialog() {
   const selectedId = formData.value.equipment.acquisition_software[0];
   if (!selectedId) {
@@ -198,6 +237,7 @@ function openEditSoftDialog() {
   showSoftwareModal.value = true;
 }
 
+/* Open edit dialog for the selected laboratory. */
 function openEditLabDialog() {
   const selectedLab = laboratoriesOptions.value.find((lab) => lab.id === formData.value.laboratory);
   if (!selectedLab) {
@@ -208,8 +248,9 @@ function openEditLabDialog() {
   editLabDialog.value = true;
 }
 
+/* Save or update the session using the store. Handles both 'new' and existing sessions. */
 async function saveSession() {
-  const isValid = await formRef.value.validate();
+  const isValid = await formRef.value?.validate?.();
   if (!isValid) {
     showSnackbar('Please fill in all required fields.', 'error');
     return;
@@ -223,14 +264,28 @@ async function saveSession() {
     if (selectedSessionId.value === 'new') {
       const created = await recordingSessionStore.createSession(formData.value);
       showSnackbar('Session created successfully!', 'success');
+
+      // Set created session as the selected one
       selectedSessionId.value = created.id;
+      selectedSessionObject.value = created as RecordingSession;
+      selectedSessionName.value = created.name ?? '';
+
       emit('session-selected', {
         sessionId: created.id,
         protocolId: created.protocol?.id || null,
       });
     } else {
+      // Update existing session
       await recordingSessionStore.updateSession(Number(selectedSessionId.value), formData.value);
       showSnackbar('Session updated successfully!', 'success');
+
+      // Try to refresh selectedSessionObject from store (if present)
+      const updated = recordingSessionStore.getSessionById(Number(selectedSessionId.value));
+      if (updated) {
+        selectedSessionObject.value = updated;
+        selectedSessionName.value = updated.name ?? '';
+      }
+
       const session = recordingSessionStore.getSessionById(Number(selectedSessionId.value));
       emit('session-selected', {
         sessionId: selectedSessionId.value,
@@ -244,19 +299,14 @@ async function saveSession() {
   }
 }
 
+/* Open dialog to create new hardware of the given type. */
 function openNewHardwareDialog(type: 'soundcard' | 'microphone' | 'speaker' | 'amplifier') {
   hardwareTypeForModal.value = type;
   editHardwareId.value = null;
   newHardwareDialog.value = true;
 }
 
-const hardwareFieldMap = {
-  soundcard: 'soundcards',
-  microphone: 'microphones',
-  speaker: 'speakers',
-  amplifier: 'amplifiers',
-} as const;
-
+/* Open dialog to edit selected hardware (by type). */
 function openEditHardwareDialog(type: 'soundcard' | 'microphone' | 'speaker' | 'amplifier') {
   const selectedId = formData.value.equipment[hardwareFieldMap[type]][0];
   if (!selectedId) {
@@ -268,24 +318,30 @@ function openEditHardwareDialog(type: 'soundcard' | 'microphone' | 'speaker' | '
   editHardwareDialog.value = true;
 }
 
-////////////////////////////////
-// WATCHERS
-////////////////////////////////
-watch(selectedSessionId, (newId) => {
-  if (!newId || newId === 'new') {
-    resetForm();
-    emit('session-selected', null);
-    return;
-  }
+const hardwareFieldMap = {
+  soundcard: 'soundcards',
+  microphone: 'microphones',
+  speaker: 'speakers',
+  amplifier: 'amplifiers',
+} as const;
 
-  const idNum = Number(newId);
-  const session = recordingSessionStore.getSessionById(idNum);
-  if (!session) return;
+/* Handler called when a session is selected in the modal.
+   - Accepts the full session object,
+   - sets it as selected,
+   - pre-fills the form,
+   - emits session-selected to parent.
+*/
+function onSessionSelected(session: RecordingSession) {
+  selectedSessionId.value = session.id;
+  selectedSessionObject.value = session;
+  selectedSessionName.value = session.name ?? '';
 
+  // Prefill form with session data
   formData.value.name = session.name ?? '';
   formData.value.description = session.description ?? '';
   formData.value.duration = session.duration ?? null;
   formData.value.date = session.date ?? null;
+
   if (session.date) {
     const d = new Date(session.date);
     date.value = d.toISOString().slice(0, 10);
@@ -311,36 +367,148 @@ watch(selectedSessionId, (newId) => {
   formData.value.laboratory = session.laboratory?.id ?? null;
 
   emit('session-selected', {
+    sessionId: session.id,
+    protocolId: session.protocol?.id || null,
+  });
+}
+
+////////////////////////////////
+// WATCHERS
+////////////////////////////////
+
+/* Watcher on selectedSessionId:
+   - If user chose 'select', open modal and revert selection to previous value.
+   - If 'new', reset form.
+   - If numeric id, try to load session from store and prefill form.
+*/
+watch(selectedSessionId, (newId, oldId) => {
+  // if user clicked "Select Existing Session", open modal and restore old value
+  if (newId === 'select') {
+    showSessionSelectModal.value = true;
+    // revert to previous selection to avoid leaving 'select' in v-select
+    // (this avoids clearing the current selection while modal is open)
+    selectedSessionId.value = oldId ?? 'new';
+    return;
+  }
+
+  // if user selected "new"
+  if (!newId || newId === 'new') {
+    resetForm();
+    emit('session-selected', null);
+    return;
+  }
+
+  // if user selected an id (number), try to prefill form from store
+  const idNum = Number(newId);
+  // prefer selectedSessionObject if it matches
+  if (selectedSessionObject.value && selectedSessionObject.value.id === idNum) {
+    onSessionSelected(selectedSessionObject.value);
+    return;
+  }
+
+  const session = recordingSessionStore.getSessionById(idNum);
+  if (!session) {
+    // session not in store cache: nothing to do (modal selection should provide full object)
+    return;
+  }
+
+  // Prefill form using session retrieved from store
+  formData.value.name = session.name ?? '';
+  formData.value.description = session.description ?? '';
+  formData.value.duration = session.duration ?? null;
+  formData.value.date = session.date ?? null;
+
+  if (session.date) {
+    const d = new Date(session.date);
+    date.value = d.toISOString().slice(0, 10);
+    time.value = d.toTimeString().slice(0, 5);
+  }
+
+  formData.value.studies = session.studies?.map((s: any) => s.id) ?? [];
+  formData.value.context.temperature.value = session.context_temperature_value ?? null;
+  formData.value.context.temperature.unit = session.context_temperature_unit ?? '°C';
+  formData.value.context.brightness = session.context_brightness ?? null;
+  formData.value.equipment.channels = session.equipment_channels ?? '';
+  formData.value.equipment.sound_isolation = session.equipment_sound_isolation ?? '';
+  formData.value.equipment.soundcards =
+    session.equipment_acquisition_hardware_soundcards?.map((h: any) => h.id) ?? [];
+  formData.value.equipment.microphones =
+    session.equipment_acquisition_hardware_microphones?.map((h: any) => h.id) ?? [];
+  formData.value.equipment.amplifiers =
+    session.equipment_acquisition_hardware_amplifiers?.map((h: any) => h.id) ?? [];
+  formData.value.equipment.speakers =
+    session.equipment_acquisition_hardware_speakers?.map((h: any) => h.id) ?? [];
+  formData.value.equipment.acquisition_software =
+    session.equipment_acquisition_software?.map((soft: any) => soft.software?.id ?? soft.id) ?? [];
+  formData.value.laboratory = session.laboratory?.id ?? null;
+
+  selectedSessionObject.value = session;
+  selectedSessionName.value = session.name ?? '';
+
+  emit('session-selected', {
     sessionId: idNum,
     protocolId: session.protocol?.id || null,
   });
 });
 
+function handleSessionSelection(newId: 'new' | 'select' | number) {
+  if (newId === 'select') {
+    // Ouvre la modale de sélection
+    showSessionSelectModal.value = true;
+
+    // Réinitialise la sélection pour éviter de bloquer sur "select"
+    selectedSessionId.value = selectedSessionObject.value?.id ?? 'new';
+  } else if (newId === 'new') {
+    // Réinitialise le formulaire pour une nouvelle session
+    resetForm();
+  } else {
+    // Charge la session sélectionnée depuis le store
+    const session = recordingSessionStore.getSessionById(Number(newId));
+    if (session) {
+      onSessionSelected(session);
+    }
+  }
+}
+
 ////////////////////////////////
 // LIFECYCLE
 ////////////////////////////////
+
+/* Component mounted: fetch lists and prefetch first page of sessions for modal */
 onMounted(async () => {
   await fetchSelectableData();
-  await recordingSessionStore.fetchSessions();
+  // Prefetch first page for modal convenience (modal also fetches on open)
+  await recordingSessionStore.fetchSessionsPage(1);
 });
 </script>
 
 <template>
   <v-container>
-    <!-- Sélection de la session -->
+    <!-- Session selection -->
     <v-select
       v-model="selectedSessionId"
-      :items="[
-        { id: 'new', name: 'Create New Session' },
-        ...recordingSessionsOptions.map((s) => ({ id: s.id, name: s.name })),
-      ]"
+      :items="selectItems"
       item-title="name"
       item-value="id"
       label="Select Recording Session"
       outlined
       dense
       class="mb-4"
-    />
+      :value-comparator="(a, b) => a === b"
+      @change="handleSessionSelection"
+    >
+      <!-- <template #selection="{ item }">
+        <span v-if="item.raw.id === 'new'">➕ New Session</span>
+        <span v-else-if="item.raw.id === 'select'">🔍 Select Existing Session</span>
+        <span v-else>{{ selectedSessionObject?.name || item.raw.name }}</span>
+      </template>
+
+      <template #item="{ item }">
+        <span v-if="item.raw.id === 'new'">➕ New Session</span>
+        <span v-else-if="item.raw.id === 'select'">🔍 Select Existing Session</span>
+        <span v-else>{{ item.raw.name }}</span>
+      </template> -->
+    </v-select>
 
     <v-card class="pa-6" outlined>
       <v-card-title class="d-flex justify-space-between align-center mb-4">
@@ -367,8 +535,7 @@ onMounted(async () => {
           <!-- Description -->
           <v-textarea v-model="formData.description" label="Description" outlined class="mb-4" />
 
-          <!-- Date -->
-          <!-- Date et heure -->
+          <!-- Date / Time -->
           <v-menu
             v-model="dateMenu"
             :close-on-content-click="false"
@@ -514,6 +681,7 @@ onMounted(async () => {
                 outlined
                 class="mb-4"
               />
+              <!-- soundcards -->
               <v-row class="mb-4" align="center" no-gutters>
                 <v-col cols="12" md="9">
                   <v-autocomplete
@@ -550,6 +718,8 @@ onMounted(async () => {
                   </v-btn>
                 </v-col>
               </v-row>
+
+              <!-- microphones -->
               <v-row class="mb-4" align="center" no-gutters>
                 <v-col cols="12" md="9">
                   <v-autocomplete
@@ -586,6 +756,8 @@ onMounted(async () => {
                   </v-btn>
                 </v-col>
               </v-row>
+
+              <!-- amplifiers -->
               <v-row class="mb-4" align="center" no-gutters>
                 <v-col cols="12" md="9">
                   <v-autocomplete
@@ -622,6 +794,8 @@ onMounted(async () => {
                   </v-btn>
                 </v-col>
               </v-row>
+
+              <!-- speakers -->
               <v-row class="mb-4" align="center" no-gutters>
                 <v-col cols="12" md="9">
                   <v-autocomplete
@@ -699,7 +873,7 @@ onMounted(async () => {
                 </v-col>
               </v-row>
 
-              <!-- Modals software unifiés -->
+              <!-- Modals software -->
               <SoftwareModal
                 v-model="showSoftwareModal"
                 :software-id="editSoftwareId ?? undefined"
@@ -718,6 +892,10 @@ onMounted(async () => {
       </v-card-text>
     </v-card>
 
+    <!-- Session selection modal (modal handles its own pagination/search using the store) -->
+    <SelectSessionModal v-model="showSessionSelectModal" @selected="onSessionSelected" />
+
+    <!-- Hardware modals -->
     <HardwareModal
       v-model="newHardwareDialog"
       :hardware-type="hardwareTypeForModal"
@@ -731,12 +909,11 @@ onMounted(async () => {
       @saved="fetchSelectableData"
     />
 
-    <!-- Dialog creation laboratory -->
+    <!-- Labs -->
     <LaboratoryModal v-model="newLabDialog" @saved="fetchSelectableData" />
-
-    <!-- Dialog edition laboratory -->
     <LaboratoryModal v-model="editLabDialog" :edit-id="editLabId" @saved="fetchSelectableData" />
-    <!-- Snackbar notifications -->
+
+    <!-- Snackbar -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000">
       {{ snackbarMessage }}
     </v-snackbar>
