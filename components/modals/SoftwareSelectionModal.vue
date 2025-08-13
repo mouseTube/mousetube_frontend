@@ -23,7 +23,7 @@ const showSoftwareVersionModal = ref(false);
 const editSoftwareVersionId = ref<number | null>(null);
 
 const showDeleteConfirm = ref(false);
-const deleteTargetId = ref<number | null>(null);
+const deleteTarget = ref<{ id: number; softwareName: string; version: string | null } | null>(null);
 
 const searchQuery = ref('');
 const sortBy = ref<'name' | 'version'>('name');
@@ -110,18 +110,27 @@ function onEditVersion(versionId: number) {
   showSoftwareVersionModal.value = true;
 }
 
-function onDeleteVersion(versionId: number) {
-  deleteTargetId.value = versionId;
+function onDeleteVersion(item: { id: number; softwareName: string; version: string | null }) {
+  deleteTarget.value = {
+    id: item.id,
+    softwareName: item.softwareName,
+    version: item.version,
+  };
   showDeleteConfirm.value = true;
 }
 
 async function confirmDelete() {
-  if (deleteTargetId.value !== null) {
-    await softwareStore.deleteSoftwareVersion(deleteTargetId.value);
+  if (deleteTarget.value) {
+    await softwareStore.deleteSoftwareVersion(deleteTarget.value.id);
     await softwareStore.fetchAllSoftwareVersions();
+
+    const totalPages = Math.ceil(filteredSoftwareVersions.value.length / itemsPerPage);
+    if (page.value > totalPages) {
+      page.value = totalPages > 0 ? totalPages : 1;
+    }
   }
   showDeleteConfirm.value = false;
-  deleteTargetId.value = null;
+  deleteTarget.value = null;
 }
 
 async function handleDialogOpen(val: boolean) {
@@ -249,7 +258,13 @@ watch(localDialog, handleDialogOpen, { immediate: true });
                 <!-- Delete version icon -->
                 <v-icon
                   color="error"
-                  @click.stop="onDeleteVersion(item.id)"
+                  @click.stop="
+                    onDeleteVersion({
+                      id: item.id,
+                      softwareName: item.software.name,
+                      version: item.version ?? null,
+                    })
+                  "
                   title="Delete this software version"
                   class="cursor-pointer hover-icon"
                 >
@@ -288,7 +303,9 @@ watch(localDialog, handleDialogOpen, { immediate: true });
     <v-card>
       <v-card-title class="text-h6">Confirm deletion</v-card-title>
       <v-card-text>
-        Are you sure you want to delete this software version? This action cannot be undone.
+        Are you sure you want to delete the software version
+        <strong>{{ deleteTarget?.softwareName }} {{ deleteTarget?.version || '' }}</strong
+        >? This action cannot be undone.
       </v-card-text>
       <v-card-actions>
         <v-spacer />
