@@ -1,45 +1,108 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
-import { useAuth } from '@/composables/useAuth';
+import { ref, watch } from 'vue';
+import { useSoftwareStore } from '@/stores/software';
 
-const props = defineProps({
-  modelValue: Boolean,
-  softwareId: { type: Number, required: true },
-});
+interface SoftwareVersionPayload {
+  version: string;
+  release_date: string;
+  software: number;
+}
 
-const emit = defineEmits(['update:modelValue', 'created']);
+const props = defineProps<{
+  modelValue: boolean;
+  softwareId: number;
+  softwareVersionId?: number | null;
+}>();
 
-const apiBaseUrl = useApiBaseUrl();
-const { token } = useAuth();
+const emit = defineEmits(['update:modelValue', 'saved']);
 
-const formData = ref({
+const store = useSoftwareStore();
+
+const loading = ref(false);
+const snackbar = ref(false);
+const snackbarMessage = ref('');
+const formRef = ref();
+
+const formData = ref<SoftwareVersionPayload>({
   version: '',
   release_date: '',
-  compatible_os: '',
   software: props.softwareId,
 });
 
-async function createSoftwareVersion() {
-  try {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token.value ? { Authorization: `Bearer ${token.value}` } : {}),
-    };
-    const res = await fetch(`${apiBaseUrl}/softwareversion/`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(formData.value),
-    });
-    if (!res.ok) throw new Error('Error creating software version');
+// Validation rules
+const versionRule = (v: string) => !!v || 'Version is required';
+const dateRule = (v: string) =>
+  !v || /^(\d{4})-(\d{2})-(\d{2})$/.test(v) || 'Date must be YYYY-MM-DD';
 
-    emit('created');
+async function loadVersionData() {
+  if (props.softwareVersionId) {
+    loading.value = true;
+    try {
+      const data = await store.fetchSoftwareVersionById(props.softwareVersionId);
+      if (data) {
+        formData.value = {
+          version: data.version || '',
+          release_date: data.release_date || '',
+          software: data.software?.id ?? props.softwareId,
+        };
+      }
+    } catch {
+      snackbarMessage.value = 'Failed to load software version data';
+      snackbar.value = true;
+    } finally {
+      loading.value = false;
+    }
+  } else {
+    // Nouvelle création : reset
+    formData.value = {
+      version: '',
+      release_date: '',
+      software: props.softwareId,
+    };
+  }
+  formRef.value?.resetValidation();
+}
+
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (val) loadVersionData();
+  },
+  { immediate: true }
+);
+
+watch(
+  () => props.softwareVersionId,
+  () => {
+    if (props.modelValue) loadVersionData();
+  }
+);
+
+async function submit() {
+  if (!(formRef.value as any).validate()) return;
+
+  loading.value = true;
+  try {
+    if (props.softwareVersionId) {
+      await store.updateSoftwareVersion(
+        props.softwareVersionId,
+        formData.value as SoftwareVersionPayload
+      );
+    } else {
+      await store.createSoftwareVersion(formData.value as SoftwareVersionPayload);
+    }
+    emit('saved');
     emit('update:modelValue', false);
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error(e);
-    alert('Error creating software version');
+    snackbarMessage.value = store.error ?? 'Error saving software version';
+    snackbar.value = true;
+  } finally {
+    loading.value = false;
   }
+}
+
+function close() {
+  emit('update:modelValue', false);
 }
 </script>
 
@@ -50,28 +113,52 @@ async function createSoftwareVersion() {
     max-width="500"
   >
     <v-card>
-      <v-card-title>Create Software Version</v-card-title>
+      <v-card-title class="d-flex align-center">
+        {{ softwareVersionId ? 'Edit Software Version' : 'Create Software Version' }}
+        <v-spacer />
+        <v-btn icon @click="close" :disabled="loading">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+
       <v-card-text>
-        <v-text-field v-model="formData.version" label="Version" outlined required class="mb-4" />
-        <v-text-field
-          v-model="formData.release_date"
-          label="Release Date (YYYY-MM-DD)"
-          outlined
-          required
-          class="mb-4"
-        />
-        <v-text-field
-          v-model="formData.compatible_os"
-          label="Compatible OS"
-          outlined
-          class="mb-4"
-        />
+        <v-form ref="formRef" lazy-validation>
+          <v-text-field
+            v-model="formData.version"
+            label="Version"
+            outlined
+            required
+            :rules="[versionRule]"
+            :disabled="loading"
+            class="mb-4"
+          />
+          <v-text-field
+            v-model="formData.release_date"
+            label="Release Date (YYYY-MM-DD)"
+            outlined
+            required
+            :rules="[dateRule]"
+            placeholder="YYYY-MM-DD"
+            :disabled="loading"
+            class="mb-4"
+          />
+        </v-form>
       </v-card-text>
+
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="emit('update:modelValue', false)">Cancel</v-btn>
-        <v-btn color="primary" @click="createSoftwareVersion">Save</v-btn>
+        <v-btn text @click="close" :disabled="loading">Cancel</v-btn>
+        <v-btn color="primary" @click="submit" :loading="loading" :disabled="loading">
+          {{ softwareVersionId ? 'Save Changes' : 'Create' }}
+        </v-btn>
       </v-card-actions>
     </v-card>
+
+    <v-snackbar v-model="snackbar" color="error" timeout="6000" top>
+      {{ snackbarMessage }}
+      <template #actions>
+        <v-btn color="white" variant="text" @click="snackbar = false"> Close </v-btn>
+      </template>
+    </v-snackbar>
   </v-dialog>
 </template>

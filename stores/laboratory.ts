@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
-import { useAuth } from '@/composables/useAuth';
+import { token } from '@/composables/useAuth'
 
 export interface Laboratory {
   id: number;
@@ -34,11 +34,10 @@ export const useLaboratoryStore = defineStore('laboratory', {
 
   actions: {
     getAuthHeaders() {
-      const { token } = useAuth();
       return token.value ? { Authorization: `Bearer ${token.value}` } : {};
     },
 
-    async fetchLaboratories() {
+    async fetchAllLaboratories() {
       this.loading = true;
       this.error = null;
       try {
@@ -75,6 +74,7 @@ export const useLaboratoryStore = defineStore('laboratory', {
             ...this.getAuthHeaders(),
           },
         });
+        console.log('Created laboratory:', this.getAuthHeaders());
         this.laboratories.push(res.data);
         return res.data;
       } catch (err: any) {

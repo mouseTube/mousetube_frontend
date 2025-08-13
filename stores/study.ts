@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl'
+import { token } from '@/composables/useAuth'
 
 export const useStudyStore = defineStore('study', {
   state: () => ({
@@ -9,17 +10,31 @@ export const useStudyStore = defineStore('study', {
     error: null as string | null,
   }),
   actions: {
-    async fetchStudies() {
-      this.loading = true
-      this.error = null
+    getAuthHeaders() {
+      return token.value ? { Authorization: `Bearer ${token.value}` } : {};
+    },
+
+    async fetchAllStudies() {
+      this.loading = true;
+      this.error = null;
       try {
-        const apiBaseUrl = useApiBaseUrl()
-        const res = await axios.get(`${apiBaseUrl}/study/`)
-        this.studies = res.data
+        const apiBaseUrl = useApiBaseUrl();
+        let nextPage = `${apiBaseUrl}/study/`; // URL de la première page
+        const allStudies: any[] = [];
+
+        // Boucle pour récupérer toutes les pages
+        while (nextPage) {
+          const res = await axios.get(nextPage, { headers: this.getAuthHeaders?.() });
+          allStudies.push(...res.data.results); // Ajoute les résultats de la page actuelle
+          nextPage = res.data.next; // URL de la page suivante (ou null si terminé)
+        }
+
+        this.studies = allStudies; // Stocke toutes les études récupérées
       } catch (err: any) {
-        this.error = err.message || 'Failed to fetch studies'
+        this.error = err.message || 'Failed to fetch studies';
+        console.error('Error fetching all studies:', err);
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 

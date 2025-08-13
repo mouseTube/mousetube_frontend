@@ -3,23 +3,23 @@
 // IMPORTS
 ////////////////////////////////
 import { ref, computed, onMounted, watch } from 'vue';
-import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
-import { useAuth } from '@/composables/useAuth';
 import { useRecordingSessionStore, type RecordingSession } from '@/stores/recordingSession';
 import { useHardwareStore } from '@/stores/hardware';
 import { useSoftwareStore } from '@/stores/software';
-import SoftwareModal from '@/components/modals/SoftwareModal.vue';
-import CreateSoftwareVersionModal from '@/components/modals/CreateSoftwareVersionModal.vue';
+import { useStudyStore } from '@/stores/study';
+import { useLaboratoryStore } from '~/stores/laboratory';
+import SoftwareSelectionModal from '../modals/SoftwareSelectionModal.vue';
 import LaboratoryModal from '@/components/modals/LaboratoryModal.vue';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
 import SelectSessionModal from '@/components/modals/SessionModal.vue';
+import StudyModal from '@/components/modals/CreateStudyModal.vue';
 
 ////////////////////////////////
 // STORES
 ////////////////////////////////
-const apiBaseUrl: string = useApiBaseUrl();
-const { token } = useAuth();
 const recordingSessionStore = useRecordingSessionStore();
+const studyStore = useStudyStore();
+const laboratoryStore = useLaboratoryStore();
 const hardwareStore = useHardwareStore();
 const softwareStore = useSoftwareStore();
 
@@ -40,16 +40,8 @@ const snackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('');
 
-//
-// Keep an id-style v-model for the select, but we no longer rely on a global list.
-// selectedSessionId can be 'new' | 'select' | number
-//
 const selectedSessionId = ref<'new' | 'select' | number>('new');
 
-//
-// Store the full selected session object when chosen from the modal.
-// This is used to show the selected item in the v-select and to prefill the form.
-//
 const selectedSessionObject = ref<RecordingSession | null>(null);
 const selectedSessionName = ref<string>('');
 
@@ -57,12 +49,12 @@ const laboratoriesOptions = ref<any[]>([]);
 const studiesOptions = ref<any[]>([]);
 const hardwareOptions = ref<any[]>([]);
 const softwareOptions = ref<any[]>([]);
-
+const showSoftwareSelectionModal = ref(false);
 const newHardwareDialog = ref(false);
 const editHardwareDialog = ref(false);
 const editHardwareId = ref<number | null>(null);
 const hardwareTypeForModal = ref<'soundcard' | 'microphone' | 'speaker' | 'amplifier' | ''>('');
-
+const acquisitionSoftwareDisplay = ref<{ id: number; label: string }[]>([]);
 const formData = ref({
   name: '',
   description: '',
@@ -88,12 +80,7 @@ const formData = ref({
   },
   laboratory: null as number | null,
 });
-
-const showSoftwareModal = ref(false);
-const showSoftwareVersionModal = ref(false);
-const createdSoftwareId = ref<number | null>(null);
-const editSoftwareId = ref<number | null>(null);
-
+const newStudyDialog = ref(false);
 const newLabDialog = ref(false);
 const editLabDialog = ref(false);
 const editLabId = ref<number | null>(null);
@@ -110,9 +97,6 @@ const formattedDate = computed(() => {
   return '';
 });
 
-//
-// Build the items for the v-select: only 'new', 'select', and the selected session (if any).
-//
 const selectItems = computed(() => {
   const items: Array<{ id: string | number; name: string }> = [
     { id: 'new', name: 'Create New Session' },
@@ -187,54 +171,23 @@ function tryMergeDateTime() {
 
 /* Fetch lists used to populate selects (studies, hardware, software, labs). */
 async function fetchSelectableData() {
-  const headers: Record<string, string> = {};
-  if (token.value) headers.Authorization = `Bearer ${token.value}`;
+  try {
+    // Appelle les actions des stores pour charger les données
+    await Promise.all([
+      hardwareStore.fetchAllHardware(),
+      softwareStore.fetchAllSoftware(),
+      studyStore.fetchAllStudies(),
+      laboratoryStore.fetchAllLaboratories(),
+    ]);
 
-  const fetchAndAssign = async (endpoint: string, target: any) => {
-    try {
-      const res = await fetch(`${apiBaseUrl}/${endpoint}/`, { headers });
-      const data = await res.json();
-      target.value = data.results ?? data;
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(`Error loading ${endpoint}`, e);
-      showSnackbar(`Error loading ${endpoint}`, 'error');
-    }
-  };
-
-  await Promise.all([
-    fetchAndAssign('study', studiesOptions),
-    fetchAndAssign('hardware', hardwareOptions),
-    fetchAndAssign('software', softwareOptions),
-    fetchAndAssign('laboratory', laboratoriesOptions),
-  ]);
-}
-
-/* Called when a software item is created — open version modal for newest software. */
-function onSoftwareCreated() {
-  createdSoftwareId.value = softwareStore.softwares.at(-1)?.id ?? null;
-  if (createdSoftwareId.value) {
-    showSoftwareVersionModal.value = true;
+    // Assigne les données récupérées aux variables locales
+    hardwareOptions.value = hardwareStore.hardwares;
+    softwareOptions.value = softwareStore.softwares;
+    studiesOptions.value = studyStore.studies;
+    laboratoriesOptions.value = laboratoryStore.laboratories;
+  } catch (e) {
+    showSnackbar('Error loading selectable data.', 'error');
   }
-}
-
-/* Returns the edit software data for the software modal when editing. */
-const editSoftwareData = computed(() => {
-  if (editSoftwareId.value) {
-    return softwareOptions.value.find((s) => s.id === editSoftwareId.value) ?? {};
-  }
-  return {};
-});
-
-/* Open edit dialog for selected acquisition software. */
-function openEditSoftDialog() {
-  const selectedId = formData.value.equipment.acquisition_software[0];
-  if (!selectedId) {
-    showSnackbar('No software selected to edit.', 'error');
-    return;
-  }
-  editSoftwareId.value = selectedId;
-  showSoftwareModal.value = true;
 }
 
 /* Open edit dialog for the selected laboratory. */
@@ -264,8 +217,6 @@ async function saveSession() {
     if (selectedSessionId.value === 'new') {
       const created = await recordingSessionStore.createSession(formData.value);
       showSnackbar('Session created successfully!', 'success');
-
-      // Set created session as the selected one
       selectedSessionId.value = created.id;
       selectedSessionObject.value = created as RecordingSession;
       selectedSessionName.value = created.name ?? '';
@@ -280,13 +231,13 @@ async function saveSession() {
       showSnackbar('Session updated successfully!', 'success');
 
       // Try to refresh selectedSessionObject from store (if present)
-      const updated = recordingSessionStore.getSessionById(Number(selectedSessionId.value));
+      const updated = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
       if (updated) {
         selectedSessionObject.value = updated;
         selectedSessionName.value = updated.name ?? '';
       }
 
-      const session = recordingSessionStore.getSessionById(Number(selectedSessionId.value));
+      const session = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
       emit('session-selected', {
         sessionId: selectedSessionId.value,
         protocolId: session?.protocol?.id || null,
@@ -325,12 +276,6 @@ const hardwareFieldMap = {
   amplifier: 'amplifiers',
 } as const;
 
-/* Handler called when a session is selected in the modal.
-   - Accepts the full session object,
-   - sets it as selected,
-   - pre-fills the form,
-   - emits session-selected to parent.
-*/
 function onSessionSelected(session: RecordingSession) {
   selectedSessionId.value = session.id;
   selectedSessionObject.value = session;
@@ -366,108 +311,76 @@ function onSessionSelected(session: RecordingSession) {
     session.equipment_acquisition_software?.map((soft: any) => soft.software?.id ?? soft.id) ?? [];
   formData.value.laboratory = session.laboratory?.id ?? null;
 
+  acquisitionSoftwareDisplay.value =
+    session.equipment_acquisition_software?.map((soft: any) => {
+      const softwareName = soft.software_name || 'Unknown';
+      const versionName = soft.version || '';
+      return {
+        id: soft.software?.id ?? soft.id,
+        label: `${softwareName}${versionName ? ' – ' + versionName : ''}`,
+      };
+    }) ?? [];
   emit('session-selected', {
     sessionId: session.id,
     protocolId: session.protocol?.id || null,
   });
 }
 
+function removeSoftware(softwareId: number) {
+  acquisitionSoftwareDisplay.value = acquisitionSoftwareDisplay.value.filter(
+    (soft) => soft.id !== softwareId
+  );
+
+  formData.value.equipment.acquisition_software =
+    formData.value.equipment.acquisition_software.filter((id) => id !== softwareId);
+}
+
 ////////////////////////////////
 // WATCHERS
 ////////////////////////////////
 
-/* Watcher on selectedSessionId:
-   - If user chose 'select', open modal and revert selection to previous value.
-   - If 'new', reset form.
-   - If numeric id, try to load session from store and prefill form.
-*/
 watch(selectedSessionId, (newId, oldId) => {
-  // if user clicked "Select Existing Session", open modal and restore old value
   if (newId === 'select') {
     showSessionSelectModal.value = true;
-    // revert to previous selection to avoid leaving 'select' in v-select
-    // (this avoids clearing the current selection while modal is open)
     selectedSessionId.value = oldId ?? 'new';
     return;
   }
-
-  // if user selected "new"
   if (!newId || newId === 'new') {
     resetForm();
     emit('session-selected', null);
     return;
   }
-
-  // if user selected an id (number), try to prefill form from store
   const idNum = Number(newId);
-  // prefer selectedSessionObject if it matches
-  if (selectedSessionObject.value && selectedSessionObject.value.id === idNum) {
-    onSessionSelected(selectedSessionObject.value);
-    return;
-  }
-
-  const session = recordingSessionStore.getSessionById(idNum);
-  if (!session) {
-    // session not in store cache: nothing to do (modal selection should provide full object)
-    return;
-  }
-
-  // Prefill form using session retrieved from store
-  formData.value.name = session.name ?? '';
-  formData.value.description = session.description ?? '';
-  formData.value.duration = session.duration ?? null;
-  formData.value.date = session.date ?? null;
-
-  if (session.date) {
-    const d = new Date(session.date);
-    date.value = d.toISOString().slice(0, 10);
-    time.value = d.toTimeString().slice(0, 5);
-  }
-
-  formData.value.studies = session.studies?.map((s: any) => s.id) ?? [];
-  formData.value.context.temperature.value = session.context_temperature_value ?? null;
-  formData.value.context.temperature.unit = session.context_temperature_unit ?? '°C';
-  formData.value.context.brightness = session.context_brightness ?? null;
-  formData.value.equipment.channels = session.equipment_channels ?? '';
-  formData.value.equipment.sound_isolation = session.equipment_sound_isolation ?? '';
-  formData.value.equipment.soundcards =
-    session.equipment_acquisition_hardware_soundcards?.map((h: any) => h.id) ?? [];
-  formData.value.equipment.microphones =
-    session.equipment_acquisition_hardware_microphones?.map((h: any) => h.id) ?? [];
-  formData.value.equipment.amplifiers =
-    session.equipment_acquisition_hardware_amplifiers?.map((h: any) => h.id) ?? [];
-  formData.value.equipment.speakers =
-    session.equipment_acquisition_hardware_speakers?.map((h: any) => h.id) ?? [];
-  formData.value.equipment.acquisition_software =
-    session.equipment_acquisition_software?.map((soft: any) => soft.software?.id ?? soft.id) ?? [];
-  formData.value.laboratory = session.laboratory?.id ?? null;
-
-  selectedSessionObject.value = session;
-  selectedSessionName.value = session.name ?? '';
-
-  emit('session-selected', {
-    sessionId: idNum,
-    protocolId: session.protocol?.id || null,
-  });
 });
 
 function handleSessionSelection(newId: 'new' | 'select' | number) {
   if (newId === 'select') {
     // Ouvre la modale de sélection
     showSessionSelectModal.value = true;
-
-    // Réinitialise la sélection pour éviter de bloquer sur "select"
     selectedSessionId.value = selectedSessionObject.value?.id ?? 'new';
   } else if (newId === 'new') {
-    // Réinitialise le formulaire pour une nouvelle session
     resetForm();
   } else {
-    // Charge la session sélectionnée depuis le store
-    const session = recordingSessionStore.getSessionById(Number(newId));
-    if (session) {
-      onSessionSelected(session);
-    }
+    recordingSessionStore.getSessionById(Number(newId)).then((session) => {
+      if (session) {
+        onSessionSelected(session);
+      }
+    });
   }
+}
+
+function onUpdateSelectedSoftwareVersions(val: number[]) {
+  formData.value.equipment.acquisition_software = [...val];
+  acquisitionSoftwareDisplay.value = val
+    .map((id) => {
+      const sv = softwareStore.getSoftwareVersionById(id);
+      if (!sv) return null;
+      return {
+        id: sv.id,
+        label: `${sv.software.name}${sv.version ? ' – ' + sv.version : ''}`,
+      };
+    })
+    .filter(Boolean) as { id: number; label: string }[];
 }
 
 ////////////////////////////////
@@ -484,7 +397,6 @@ onMounted(async () => {
 
 <template>
   <v-container>
-    <!-- Session selection -->
     <v-select
       v-model="selectedSessionId"
       :items="selectItems"
@@ -497,17 +409,6 @@ onMounted(async () => {
       :value-comparator="(a, b) => a === b"
       @change="handleSessionSelection"
     >
-      <!-- <template #selection="{ item }">
-        <span v-if="item.raw.id === 'new'">➕ New Session</span>
-        <span v-else-if="item.raw.id === 'select'">🔍 Select Existing Session</span>
-        <span v-else>{{ selectedSessionObject?.name || item.raw.name }}</span>
-      </template>
-
-      <template #item="{ item }">
-        <span v-if="item.raw.id === 'new'">➕ New Session</span>
-        <span v-else-if="item.raw.id === 'select'">🔍 Select Existing Session</span>
-        <span v-else>{{ item.raw.name }}</span>
-      </template> -->
     </v-select>
 
     <v-card class="pa-6" outlined>
@@ -581,17 +482,33 @@ onMounted(async () => {
           />
 
           <!-- Studies -->
-          <v-autocomplete
-            v-model="formData.studies"
-            :items="studiesOptions"
-            item-title="name"
-            item-value="id"
-            label="Associated Studies"
-            multiple
-            outlined
-            chips
-            class="mb-4"
-          />
+          <v-row class="mb-4" align="center" no-gutters>
+            <v-col cols="12" md="9">
+              <v-autocomplete
+                v-model="formData.studies"
+                :items="studiesOptions"
+                item-title="name"
+                item-value="id"
+                label="Associated Studies"
+                multiple
+                outlined
+                chips
+                class="mb-4"
+              />
+            </v-col>
+            <v-col cols="12" md="3" class="d-flex justify-end align-center mb-4">
+              <v-btn
+                color="primary"
+                variant="flat"
+                size="small"
+                class="mr-2"
+                title="Add new study"
+                @click="newStudyDialog = true"
+              >
+                <v-icon start>mdi-plus</v-icon> Add
+              </v-btn>
+            </v-col>
+          </v-row>
 
           <!-- Laboratory -->
           <v-row class="mb-4" align="center" no-gutters>
@@ -833,58 +750,45 @@ onMounted(async () => {
                 </v-col>
               </v-row>
 
-              <!-- Acquisition Software -->
               <v-row class="mb-4" align="center" no-gutters>
+                <!-- Colonne chips -->
                 <v-col cols="12" md="9">
-                  <v-autocomplete
-                    v-model="formData.equipment.acquisition_software"
-                    :items="softwareOptions"
-                    item-title="name"
-                    item-value="id"
-                    label="Acquisition Software"
-                    multiple
-                    outlined
-                    chips
-                    clearable
-                    density="comfortable"
-                  />
+                  <v-card outlined class="pa-3">
+                    <v-card-subtitle>Acquisition Software Versions</v-card-subtitle>
+                    <div class="chip-list">
+                      <v-chip
+                        v-for="soft in acquisitionSoftwareDisplay"
+                        :key="soft.id"
+                        variant="outlined"
+                        closable
+                        @click:close="removeSoftware(soft.id)"
+                        :ripple="false"
+                        class="mb-2 chip-spacing"
+                      >
+                        {{ soft.label }}
+                      </v-chip>
+                    </div>
+                  </v-card>
                 </v-col>
-                <v-col cols="12" md="3" class="d-flex justify-end align-center mb-4">
+
+                <!-- Colonne bouton à droite -->
+                <v-col cols="12" md="3" class="d-flex justify-end align-center">
                   <v-btn
                     color="primary"
                     variant="flat"
                     size="small"
-                    class="mr-2"
-                    title="Add new software"
-                    @click="showSoftwareModal = true"
+                    title="Select and manage software"
+                    @click="showSoftwareSelectionModal = true"
                   >
-                    <v-icon start>mdi-plus</v-icon> Add
-                  </v-btn>
-                  <v-btn
-                    color="secondary"
-                    variant="flat"
-                    size="small"
-                    title="Edit selected software"
-                    @click="openEditSoftDialog"
-                    :disabled="!formData.equipment.acquisition_software.length"
-                  >
-                    <v-icon start>mdi-pencil</v-icon> Edit
+                    <v-icon start>mdi-plus</v-icon> Select
                   </v-btn>
                 </v-col>
               </v-row>
 
-              <!-- Modals software -->
-              <SoftwareModal
-                v-model="showSoftwareModal"
-                :software-id="editSoftwareId ?? undefined"
-                :edit-mode="!!editSoftwareId"
-                @saved="fetchSelectableData"
-              />
-              <CreateSoftwareVersionModal
-                v-if="createdSoftwareId"
-                v-model="showSoftwareVersionModal"
-                :software-id="createdSoftwareId"
-                @created="fetchSelectableData"
+              <SoftwareSelectionModal
+                v-model="showSoftwareSelectionModal"
+                :selectedSoftwareVersions="formData.equipment.acquisition_software"
+                @update:selectedSoftwareVersions="onUpdateSelectedSoftwareVersions"
               />
             </v-card-text>
           </v-card>
@@ -894,6 +798,8 @@ onMounted(async () => {
 
     <!-- Session selection modal (modal handles its own pagination/search using the store) -->
     <SelectSessionModal v-model="showSessionSelectModal" @selected="onSessionSelected" />
+
+    <StudyModal v-model="newStudyDialog" @saved="fetchSelectableData" />
 
     <!-- Hardware modals -->
     <HardwareModal
@@ -919,3 +825,15 @@ onMounted(async () => {
     </v-snackbar>
   </v-container>
 </template>
+
+<style scoped>
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip-spacing {
+  margin-right: 2px;
+  margin-bottom: 2px;
+}
+</style>

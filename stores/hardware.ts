@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl'
+import { token } from '@/composables/useAuth'
 
 export interface Hardware {
   id?: number;
@@ -21,15 +22,29 @@ export const useHardwareStore = defineStore('hardware', {
     error: null as string | null,
   }),
   actions: {
-    async fetchHardwares() {
+    getAuthHeaders() {
+      return token.value ? { Authorization: `Bearer ${token.value}` } : {};
+    },
+
+    async fetchAllHardware() {
       this.loading = true;
       this.error = null;
       try {
         const apiBaseUrl = useApiBaseUrl();
-        const res = await axios.get(`${apiBaseUrl}/hardware/`);
-        this.hardwares = res.data;
+        let nextPage = `${apiBaseUrl}/hardware/`; // URL de la première page
+        const allHardwares: Hardware[] = [];
+
+        // Boucle pour récupérer toutes les pages
+        while (nextPage) {
+          const res = await axios.get(nextPage, { headers: this.getAuthHeaders?.() });
+          allHardwares.push(...res.data.results); // Ajoute les résultats de la page actuelle
+          nextPage = res.data.next; // URL de la page suivante (ou null si terminé)
+        }
+
+        this.hardwares = allHardwares; // Stocke tous les matériels récupérés
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch hardware';
+        console.error('Error fetching all hardware:', err);
       } finally {
         this.loading = false;
       }

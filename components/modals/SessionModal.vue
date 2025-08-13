@@ -212,3 +212,11 @@ onMounted(() => {
     </v-card>
   </v-dialog>
 </template>
+
+<style scoped>
+::v-deep(.v-data-table__tr.v-data-table__tr--clickable:hover) {
+  background-color: #f5f5f5 !important;
+  cursor: pointer !important;
+  transform: scale(1.01) !important;
+}
+</style>

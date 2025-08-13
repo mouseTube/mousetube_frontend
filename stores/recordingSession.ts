@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl'
-import { useAuth } from '@/composables/useAuth'
+import { token } from '@/composables/useAuth'
 
 export interface Study {
   id: number
@@ -126,8 +126,7 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
   }),
   actions: {
     getAuthHeaders() {
-      const { token } = useAuth()
-      return token.value ? { Authorization: `Bearer ${token.value}` } : {}
+      return token.value ? { Authorization: `Bearer ${token.value}` } : {};
     },
     async fetchSessions() {
       this.loadingSessions = true
