@@ -13,6 +13,8 @@ import LaboratoryModal from '@/components/modals/LaboratoryModal.vue';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
 import SelectSessionModal from '@/components/modals/SessionModal.vue';
 import StudyModal from '@/components/modals/CreateStudyModal.vue';
+import HardwareSelectionModal from '@/components/modals/HardwareSelectionModal.vue';
+import type { Hardware } from '@/stores/hardware';
 
 ////////////////////////////////
 // STORES
@@ -86,6 +88,62 @@ const editLabDialog = ref(false);
 const editLabId = ref<number | null>(null);
 
 const showSessionSelectModal = ref(false);
+const showHardwareSelectionModal = ref(false);
+// const hardwareTypeForSelection = ref<Hardware['type']>('');
+// const currentHardwareCategory = ref<'soundcards' | 'microphones' | 'amplifiers' | 'speakers'>(
+//   'soundcards'
+// );
+const selectedHardwareList = computed(
+  () => formData.value.equipment[currentHardwareCategory.value]
+);
+
+const soundcardsDisplay = ref<{ id: number; label: string }[]>([]);
+const microphonesDisplay = ref<{ id: number; label: string }[]>([]);
+const amplifiersDisplay = ref<{ id: number; label: string }[]>([]);
+const speakersDisplay = ref<{ id: number; label: string }[]>([]);
+
+// type HardwareArrayKeys = 'soundcards' | 'microphones' | 'amplifiers' | 'speakers';
+
+type HardwareTypeKeys = 'soundcard' | 'microphone' | 'speaker' | 'amplifier';
+type HardwareArrayKeys = 'soundcards' | 'microphones' | 'amplifiers' | 'speakers';
+
+const hardwareTypeForSelection = ref<HardwareTypeKeys | ''>('');
+const currentHardwareCategory = ref<HardwareArrayKeys>('soundcards');
+
+// Ouvre la modale avec le bon type et la bonne catégorie
+function openHardwareSelectionModal(type: HardwareTypeKeys, category: HardwareArrayKeys) {
+  hardwareTypeForSelection.value = type;
+  currentHardwareCategory.value = category;
+  showHardwareSelectionModal.value = true;
+}
+
+// Met à jour les IDs sélectionnés et les affichages
+function updateSelectedHardwareIds(field: HardwareArrayKeys, ids: number[]) {
+  formData.value.equipment[field] = ids;
+
+  const displayList = ids
+    .map((id) => {
+      const hw = hardwareStore.hardwares.find((h) => h.id === id);
+      return hw ? { id: hw.id!, label: hw.name } : null;
+    })
+    .filter((x): x is { id: number; label: string } => x !== null);
+
+  if (field === 'soundcards') soundcardsDisplay.value = displayList;
+  if (field === 'microphones') microphonesDisplay.value = displayList;
+  if (field === 'amplifiers') amplifiersDisplay.value = displayList;
+  if (field === 'speakers') speakersDisplay.value = displayList;
+}
+
+function removeHardware(field: HardwareArrayKeys, id: number) {
+  formData.value.equipment[field] = formData.value.equipment[field].filter((i) => i !== id);
+  updateSelectedHardwareIds(field, formData.value.equipment[field]);
+}
+
+// function openHardwareSelectionModal(type: Hardware['type'], category: HardwareArrayKeys) {
+//   hardwareTypeForSelection.value = type;
+//   currentHardwareCategory.value = category;
+//   showHardwareSelectionModal.value = true;
+// }
 
 ////////////////////////////////
 // COMPUTED
@@ -599,162 +657,123 @@ onMounted(async () => {
                 class="mb-4"
               />
               <!-- soundcards -->
-              <v-row class="mb-4" align="center" no-gutters>
+              <v-row class="mb-6" align="center">
                 <v-col cols="12" md="9">
-                  <v-autocomplete
-                    v-model="formData.equipment.soundcards"
-                    :items="hardwareOptions.filter((h) => h.type === 'soundcard')"
-                    item-title="name"
-                    item-value="id"
-                    label="Sound Cards"
-                    multiple
-                    outlined
-                    chips
-                    clearable
-                    density="comfortable"
-                  />
+                  <v-card outlined class="pa-3 mb-2">
+                    <v-card-subtitle class="mb-2">Soundcards</v-card-subtitle>
+                    <div class="chip-list">
+                      <v-chip
+                        v-for="item in soundcardsDisplay"
+                        :key="item.id"
+                        variant="outlined"
+                        closable
+                        @click:close="removeHardware('soundcards', item.id)"
+                        class="ma-1"
+                      >
+                        {{ item.label }}
+                      </v-chip>
+                    </div>
+                  </v-card>
                 </v-col>
-                <v-col cols="12" md="3" class="d-flex justify-end align-center mb-4">
-                  <v-btn
-                    color="primary"
-                    variant="flat"
-                    size="small"
-                    class="mr-2"
-                    @click="openNewHardwareDialog('soundcard')"
-                  >
-                    <v-icon start>mdi-plus</v-icon> Add
-                  </v-btn>
-                  <v-btn
-                    color="secondary"
-                    variant="flat"
-                    size="small"
-                    @click="openEditHardwareDialog('soundcard')"
-                    :disabled="!formData.equipment.soundcards.length"
-                  >
-                    <v-icon start>mdi-pencil</v-icon> Edit
+                <v-col cols="12" md="3" class="d-flex justify-end align-center">
+                  <v-btn @click="openHardwareSelectionModal('soundcard', 'soundcards')">
+                    <v-icon start>mdi-plus</v-icon> Select
                   </v-btn>
                 </v-col>
               </v-row>
 
+              <HardwareSelectionModal
+                v-model="showHardwareSelectionModal"
+                :hardware-type="hardwareTypeForSelection"
+                :selectedHardwareIds="selectedHardwareList"
+                @update:selectedHardwareIds="
+                  updateSelectedHardwareIds(currentHardwareCategory, $event)
+                "
+              />
+
               <!-- microphones -->
-              <v-row class="mb-4" align="center" no-gutters>
+              <v-row class="mb-6" align="center">
                 <v-col cols="12" md="9">
-                  <v-autocomplete
-                    v-model="formData.equipment.microphones"
-                    :items="hardwareOptions.filter((h) => h.type === 'microphone')"
-                    item-title="name"
-                    item-value="id"
-                    label="Microphones"
-                    multiple
-                    outlined
-                    chips
-                    clearable
-                    density="comfortable"
-                  />
+                  <v-card outlined class="pa-3 mb-2">
+                    <v-card-subtitle class="mb-2">Microphones</v-card-subtitle>
+                    <div class="chip-list">
+                      <v-chip
+                        v-for="item in microphonesDisplay"
+                        :key="item.id"
+                        variant="outlined"
+                        closable
+                        @click:close="removeHardware('microphones', item.id)"
+                        class="ma-1"
+                      >
+                        {{ item.label }}
+                      </v-chip>
+                    </div>
+                  </v-card>
                 </v-col>
-                <v-col cols="12" md="3" class="d-flex justify-end align-center mb-4">
-                  <v-btn
-                    color="primary"
-                    variant="flat"
-                    size="small"
-                    class="mr-2"
-                    @click="openNewHardwareDialog('microphone')"
-                  >
-                    <v-icon start>mdi-plus</v-icon> Add
-                  </v-btn>
-                  <v-btn
-                    color="secondary"
-                    variant="flat"
-                    size="small"
-                    @click="openEditHardwareDialog('microphone')"
-                    :disabled="!formData.equipment.microphones.length"
-                  >
-                    <v-icon start>mdi-pencil</v-icon> Edit
+                <v-col cols="12" md="3" class="d-flex justify-end align-center">
+                  <v-btn @click="openHardwareSelectionModal('microphone', 'microphones')">
+                    <v-icon start>mdi-plus</v-icon> Select
                   </v-btn>
                 </v-col>
               </v-row>
 
               <!-- amplifiers -->
-              <v-row class="mb-4" align="center" no-gutters>
+              <v-row class="mb-6" align="center">
                 <v-col cols="12" md="9">
-                  <v-autocomplete
-                    v-model="formData.equipment.amplifiers"
-                    :items="hardwareOptions.filter((h) => h.type === 'amplifier')"
-                    item-title="name"
-                    item-value="id"
-                    label="Amplifiers"
-                    multiple
-                    outlined
-                    chips
-                    clearable
-                    density="comfortable"
-                  />
+                  <v-card outlined class="pa-3 mb-2">
+                    <v-card-subtitle class="mb-2">Amplifiers</v-card-subtitle>
+                    <div class="chip-list">
+                      <v-chip
+                        v-for="item in amplifiersDisplay"
+                        :key="item.id"
+                        variant="outlined"
+                        closable
+                        @click:close="removeHardware('amplifiers', item.id)"
+                        class="ma-1"
+                      >
+                        {{ item.label }}
+                      </v-chip>
+                    </div>
+                  </v-card>
                 </v-col>
-                <v-col cols="12" md="3" class="d-flex justify-end align-center mb-4">
-                  <v-btn
-                    color="primary"
-                    variant="flat"
-                    size="small"
-                    class="mr-2"
-                    @click="openNewHardwareDialog('amplifier')"
-                  >
-                    <v-icon start>mdi-plus</v-icon> Add
-                  </v-btn>
-                  <v-btn
-                    color="secondary"
-                    variant="flat"
-                    size="small"
-                    @click="openEditHardwareDialog('amplifier')"
-                    :disabled="!formData.equipment.amplifiers.length"
-                  >
-                    <v-icon start>mdi-pencil</v-icon> Edit
+                <v-col cols="12" md="3" class="d-flex justify-end align-center">
+                  <v-btn @click="openHardwareSelectionModal('amplifier', 'amplifiers')">
+                    <v-icon start>mdi-plus</v-icon> Select
                   </v-btn>
                 </v-col>
               </v-row>
 
               <!-- speakers -->
-              <v-row class="mb-4" align="center" no-gutters>
+              <v-row class="mb-6" align="center">
                 <v-col cols="12" md="9">
-                  <v-autocomplete
-                    v-model="formData.equipment.speakers"
-                    :items="hardwareOptions.filter((h) => h.type === 'speaker')"
-                    item-title="name"
-                    item-value="id"
-                    label="Speakers"
-                    multiple
-                    outlined
-                    chips
-                    clearable
-                    density="comfortable"
-                  />
+                  <v-card outlined class="pa-3 mb-2">
+                    <v-card-subtitle class="mb-2">Speakers</v-card-subtitle>
+                    <div class="chip-list">
+                      <v-chip
+                        v-for="item in speakersDisplay"
+                        :key="item.id"
+                        variant="outlined"
+                        closable
+                        @click:close="removeHardware('speakers', item.id)"
+                        class="ma-1"
+                      >
+                        {{ item.label }}
+                      </v-chip>
+                    </div>
+                  </v-card>
                 </v-col>
-                <v-col cols="12" md="3" class="d-flex justify-end align-center mb-4">
-                  <v-btn
-                    color="primary"
-                    variant="flat"
-                    size="small"
-                    class="mr-2"
-                    @click="openNewHardwareDialog('speaker')"
-                  >
-                    <v-icon start>mdi-plus</v-icon> Add
-                  </v-btn>
-                  <v-btn
-                    color="secondary"
-                    variant="flat"
-                    size="small"
-                    @click="openEditHardwareDialog('speaker')"
-                    :disabled="!formData.equipment.speakers.length"
-                  >
-                    <v-icon start>mdi-pencil</v-icon> Edit
+                <v-col cols="12" md="3" class="d-flex justify-end align-center">
+                  <v-btn @click="openHardwareSelectionModal('speaker', 'speakers')">
+                    <v-icon start>mdi-plus</v-icon> Select
                   </v-btn>
                 </v-col>
               </v-row>
 
-              <v-row class="mb-4" align="center" no-gutters>
-                <!-- Colonne chips -->
+              <!-- acquisition software -->
+              <v-row class="mb-2" align="center">
                 <v-col cols="12" md="9">
                   <v-card outlined class="pa-3">
-                    <v-card-subtitle>Acquisition Software Versions</v-card-subtitle>
+                    <v-card-subtitle class="mb-2">Acquisition Software Versions</v-card-subtitle>
                     <div class="chip-list">
                       <v-chip
                         v-for="soft in acquisitionSoftwareDisplay"
@@ -762,16 +781,13 @@ onMounted(async () => {
                         variant="outlined"
                         closable
                         @click:close="removeSoftware(soft.id)"
-                        :ripple="false"
-                        class="mb-2 chip-spacing"
+                        class="ma-1 mb-2"
                       >
                         {{ soft.label }}
                       </v-chip>
                     </div>
                   </v-card>
                 </v-col>
-
-                <!-- Colonne bouton à droite -->
                 <v-col cols="12" md="3" class="d-flex justify-end align-center">
                   <v-btn
                     color="primary"

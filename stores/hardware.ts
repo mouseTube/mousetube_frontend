@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import axios, { type AxiosInstance } from 'axios'
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl'
 import { token } from '@/composables/useAuth'
 
@@ -20,28 +20,38 @@ export const useHardwareStore = defineStore('hardware', {
     hardwares: [] as Hardware[],
     loading: false,
     error: null as string | null,
+    api: null as AxiosInstance | null, // instance Axios
   }),
+
   actions: {
-    getAuthHeaders() {
-      return token.value ? { Authorization: `Bearer ${token.value}` } : {};
+    initApi() {
+      const apiBaseUrl = useApiBaseUrl();
+      this.api = axios.create({
+        baseURL: apiBaseUrl,
+        headers: token.value
+          ? { Authorization: `Bearer ${token.value}` }
+          : {}
+      });
     },
 
     async fetchAllHardware() {
       this.loading = true;
       this.error = null;
       try {
-        const apiBaseUrl = useApiBaseUrl();
-        let nextPage = `${apiBaseUrl}/hardware/`; // URL de la première page
+        if (!this.api) this.initApi();
+
+        let nextPage = `/hardware/`;
         const allHardwares: Hardware[] = [];
 
-        // Boucle pour récupérer toutes les pages
         while (nextPage) {
-          const res = await axios.get(nextPage, { headers: this.getAuthHeaders?.() });
-          allHardwares.push(...res.data.results); // Ajoute les résultats de la page actuelle
-          nextPage = res.data.next; // URL de la page suivante (ou null si terminé)
+          const res = await this.api!.get(nextPage);
+          allHardwares.push(...res.data.results);
+          nextPage = res.data.next
+            ? res.data.next.replace(this.api!.defaults.baseURL!, '')
+            : null;
         }
 
-        this.hardwares = allHardwares; // Stocke tous les matériels récupérés
+        this.hardwares = allHardwares;
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch hardware';
         console.error('Error fetching all hardware:', err);
@@ -52,11 +62,9 @@ export const useHardwareStore = defineStore('hardware', {
 
     async fetchHardwareById(id: number) {
       try {
-        const apiBaseUrl = useApiBaseUrl();
-
-        const res = await fetch(`${apiBaseUrl}/hardware/${id}`);
-        if (!res.ok) throw new Error('Failed to fetch hardware');
-        const hw = await res.json();
+        if (!this.api) this.initApi();
+        const res = await this.api!.get(`/hardware/${id}/`);
+        const hw = res.data;
 
         const index = this.hardwares.findIndex((h) => h.id === id);
         if (index !== -1) {
@@ -78,8 +86,8 @@ export const useHardwareStore = defineStore('hardware', {
     async createHardware(data: Hardware) {
       this.error = null;
       try {
-        const apiBaseUrl = useApiBaseUrl();
-        const res = await axios.post(`${apiBaseUrl}/hardware/`, data);
+        if (!this.api) this.initApi();
+        const res = await this.api!.post(`/hardware/`, data);
         this.hardwares.push(res.data);
         return res.data;
       } catch (err: any) {
@@ -91,13 +99,25 @@ export const useHardwareStore = defineStore('hardware', {
     async updateHardware(id: number, data: Hardware) {
       this.error = null;
       try {
-        const apiBaseUrl = useApiBaseUrl();
-        const res = await axios.put(`${apiBaseUrl}/hardware/${id}/`, data);
+        if (!this.api) this.initApi();
+        const res = await this.api!.put(`/hardware/${id}/`, data);
         const index = this.hardwares.findIndex(h => h.id === id);
         if (index !== -1) this.hardwares[index] = res.data;
         return res.data;
       } catch (err: any) {
         this.error = err.message || 'Failed to update hardware';
+        throw err;
+      }
+    },
+
+    async deleteHardware(id: number) {
+      this.error = null;
+      try {
+        if (!this.api) this.initApi();
+        await this.api!.delete(`/hardware/${id}/`);
+        this.hardwares = this.hardwares.filter(h => h.id !== id);
+      } catch (err: any) {
+        this.error = err.message || 'Failed to delete hardware';
         throw err;
       }
     },
