@@ -29,7 +29,7 @@ const editingHardwareId = ref<number | null>(null);
 // Dialog confirmation delete
 const showDeleteConfirm = ref(false);
 const deleteTargetId = ref<number | null>(null);
-const deleteTargetName = ref<string>(''); // <-- ajouté
+const deleteTargetName = ref<string>('');
 
 const localDialog = computed({
   get: () => props.modelValue,
@@ -41,7 +41,6 @@ const internalSelectedHardwareIds = computed({
   set: (value: number[]) => emit('update:selectedHardwareIds', value),
 });
 
-// Ouverture -> fetch data
 watch(localDialog, async (val) => {
   if (val && !hardwareStore.hardwares.length) {
     await hardwareStore.fetchAllHardware();
@@ -49,7 +48,6 @@ watch(localDialog, async (val) => {
   }
 });
 
-// Filtrage
 const filteredHardware = computed(() => {
   let items = hardwareStore.hardwares.filter((hw) => hw.type === props.hardwareType);
   if (searchQuery.value.trim()) {
@@ -59,7 +57,6 @@ const filteredHardware = computed(() => {
   return items;
 });
 
-// Tri
 const sortedHardware = computed(() => {
   const items = [...filteredHardware.value];
   return items.sort((a, b) => {
@@ -230,7 +227,7 @@ async function confirmDeleteHardware() {
       </v-card-actions>
     </v-card>
 
-    <!-- Modal création -->
+    <!-- Modal creation -->
     <HardwareModal
       v-model="showCreateModal"
       :hardware-id="null"
@@ -238,7 +235,7 @@ async function confirmDeleteHardware() {
       @saved="hardwareStore.fetchAllHardware()"
     />
 
-    <!-- Modal édition -->
+    <!-- Modal edition -->
     <HardwareModal
       v-model="showEditModal"
       :hardware-id="editingHardwareId"

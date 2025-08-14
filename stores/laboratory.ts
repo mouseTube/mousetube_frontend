@@ -74,7 +74,6 @@ export const useLaboratoryStore = defineStore('laboratory', {
             ...this.getAuthHeaders(),
           },
         });
-        console.log('Created laboratory:', this.getAuthHeaders());
         this.laboratories.push(res.data);
         return res.data;
       } catch (err: any) {

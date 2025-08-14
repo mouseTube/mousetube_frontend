@@ -139,7 +139,6 @@ export const useSoftwareStore = defineStore('software', {
           const res: AxiosResponse<PaginatedResponse<SoftwareVersion>> = await axios.get(nextPage, {
             headers: this.getAuthHeaders(),
           })
-          console.log('use header:', this.getAuthHeaders());
           const data = res.data
           allVersions.push(...data.results)
           nextPage = data.next

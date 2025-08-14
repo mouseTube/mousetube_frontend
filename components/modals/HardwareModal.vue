@@ -5,7 +5,7 @@ import { useHardwareStore, type Hardware } from '@/stores/hardware';
 const props = defineProps<{
   modelValue: boolean;
   hardwareId?: number | null;
-  hardwareType?: Hardware['type']; // pour pré-remplir en création
+  hardwareType?: Hardware['type'];
 }>();
 
 const emit = defineEmits<{
@@ -15,23 +15,20 @@ const emit = defineEmits<{
 
 const hardwareStore = useHardwareStore();
 
-// état du formulaire avec types corrects
 const formData = ref<Hardware>({
-  id: undefined, // id doit être number | undefined
+  id: undefined,
   name: '',
   type: props.hardwareType || '',
   made_by: '',
   description: '',
-  references: [], // tableau de number
+  references: [],
   created_at: undefined,
   modified_at: undefined,
   created_by: null,
 });
 
-// savoir si on est en édition
 const isEdit = computed(() => !!props.hardwareId);
 
-// remplir ou reset le formulaire quand hardwareId change
 watch(
   () => props.hardwareId,
   async (newId) => {
@@ -41,7 +38,6 @@ watch(
         existing = await hardwareStore.fetchHardwareById(newId);
       }
       if (existing) {
-        // on clone pour éviter la mutation directe
         formData.value = {
           ...existing,
           references: existing.references ? [...existing.references] : [],
@@ -56,7 +52,6 @@ watch(
   { immediate: true }
 );
 
-// reset formulaire
 function resetForm() {
   formData.value = {
     id: undefined,
@@ -71,10 +66,8 @@ function resetForm() {
   };
 }
 
-// sauvegarde
 async function saveHardware() {
   try {
-    // forcer id à number si nécessaire (sécurité TS)
     if (isEdit.value && props.hardwareId !== null && props.hardwareId !== undefined) {
       await hardwareStore.updateHardware(props.hardwareId, { ...formData.value });
     } else {
@@ -83,6 +76,7 @@ async function saveHardware() {
     emit('saved');
     emit('update:modelValue', false);
   } catch (err) {
+    //eslint-disable-next-line no-console
     console.error(err);
     alert('Error saving hardware.');
   }

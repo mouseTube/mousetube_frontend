@@ -53,7 +53,6 @@ async function loadVersionData() {
       loading.value = false;
     }
   } else {
-    // Nouvelle création : reset
     formData.value = {
       version: '',
       release_date: '',

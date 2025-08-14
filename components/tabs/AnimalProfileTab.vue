@@ -80,7 +80,7 @@ onMounted(fetchAnimalProfiles);
       </v-card-actions>
     </v-card>
 
-    <!-- Modale de création -->
+    <!-- Modale creation -->
     <CreateAnimalProfileModal v-model="showCreateModal" @created="handleCreated" />
 
     <!-- Snackbar feedback -->

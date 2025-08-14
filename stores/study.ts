@@ -19,17 +19,16 @@ export const useStudyStore = defineStore('study', {
       this.error = null;
       try {
         const apiBaseUrl = useApiBaseUrl();
-        let nextPage = `${apiBaseUrl}/study/`; // URL de la première page
+        let nextPage = `${apiBaseUrl}/study/`;
         const allStudies: any[] = [];
 
-        // Boucle pour récupérer toutes les pages
         while (nextPage) {
           const res = await axios.get(nextPage, { headers: this.getAuthHeaders?.() });
-          allStudies.push(...res.data.results); // Ajoute les résultats de la page actuelle
-          nextPage = res.data.next; // URL de la page suivante (ou null si terminé)
+          allStudies.push(...res.data.results);
+          nextPage = res.data.next;
         }
 
-        this.studies = allStudies; // Stocke toutes les études récupérées
+        this.studies = allStudies;
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch studies';
         console.error('Error fetching all studies:', err);

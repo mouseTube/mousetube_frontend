@@ -319,14 +319,12 @@ const hardwareFieldMap = {
 } as const;
 
 function onSessionSelected(session: RecordingSession) {
-  // Stocker la session sélectionnée
   selectedSessionId.value = session.id;
   selectedSessionObject.value = session;
   selectedSessionName.value = session.name ?? '';
 
-  // Préremplir le formulaire avec les données de la session
   formData.value = {
-    ...formData.value, // garde la structure existante
+    ...formData.value,
     name: session.name ?? '',
     description: session.description ?? '',
     duration: session.duration ?? null,
@@ -354,7 +352,6 @@ function onSessionSelected(session: RecordingSession) {
     laboratory: session.laboratory?.id ?? null,
   };
 
-  // Gérer la date et l’heure séparément
   if (session.date) {
     const d = new Date(session.date);
     date.value = d.toISOString().slice(0, 10); // format YYYY-MM-DD
@@ -364,25 +361,22 @@ function onSessionSelected(session: RecordingSession) {
     time.value = '';
   }
 
-  // Mettre à jour les IDs du hardware sélectionné
   (['soundcards', 'microphones', 'amplifiers', 'speakers'] as HardwareArrayKeys[]).forEach(
     (key) => {
       updateSelectedHardwareIds(key, formData.value.equipment[key]);
     }
   );
 
-  // Préparer l'affichage des logiciels d’acquisition
   acquisitionSoftwareDisplay.value =
     session.equipment_acquisition_software?.map((soft: SoftwareVersion) => {
       const softwareName = soft.software?.name || 'Unknown';
       const versionName = soft.version || '';
       return {
-        id: soft.id, // ici on utilise SoftwareVersion.id
+        id: soft.id,
         label: `${softwareName}${versionName ? ' – ' + versionName : ''}`,
       };
     }) ?? [];
 
-  // Émettre l’événement vers le parent
   emit('session-selected', {
     sessionId: session.id,
     protocolId: session.protocol?.id ?? null,
@@ -418,7 +412,6 @@ watch(selectedSessionId, (newId, oldId) => {
 
 function handleSessionSelection(newId: 'new' | 'select' | number) {
   if (newId === 'select') {
-    // Ouvre la modale de sélection
     showSessionSelectModal.value = true;
     selectedSessionId.value = selectedSessionObject.value?.id ?? 'new';
   } else if (newId === 'new') {
