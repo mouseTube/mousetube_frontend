@@ -294,6 +294,7 @@ watch(localDialog, handleDialogOpen, { immediate: true });
             <v-icon start>mdi-plus</v-icon> Add Software
           </v-btn>
         </div>
+        <v-btn color="primary" variant="flat" @click="localDialog = false">Close</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

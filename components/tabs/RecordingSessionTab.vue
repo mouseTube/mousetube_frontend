@@ -15,6 +15,8 @@ import SelectSessionModal from '@/components/modals/SessionModal.vue';
 import StudyModal from '@/components/modals/CreateStudyModal.vue';
 import HardwareSelectionModal from '@/components/modals/HardwareSelectionModal.vue';
 import type { Hardware } from '@/stores/hardware';
+import type { Software } from '@/stores/software';
+import type { SoftwareVersion } from '@/stores/software';
 
 ////////////////////////////////
 // STORES
@@ -89,10 +91,6 @@ const editLabId = ref<number | null>(null);
 
 const showSessionSelectModal = ref(false);
 const showHardwareSelectionModal = ref(false);
-// const hardwareTypeForSelection = ref<Hardware['type']>('');
-// const currentHardwareCategory = ref<'soundcards' | 'microphones' | 'amplifiers' | 'speakers'>(
-//   'soundcards'
-// );
 const selectedHardwareList = computed(
   () => formData.value.equipment[currentHardwareCategory.value]
 );
@@ -101,49 +99,8 @@ const soundcardsDisplay = ref<{ id: number; label: string }[]>([]);
 const microphonesDisplay = ref<{ id: number; label: string }[]>([]);
 const amplifiersDisplay = ref<{ id: number; label: string }[]>([]);
 const speakersDisplay = ref<{ id: number; label: string }[]>([]);
-
-// type HardwareArrayKeys = 'soundcards' | 'microphones' | 'amplifiers' | 'speakers';
-
 type HardwareTypeKeys = 'soundcard' | 'microphone' | 'speaker' | 'amplifier';
 type HardwareArrayKeys = 'soundcards' | 'microphones' | 'amplifiers' | 'speakers';
-
-const hardwareTypeForSelection = ref<HardwareTypeKeys | ''>('');
-const currentHardwareCategory = ref<HardwareArrayKeys>('soundcards');
-
-// Ouvre la modale avec le bon type et la bonne catégorie
-function openHardwareSelectionModal(type: HardwareTypeKeys, category: HardwareArrayKeys) {
-  hardwareTypeForSelection.value = type;
-  currentHardwareCategory.value = category;
-  showHardwareSelectionModal.value = true;
-}
-
-// Met à jour les IDs sélectionnés et les affichages
-function updateSelectedHardwareIds(field: HardwareArrayKeys, ids: number[]) {
-  formData.value.equipment[field] = ids;
-
-  const displayList = ids
-    .map((id) => {
-      const hw = hardwareStore.hardwares.find((h) => h.id === id);
-      return hw ? { id: hw.id!, label: hw.name } : null;
-    })
-    .filter((x): x is { id: number; label: string } => x !== null);
-
-  if (field === 'soundcards') soundcardsDisplay.value = displayList;
-  if (field === 'microphones') microphonesDisplay.value = displayList;
-  if (field === 'amplifiers') amplifiersDisplay.value = displayList;
-  if (field === 'speakers') speakersDisplay.value = displayList;
-}
-
-function removeHardware(field: HardwareArrayKeys, id: number) {
-  formData.value.equipment[field] = formData.value.equipment[field].filter((i) => i !== id);
-  updateSelectedHardwareIds(field, formData.value.equipment[field]);
-}
-
-// function openHardwareSelectionModal(type: Hardware['type'], category: HardwareArrayKeys) {
-//   hardwareTypeForSelection.value = type;
-//   currentHardwareCategory.value = category;
-//   showHardwareSelectionModal.value = true;
-// }
 
 ////////////////////////////////
 // COMPUTED
@@ -169,6 +126,36 @@ const selectItems = computed(() => {
 ////////////////////////////////
 // METHODS
 ////////////////////////////////
+
+const hardwareTypeForSelection = ref<HardwareTypeKeys | ''>('');
+const currentHardwareCategory = ref<HardwareArrayKeys>('soundcards');
+
+function openHardwareSelectionModal(type: HardwareTypeKeys, category: HardwareArrayKeys) {
+  hardwareTypeForSelection.value = type;
+  currentHardwareCategory.value = category;
+  showHardwareSelectionModal.value = true;
+}
+
+function updateSelectedHardwareIds(field: HardwareArrayKeys, ids: number[]) {
+  formData.value.equipment[field] = ids;
+
+  const displayList = ids
+    .map((id) => {
+      const hw = hardwareStore.hardwares.find((h) => h.id === id);
+      return hw ? { id: hw.id!, label: hw.name } : null;
+    })
+    .filter((x): x is { id: number; label: string } => x !== null);
+
+  if (field === 'soundcards') soundcardsDisplay.value = displayList;
+  if (field === 'microphones') microphonesDisplay.value = displayList;
+  if (field === 'amplifiers') amplifiersDisplay.value = displayList;
+  if (field === 'speakers') speakersDisplay.value = displayList;
+}
+
+function removeHardware(field: HardwareArrayKeys, id: number) {
+  formData.value.equipment[field] = formData.value.equipment[field].filter((i) => i !== id);
+  updateSelectedHardwareIds(field, formData.value.equipment[field]);
+}
 
 /* Show a snackbar notification with the given message and color. */
 function showSnackbar(message: string, color: string) {
@@ -230,15 +217,12 @@ function tryMergeDateTime() {
 /* Fetch lists used to populate selects (studies, hardware, software, labs). */
 async function fetchSelectableData() {
   try {
-    // Appelle les actions des stores pour charger les données
     await Promise.all([
       hardwareStore.fetchAllHardware(),
       softwareStore.fetchAllSoftware(),
       studyStore.fetchAllStudies(),
       laboratoryStore.fetchAllLaboratories(),
     ]);
-
-    // Assigne les données récupérées aux variables locales
     hardwareOptions.value = hardwareStore.hardwares;
     softwareOptions.value = softwareStore.softwares;
     studiesOptions.value = studyStore.studies;
@@ -335,52 +319,73 @@ const hardwareFieldMap = {
 } as const;
 
 function onSessionSelected(session: RecordingSession) {
+  // Stocker la session sélectionnée
   selectedSessionId.value = session.id;
   selectedSessionObject.value = session;
   selectedSessionName.value = session.name ?? '';
 
-  // Prefill form with session data
-  formData.value.name = session.name ?? '';
-  formData.value.description = session.description ?? '';
-  formData.value.duration = session.duration ?? null;
-  formData.value.date = session.date ?? null;
+  // Préremplir le formulaire avec les données de la session
+  formData.value = {
+    ...formData.value, // garde la structure existante
+    name: session.name ?? '',
+    description: session.description ?? '',
+    duration: session.duration ?? null,
+    date: session.date ?? null,
+    studies: session.studies?.map((s) => s.id) ?? [],
+    context: {
+      ...formData.value.context,
+      temperature: {
+        value: session.context_temperature_value ?? null,
+        unit: session.context_temperature_unit ?? '°C',
+      },
+      brightness: session.context_brightness ?? null,
+    },
+    equipment: {
+      ...formData.value.equipment,
+      channels: session.equipment_channels ?? '',
+      sound_isolation: session.equipment_sound_isolation ?? '',
+      soundcards: session.equipment_acquisition_hardware_soundcards?.map((h) => h.id) ?? [],
+      microphones: session.equipment_acquisition_hardware_microphones?.map((h) => h.id) ?? [],
+      amplifiers: session.equipment_acquisition_hardware_amplifiers?.map((h) => h.id) ?? [],
+      speakers: session.equipment_acquisition_hardware_speakers?.map((h) => h.id) ?? [],
+      acquisition_software:
+        session.equipment_acquisition_software?.map((soft: SoftwareVersion) => soft.id) ?? [],
+    },
+    laboratory: session.laboratory?.id ?? null,
+  };
 
+  // Gérer la date et l’heure séparément
   if (session.date) {
     const d = new Date(session.date);
-    date.value = d.toISOString().slice(0, 10);
-    time.value = d.toTimeString().slice(0, 5);
+    date.value = d.toISOString().slice(0, 10); // format YYYY-MM-DD
+    time.value = d.toTimeString().slice(0, 5); // format HH:MM
+  } else {
+    date.value = '';
+    time.value = '';
   }
 
-  formData.value.studies = session.studies?.map((s: any) => s.id) ?? [];
-  formData.value.context.temperature.value = session.context_temperature_value ?? null;
-  formData.value.context.temperature.unit = session.context_temperature_unit ?? '°C';
-  formData.value.context.brightness = session.context_brightness ?? null;
-  formData.value.equipment.channels = session.equipment_channels ?? '';
-  formData.value.equipment.sound_isolation = session.equipment_sound_isolation ?? '';
-  formData.value.equipment.soundcards =
-    session.equipment_acquisition_hardware_soundcards?.map((h: any) => h.id) ?? [];
-  formData.value.equipment.microphones =
-    session.equipment_acquisition_hardware_microphones?.map((h: any) => h.id) ?? [];
-  formData.value.equipment.amplifiers =
-    session.equipment_acquisition_hardware_amplifiers?.map((h: any) => h.id) ?? [];
-  formData.value.equipment.speakers =
-    session.equipment_acquisition_hardware_speakers?.map((h: any) => h.id) ?? [];
-  formData.value.equipment.acquisition_software =
-    session.equipment_acquisition_software?.map((soft: any) => soft.software?.id ?? soft.id) ?? [];
-  formData.value.laboratory = session.laboratory?.id ?? null;
+  // Mettre à jour les IDs du hardware sélectionné
+  (['soundcards', 'microphones', 'amplifiers', 'speakers'] as HardwareArrayKeys[]).forEach(
+    (key) => {
+      updateSelectedHardwareIds(key, formData.value.equipment[key]);
+    }
+  );
 
+  // Préparer l'affichage des logiciels d’acquisition
   acquisitionSoftwareDisplay.value =
-    session.equipment_acquisition_software?.map((soft: any) => {
-      const softwareName = soft.software_name || 'Unknown';
+    session.equipment_acquisition_software?.map((soft: SoftwareVersion) => {
+      const softwareName = soft.software?.name || 'Unknown';
       const versionName = soft.version || '';
       return {
-        id: soft.software?.id ?? soft.id,
+        id: soft.id, // ici on utilise SoftwareVersion.id
         label: `${softwareName}${versionName ? ' – ' + versionName : ''}`,
       };
     }) ?? [];
+
+  // Émettre l’événement vers le parent
   emit('session-selected', {
     sessionId: session.id,
-    protocolId: session.protocol?.id || null,
+    protocolId: session.protocol?.id ?? null,
   });
 }
 
@@ -558,7 +563,6 @@ onMounted(async () => {
               <v-btn
                 color="primary"
                 variant="flat"
-                size="small"
                 class="mr-2"
                 title="Add new study"
                 @click="newStudyDialog = true"
@@ -586,7 +590,6 @@ onMounted(async () => {
               <v-btn
                 color="primary"
                 variant="flat"
-                size="small"
                 class="mr-2"
                 title="Add new laboratory"
                 @click="newLabDialog = true"
@@ -596,7 +599,6 @@ onMounted(async () => {
               <v-btn
                 color="secondary"
                 variant="flat"
-                size="small"
                 title="Edit selected laboratory"
                 @click="openEditLabDialog"
                 :disabled="!formData.laboratory"
@@ -676,20 +678,14 @@ onMounted(async () => {
                   </v-card>
                 </v-col>
                 <v-col cols="12" md="3" class="d-flex justify-end align-center">
-                  <v-btn @click="openHardwareSelectionModal('soundcard', 'soundcards')">
+                  <v-btn
+                    title="Select and manage soundcards"
+                    @click="openHardwareSelectionModal('soundcard', 'soundcards')"
+                  >
                     <v-icon start>mdi-plus</v-icon> Select
                   </v-btn>
                 </v-col>
               </v-row>
-
-              <HardwareSelectionModal
-                v-model="showHardwareSelectionModal"
-                :hardware-type="hardwareTypeForSelection"
-                :selectedHardwareIds="selectedHardwareList"
-                @update:selectedHardwareIds="
-                  updateSelectedHardwareIds(currentHardwareCategory, $event)
-                "
-              />
 
               <!-- microphones -->
               <v-row class="mb-6" align="center">
@@ -711,7 +707,10 @@ onMounted(async () => {
                   </v-card>
                 </v-col>
                 <v-col cols="12" md="3" class="d-flex justify-end align-center">
-                  <v-btn @click="openHardwareSelectionModal('microphone', 'microphones')">
+                  <v-btn
+                    title="Select and manage microphones"
+                    @click="openHardwareSelectionModal('microphone', 'microphones')"
+                  >
                     <v-icon start>mdi-plus</v-icon> Select
                   </v-btn>
                 </v-col>
@@ -737,7 +736,10 @@ onMounted(async () => {
                   </v-card>
                 </v-col>
                 <v-col cols="12" md="3" class="d-flex justify-end align-center">
-                  <v-btn @click="openHardwareSelectionModal('amplifier', 'amplifiers')">
+                  <v-btn
+                    title="Select and manage amplifiers"
+                    @click="openHardwareSelectionModal('amplifier', 'amplifiers')"
+                  >
                     <v-icon start>mdi-plus</v-icon> Select
                   </v-btn>
                 </v-col>
@@ -763,7 +765,10 @@ onMounted(async () => {
                   </v-card>
                 </v-col>
                 <v-col cols="12" md="3" class="d-flex justify-end align-center">
-                  <v-btn @click="openHardwareSelectionModal('speaker', 'speakers')">
+                  <v-btn
+                    title="Select and manage speakers"
+                    @click="openHardwareSelectionModal('speaker', 'speakers')"
+                  >
                     <v-icon start>mdi-plus</v-icon> Select
                   </v-btn>
                 </v-col>
@@ -790,9 +795,6 @@ onMounted(async () => {
                 </v-col>
                 <v-col cols="12" md="3" class="d-flex justify-end align-center">
                   <v-btn
-                    color="primary"
-                    variant="flat"
-                    size="small"
                     title="Select and manage software"
                     @click="showSoftwareSelectionModal = true"
                   >
@@ -800,6 +802,15 @@ onMounted(async () => {
                   </v-btn>
                 </v-col>
               </v-row>
+
+              <HardwareSelectionModal
+                v-model="showHardwareSelectionModal"
+                :hardware-type="hardwareTypeForSelection"
+                :selectedHardwareIds="selectedHardwareList"
+                @update:selectedHardwareIds="
+                  updateSelectedHardwareIds(currentHardwareCategory, $event)
+                "
+              />
 
               <SoftwareSelectionModal
                 v-model="showSoftwareSelectionModal"

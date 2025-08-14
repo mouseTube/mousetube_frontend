@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useHardwareStore, type Hardware } from '@/stores/hardware';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
 
@@ -14,56 +14,87 @@ const emit = defineEmits<{
   (e: 'update:selectedHardwareIds', value: number[]): void;
 }>();
 
-// état général
-const isOpen = ref(props.modelValue);
-const search = ref('');
-const localSelected = ref<number[]>([...props.selectedHardwareIds]);
-
-// store
 const hardwareStore = useHardwareStore();
 
-// état modales
+// UI state
+const searchQuery = ref('');
+const sortOrder = ref<'asc' | 'desc'>('asc');
+const page = ref(1);
+const itemsPerPage = 9;
+
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 const editingHardwareId = ref<number | null>(null);
 
-// pagination
-const currentPage = ref(1);
-const itemsPerPage = 9;
+// Dialog confirmation delete
+const showDeleteConfirm = ref(false);
+const deleteTargetId = ref<number | null>(null);
+const deleteTargetName = ref<string>(''); // <-- ajouté
 
-// fetch initial
-onMounted(() => {
-  if (!hardwareStore.hardwares.length) {
-    hardwareStore.fetchAllHardware();
+const localDialog = computed({
+  get: () => props.modelValue,
+  set: (value: boolean) => emit('update:modelValue', value),
+});
+
+const internalSelectedHardwareIds = computed({
+  get: () => props.selectedHardwareIds,
+  set: (value: number[]) => emit('update:selectedHardwareIds', value),
+});
+
+// Ouverture -> fetch data
+watch(localDialog, async (val) => {
+  if (val && !hardwareStore.hardwares.length) {
+    await hardwareStore.fetchAllHardware();
+    page.value = 1;
   }
 });
 
-// filtrage
-const filteredHardware = computed(() =>
-  hardwareStore.hardwares.filter(
-    (hw) =>
-      hw.type === props.hardwareType && hw.name.toLowerCase().includes(search.value.toLowerCase())
-  )
-);
-
-// pagination
-const paginatedHardware = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage;
-  return filteredHardware.value.slice(start, start + itemsPerPage);
+// Filtrage
+const filteredHardware = computed(() => {
+  let items = hardwareStore.hardwares.filter((hw) => hw.type === props.hardwareType);
+  if (searchQuery.value.trim()) {
+    const q = searchQuery.value.toLowerCase();
+    items = items.filter((hw) => hw.name.toLowerCase().includes(q));
+  }
+  return items;
 });
 
-function confirmSelection() {
-  emit('update:selectedHardwareIds', localSelected.value);
-  isOpen.value = false;
+// Tri
+const sortedHardware = computed(() => {
+  const items = [...filteredHardware.value];
+  return items.sort((a, b) => {
+    let comparison = a.name.localeCompare(b.name);
+    return sortOrder.value === 'asc' ? comparison : -comparison;
+  });
+});
+
+// Pagination
+const paginatedHardware = computed(() => {
+  const start = (page.value - 1) * itemsPerPage;
+  return sortedHardware.value.slice(start, start + itemsPerPage);
+});
+
+// Utils
+function truncate(text: string, length = 100) {
+  if (!text) return '—';
+  return text.length > length ? text.slice(0, length) + '…' : text;
 }
 
-function toggleSelect(id?: number) {
-  if (typeof id !== 'number') return;
-  if (localSelected.value.includes(id)) {
-    localSelected.value = localSelected.value.filter((x) => x !== id);
-  } else {
-    localSelected.value.push(id);
-  }
+// Actions
+function toggleSelection(id: number) {
+  const newSelection = [...internalSelectedHardwareIds.value];
+  const index = newSelection.indexOf(id);
+  if (index === -1) newSelection.push(id);
+  else newSelection.splice(index, 1);
+  internalSelectedHardwareIds.value = newSelection;
+}
+
+function isSelected(id: number) {
+  return internalSelectedHardwareIds.value.includes(id);
+}
+
+function toggleSortOrder() {
+  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
 }
 
 function openCreateModal() {
@@ -76,109 +107,126 @@ function editHardware(hw: Hardware) {
   showEditModal.value = true;
 }
 
-function deleteHardware(id?: number) {
-  if (typeof id !== 'number') return;
-  if (!confirm('Are you sure you want to delete this hardware?')) return;
-
-  hardwareStore.deleteHardware(id).then(() => {
-    // recalculer la pagination si nécessaire
-    const totalPages = Math.ceil(filteredHardware.value.length / itemsPerPage);
-    if (currentPage.value > totalPages) {
-      currentPage.value = totalPages || 1;
-    }
-  });
+function askDeleteHardware(id: number) {
+  const hw = hardwareStore.hardwares.find((h) => h.id === id);
+  if (!hw) return;
+  deleteTargetId.value = id;
+  deleteTargetName.value = hw.name; // <-- on stocke le nom
+  showDeleteConfirm.value = true;
 }
 
-// synchronisation props <-> local
-watch(
-  () => props.modelValue,
-  (val) => {
-    isOpen.value = val;
+async function confirmDeleteHardware() {
+  if (deleteTargetId.value === null) return;
+  await hardwareStore.deleteHardware(deleteTargetId.value);
+  await hardwareStore.fetchAllHardware();
+  const totalPages = Math.ceil(filteredHardware.value.length / itemsPerPage);
+  if (page.value > totalPages) {
+    page.value = totalPages > 0 ? totalPages : 1;
   }
-);
-
-watch(isOpen, (val) => {
-  emit('update:modelValue', val);
-});
-
-watch(
-  () => props.selectedHardwareIds,
-  (val) => {
-    localSelected.value = [...val];
-  }
-);
-
-function truncate(text: string, length = 100) {
-  if (!text) return '—';
-  return text.length > length ? text.slice(0, length) + '…' : text;
+  showDeleteConfirm.value = false;
+  deleteTargetId.value = null;
+  deleteTargetName.value = '';
 }
 </script>
 
 <template>
-  <v-dialog v-model="isOpen" max-width="1000px">
+  <v-dialog v-model="localDialog" max-width="900px">
     <v-card>
-      <!-- header -->
-      <v-card-title>
-        Select {{ hardwareType }}s
-        <v-spacer></v-spacer>
-        <v-btn color="primary" variant="flat" @click="openCreateModal">
-          <v-icon start>mdi-plus</v-icon> New
-        </v-btn>
-        <v-btn icon @click="isOpen = false">
-          <v-icon>mdi-close</v-icon>
-        </v-btn>
+      <v-card-title class="d-flex align-center">
+        <span>Select {{ hardwareType }}s</span>
+        <v-spacer />
+        <v-text-field
+          v-model="searchQuery"
+          placeholder="Search hardware..."
+          density="compact"
+          variant="outlined"
+          hide-details
+          prepend-inner-icon="mdi-magnify"
+          class="ml-4"
+          style="max-width: 300px"
+        />
       </v-card-title>
 
-      <!-- body -->
       <v-card-text>
-        <v-text-field
-          v-model="search"
-          label="Search hardware"
-          variant="outlined"
-          density="compact"
-          hide-details
-        ></v-text-field>
+        <div class="d-flex align-center mb-4">
+          <v-btn
+            @click="toggleSortOrder"
+            size="small"
+            class="ml-2"
+            :icon="sortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'"
+            :title="sortOrder === 'asc' ? 'Ascending' : 'Descending'"
+          />
+        </div>
 
-        <v-row class="mt-4" dense>
+        <v-row v-if="paginatedHardware.length > 0" dense>
           <v-col v-for="hw in paginatedHardware" :key="hw.id" cols="12" sm="6" md="4">
             <v-card
-              density="compact"
-              style="min-height: 140px"
-              :elevation="localSelected.includes(hw.id!) ? 10 : 2"
-              :class="{ 'selected-card': localSelected.includes(hw.id!) }"
-              class="cursor-pointer card-fixed-border"
-              @click="toggleSelect(hw.id)"
+              :elevation="isSelected(hw.id!) ? 8 : 1"
+              :class="[
+                'cursor-pointer',
+                'h-100',
+                'd-flex',
+                'flex-column',
+                'justify-space-between',
+                'position-relative',
+                { 'border-primary': isSelected(hw.id!) },
+              ]"
+              @click="toggleSelection(hw.id!)"
             >
-              <v-card-title class="text-subtitle-2">{{ hw.name }}</v-card-title>
-              <v-card-subtitle class="text-caption">{{ hw.type }}</v-card-subtitle>
-              <v-card-text class="text-body-2">
-                {{ truncate(hw.description || '') }}
-              </v-card-text>
-              <v-card-actions>
-                <v-btn icon size="small" @click.stop="editHardware(hw)">
-                  <v-icon>mdi-pencil</v-icon>
-                </v-btn>
-                <v-btn icon size="small" color="error" @click.stop="deleteHardware(hw.id)">
-                  <v-icon>mdi-delete</v-icon>
-                </v-btn>
+              <v-icon v-if="isSelected(hw.id!)" color="primary" size="24" class="check-icon">
+                mdi-check-circle
+              </v-icon>
+
+              <div style="flex-grow: 1; padding: 16px">
+                <v-card-title class="pa-0">{{ hw.name }}</v-card-title>
+                <v-card-subtitle>Type: {{ hw.type }}</v-card-subtitle>
+                <v-card-text class="pa-0 mt-2 text-body-2">
+                  {{ truncate(hw.description || '') }}
+                </v-card-text>
+              </div>
+
+              <v-card-actions class="justify-end pt-0">
+                <v-icon
+                  color="primary"
+                  @click.stop="editHardware(hw)"
+                  title="Edit hardware"
+                  class="mr-2 cursor-pointer hover-icon"
+                >
+                  mdi-pencil
+                </v-icon>
+
+                <v-icon
+                  color="error"
+                  @click.stop="askDeleteHardware(hw.id!)"
+                  title="Delete hardware"
+                  class="cursor-pointer hover-icon"
+                >
+                  mdi-delete
+                </v-icon>
               </v-card-actions>
             </v-card>
           </v-col>
         </v-row>
 
-        <!-- pagination -->
+        <v-alert v-else type="info" variant="tonal" class="mt-4">
+          No hardware found matching your search criteria
+        </v-alert>
+
         <v-pagination
-          v-model="currentPage"
+          v-if="filteredHardware.length > itemsPerPage"
+          v-model="page"
           :length="Math.ceil(filteredHardware.length / itemsPerPage)"
-          total-visible="5"
           class="mt-4"
+          total-visible="5"
         />
       </v-card-text>
 
-      <!-- footer -->
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn color="primary" variant="flat" @click="confirmSelection">Confirm</v-btn>
+      <v-card-actions class="justify-space-between">
+        <v-btn color="primary" variant="flat" @click="openCreateModal" title="Add new hardware">
+          <v-icon start>mdi-plus</v-icon> Add Hardware
+        </v-btn>
+
+        <v-btn color="primary" variant="flat" @click="localDialog = false">Close</v-btn>
       </v-card-actions>
     </v-card>
 
@@ -197,6 +245,23 @@ function truncate(text: string, length = 100) {
       :hardware-type="hardwareType"
       @saved="hardwareStore.fetchAllHardware()"
     />
+
+    <!-- Dialog confirmation delete -->
+    <v-dialog v-model="showDeleteConfirm" max-width="400">
+      <v-card>
+        <v-card-title class="text-h6">Confirm Deletion</v-card-title>
+        <v-card-text>
+          Are you sure you want to delete
+          <strong>{{ deleteTargetName }}</strong
+          >? This action cannot be undone.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showDeleteConfirm = false">Cancel</v-btn>
+          <v-btn color="error" variant="flat" @click="confirmDeleteHardware">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-dialog>
 </template>
 
@@ -204,10 +269,27 @@ function truncate(text: string, length = 100) {
 .cursor-pointer {
   cursor: pointer;
 }
-.card-fixed-border {
-  border: 2px solid transparent;
+.h-100 {
+  height: 100%;
 }
-.selected-card {
-  border: 2px solid red;
+.hover-icon:hover {
+  color: #000000 !important;
+  transform: scale(1.1);
+  transition:
+    transform 0.2s,
+    color 0.2s;
+}
+.v-card {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  position: relative;
+}
+.border-primary {
+  border: 2px solid rgb(var(--v-theme-primary));
+}
+.check-icon {
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 </style>

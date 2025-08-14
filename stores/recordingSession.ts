@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import axios from 'axios'
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl'
 import { token } from '@/composables/useAuth'
+import type { SoftwareVersion } from '@/stores/software'
 
 export interface Study {
   id: number
@@ -18,16 +19,6 @@ export interface Study {
 export interface Protocol {
   id: number
   name: string
-}
-
-export interface SoftwareVersion {
-  id: number
-  software: {
-    id: number
-    name: string
-    type: string
-  }
-  version: string
 }
 
 export interface Hardware {
