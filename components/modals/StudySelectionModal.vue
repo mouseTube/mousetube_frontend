@@ -150,8 +150,16 @@ watch(localDialog, handleDialogOpen, { immediate: true });
         <v-row v-if="paginatedStudies.length > 0" dense>
           <v-col v-for="study in paginatedStudies" :key="study.id" cols="12" sm="6" md="4">
             <v-card
-              class="study-card"
-              :class="{ selected: isSelected(study.id) }"
+              :elevation="isSelected(study.id) ? 8 : 1"
+              :class="[
+                'cursor-pointer',
+                'h-100',
+                'd-flex',
+                'flex-column',
+                'justify-space-between',
+                'position-relative',
+                { 'border-primary': isSelected(study.id) },
+              ]"
               @click="toggleSelection(study.id)"
             >
               <!-- Icône de sélection -->
@@ -258,6 +266,18 @@ watch(localDialog, handleDialogOpen, { immediate: true });
 .h-100 {
   height: 100%;
 }
+.hover-icon:hover {
+  color: #000000 !important;
+  transform: scale(1.1);
+  transition:
+    transform 0.2s,
+    color 0.2s;
+}
+.v-card {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  position: relative;
+}
 .border-primary {
   border: 2px solid rgb(var(--v-theme-primary));
 }
@@ -265,42 +285,5 @@ watch(localDialog, handleDialogOpen, { immediate: true });
   position: absolute;
   top: 8px;
   right: 8px;
-}
-.hover-icon:hover {
-  color: #000 !important;
-  transform: scale(1.1);
-  transition:
-    transform 0.2s,
-    color 0.2s;
-}
-.study-card {
-  height: 100%;
-  border: 1px solid transparent;
-  transition:
-    border 0.2s,
-    box-shadow 0.2s;
-}
-
-.study-card.selected {
-  border: 2px solid rgb(var(--v-theme-primary));
-  box-shadow: 0 0 8px rgba(var(--v-theme-primary), 0.5);
-}
-
-.check-icon {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
-
-.hover-icon {
-  cursor: pointer;
-  transition:
-    transform 0.2s,
-    color 0.2s;
-}
-
-.hover-icon:hover {
-  transform: scale(1.2);
-  color: #000 !important;
 }
 </style>
