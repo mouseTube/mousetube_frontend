@@ -207,6 +207,26 @@ export const useSoftwareStore = defineStore('software', {
         throw err
       }
     },
+    async deleteSoftware(id: number) {
+      this.error = null;
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+
+        // Supprimer toutes les versions associées localement
+        this.softwareVersions = this.softwareVersions.filter(v => v.software.id !== id);
+
+        // Appel API pour supprimer le software
+        await axios.delete(`${apiBaseUrl}/software/${id}/`, {
+          headers: this.getAuthHeaders(),
+        });
+
+        // Supprimer le software du store local
+        this.softwares = this.softwares.filter(s => s.id !== id);
+      } catch (err: any) {
+        this.error = err?.message ?? 'Failed to delete software';
+        throw err;
+      }
+    },
     async deleteSoftwareVersion(id: number) {
       this.error = null;
       try {

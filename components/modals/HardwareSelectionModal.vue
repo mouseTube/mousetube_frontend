@@ -124,6 +124,10 @@ async function confirmDeleteHardware() {
   deleteTargetId.value = null;
   deleteTargetName.value = '';
 }
+
+function clearAllHardwareSelection() {
+  internalSelectedHardwareIds.value = [];
+}
 </script>
 
 <template>
@@ -221,6 +225,15 @@ async function confirmDeleteHardware() {
       <v-card-actions class="justify-space-between">
         <v-btn color="primary" variant="flat" @click="openCreateModal" title="Add new hardware">
           <v-icon start>mdi-plus</v-icon> Add Hardware
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="outlined"
+          :disabled="internalSelectedHardwareIds.length === 0"
+          @click="clearAllHardwareSelection"
+          title="Clear All Selection"
+        >
+          <v-icon start>mdi-close</v-icon> Clear All
         </v-btn>
 
         <v-btn color="primary" variant="flat" @click="localDialog = false">Close</v-btn>

@@ -162,6 +162,10 @@ function toggleSortOrder() {
   sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
 }
 
+function clearAllSoftwareSelection() {
+  internalSelectedVersionIds.value = [];
+}
+
 watch(localDialog, handleDialogOpen, { immediate: true });
 </script>
 
@@ -289,11 +293,18 @@ watch(localDialog, handleDialogOpen, { immediate: true });
       </v-card-text>
 
       <v-card-actions class="justify-space-between">
-        <div class="d-flex gap-2">
-          <v-btn color="primary" variant="flat" @click="onAddSoftware" title="Add new software">
-            <v-icon start>mdi-plus</v-icon> Add Software
-          </v-btn>
-        </div>
+        <v-btn color="primary" variant="flat" @click="onAddSoftware" title="Add new software">
+          <v-icon start>mdi-plus</v-icon> Add Software
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="outlined"
+          :disabled="internalSelectedVersionIds.length === 0"
+          @click="clearAllSoftwareSelection"
+          title="Clear All Selection"
+        >
+          <v-icon start>mdi-close</v-icon> Clear All
+        </v-btn>
         <v-btn color="primary" variant="flat" @click="localDialog = false">Close</v-btn>
       </v-card-actions>
     </v-card>

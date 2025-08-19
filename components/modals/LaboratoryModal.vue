@@ -4,6 +4,9 @@ import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 import { useAuth } from '@/composables/useAuth';
 import { useLaboratoryStore } from '@/stores/laboratory';
 
+// Liste des pays en format { label, value } pour v-select
+import countriesList from '@/data/countries'; // voir ci-dessous pour le fichier
+
 const props = defineProps<{
   modelValue: boolean;
   editId?: number | null;
@@ -14,8 +17,6 @@ const emit = defineEmits<{
   (e: 'saved'): void;
 }>();
 
-const apiBaseUrl = useApiBaseUrl();
-const { token } = useAuth();
 const labStore = useLaboratoryStore();
 
 const loading = ref(false);
@@ -24,7 +25,7 @@ const form = ref({
   institution: '',
   unit: '',
   address: '',
-  country: '',
+  country: '', // ISO code
   contact: '',
 });
 
@@ -42,24 +43,19 @@ async function loadLaboratory() {
   if (!props.editId) return;
   loading.value = true;
   try {
-    let lab = labStore.getLaboratoryById(props.editId);
-    if (!lab) {
-      lab = await labStore.fetchLaboratoryById(props.editId);
-    } else {
-    }
+    const lab = await labStore.getLaboratoryById(props.editId);
     if (lab) {
       form.value = {
-        name: lab.name ?? '',
-        institution: lab.institution ?? '',
-        unit: lab.unit ?? '',
-        address: lab.address ?? '',
-        country: lab.country ?? '',
-        contact: lab.contact ?? '',
+        name: lab.name || '',
+        institution: lab.institution || '',
+        unit: lab.unit || '',
+        address: lab.address || '',
+        country: lab.country || '',
+        contact: lab.contact || '',
       };
     }
   } catch (e) {
     showSnackbar('Error loading laboratory.', 'error');
-    // eslint-disable-next-line no-console
     console.error(e);
   } finally {
     loading.value = false;
@@ -84,7 +80,6 @@ async function save() {
     emit('update:modelValue', false);
   } catch (e) {
     showSnackbar('Error saving laboratory.', 'error');
-    // eslint-disable-next-line no-console
     console.error(e);
   } finally {
     loading.value = false;
@@ -94,18 +89,15 @@ async function save() {
 watch(
   () => props.modelValue,
   (val) => {
-    if (val) {
-      if (!props.editId) {
-        // new creation : reset form
-        form.value = {
-          name: '',
-          institution: '',
-          unit: '',
-          address: '',
-          country: '',
-          contact: '',
-        };
-      }
+    if (val && !props.editId) {
+      form.value = {
+        name: '',
+        institution: '',
+        unit: '',
+        address: '',
+        country: '',
+        contact: '',
+      };
     }
   },
   { immediate: true }
@@ -135,7 +127,17 @@ watch(
           <v-text-field v-model="form.institution" label="Institution" />
           <v-text-field v-model="form.unit" label="Unit" />
           <v-text-field v-model="form.address" label="Address" />
-          <v-text-field v-model="form.country" label="Country" />
+
+          <!-- Country select -->
+          <v-select
+            v-model="form.country"
+            :items="countriesList"
+            label="Country"
+            item-title="label"
+            item-value="value"
+            clearable
+          />
+
           <v-text-field v-model="form.contact" label="Contact" />
         </v-form>
       </v-card-text>

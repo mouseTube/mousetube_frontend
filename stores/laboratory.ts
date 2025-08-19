@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
-import { token } from '@/composables/useAuth'
+import { token } from '@/composables/useAuth';
 
 export interface Laboratory {
   id: number;
@@ -68,15 +68,14 @@ export const useLaboratoryStore = defineStore('laboratory', {
     async createLaboratory(data: LaboratoryPayload) {
       try {
         const apiBaseUrl = useApiBaseUrl();
-        const res = await axios.post(`${apiBaseUrl}/laboratory/`, data, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...this.getAuthHeaders(),
-          },
+        const payload = { ...data, country: data.country ?? null };
+        const res = await axios.post(`${apiBaseUrl}/laboratory/`, payload, {
+          headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
         });
         this.laboratories.push(res.data);
         return res.data;
       } catch (err: any) {
+        console.error('Error creating laboratory:', err);
         throw err;
       }
     },
@@ -84,46 +83,34 @@ export const useLaboratoryStore = defineStore('laboratory', {
     async updateLaboratory(id: number, data: LaboratoryPayload) {
       try {
         const apiBaseUrl = useApiBaseUrl();
-        const res = await axios.patch(`${apiBaseUrl}/laboratory/${id}/`, data, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...this.getAuthHeaders(),
-          },
+        const payload = { ...data, country: data.country ?? null };
+        const res = await axios.patch(`${apiBaseUrl}/laboratory/${id}/`, payload, {
+          headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
         });
         const index = this.laboratories.findIndex((l) => l.id === id);
         if (index !== -1) this.laboratories[index] = res.data;
         return res.data;
       } catch (err: any) {
+        console.error('Error updating laboratory:', err);
         throw err;
       }
     },
 
-    async fetchLaboratoryById(id: number) {
+    async getLaboratoryById(id: number): Promise<Laboratory | null> {
+      const existing = this.laboratories.find((l) => l.id === id);
+      if (existing) return existing;
       try {
-        const headers: Record<string, string> = {};
         const apiBaseUrl = useApiBaseUrl();
-        const response = await fetch(`${apiBaseUrl}/laboratory/${id}`, { headers });
-        if (!response.ok) {
-          throw new Error(`Failed to fetch laboratory with id ${id}`);
-        }
-        const lab = await response.json();
-
-        const index = this.laboratories.findIndex((l) => l.id === id);
-        if (index !== -1) {
-          this.laboratories[index] = lab;
-        } else {
-          this.laboratories.push(lab);
-        }
-
+        const res = await axios.get(`${apiBaseUrl}/laboratory/${id}/`, {
+          headers: this.getAuthHeaders(),
+        });
+        const lab: Laboratory = res.data;
+        this.laboratories.push(lab); // ajoute au store local
         return lab;
-      } catch (error) {
-        console.error('Error fetching laboratory by ID:', error);
+      } catch (err: any) {
+        console.error(`Error fetching laboratory by ID ${id}:`, err);
         return null;
       }
-    },
-
-    getLaboratoryById(id: number): Laboratory | null {
-      return this.laboratories.find((l) => l.id === id) ?? null;
     },
   },
 });

@@ -5,47 +5,16 @@ import { useApiBaseUrl } from '@/composables/useApiBaseUrl'
 import { token } from '@/composables/useAuth'
 import type { SoftwareVersion } from '@/stores/software'
 
-export interface Study {
-  id: number
-  name: string
-  description?: string | null
-  start_date?: string | null
-  end_date?: string | null
-  created_at?: string | null
-  modified_at?: string | null
-
-}
-
-export interface Protocol {
-  id: number
-  name: string
-}
-
-export interface Hardware {
-  id: number
-  name: string
-  type: string
-}
-
-export interface Laboratory {
-  id: number;
-  name: string;
-  institution?: string | null;
-  unit?: string | null;
-  address?: string | null;
-  country?: string | null;
-  contact?: string | null;
-}
-
-export interface AnimalProfile {
-  id: number
-  name: string
-}
+export interface Study { id: number; name: string; description?: string | null; start_date?: string | null; end_date?: string | null; created_at?: string | null; modified_at?: string | null }
+export interface Protocol { id: number; name: string }
+export interface Hardware { id: number; name: string; type: string }
+export interface Laboratory { id: number; name: string; institution?: string | null; unit?: string | null; address?: string | null; country?: string | null; contact?: string | null }
+export interface AnimalProfile { id: number; name: string }
 
 export interface RecordingSession {
   id: number
   name: string
-  protocol: Protocol
+  protocol: Protocol | null
   studies: Study[]
   description?: string | null
   date?: string | null
@@ -65,11 +34,7 @@ export interface RecordingSession {
   equipment_acquisition_hardware_microphones: Hardware[]
 
   equipment_channels?: 'mono' | 'stereo' | 'more than 2' | null
-  equipment_sound_isolation?:
-    | 'soundproof room'
-    | 'soundproof cage'
-    | 'no specific sound isolation'
-    | null
+  equipment_sound_isolation?: 'soundproof room' | 'soundproof cage' | 'no specific sound isolation' | null
 
   created_at?: string | null
   modified_at?: string | null
@@ -77,12 +42,12 @@ export interface RecordingSession {
 
 export interface RecordingSessionPayload {
   name: string
-  studies?: number[]
   description?: string | null
   date?: string | null
   status?: 'draft' | 'published'
   duration?: number | null
   laboratory?: number | null
+  studies?: number[]
   animal_profiles?: number[]
 
   context_temperature_value?: string | null
@@ -96,11 +61,33 @@ export interface RecordingSessionPayload {
   equipment_acquisition_hardware_microphones?: number[]
 
   equipment_channels?: 'mono' | 'stereo' | 'more than 2' | null
-  equipment_sound_isolation?:
-    | 'soundproof room'
-    | 'soundproof cage'
-    | 'no specific sound isolation'
-    | null
+  equipment_sound_isolation?: 'soundproof room' | 'soundproof cage' | 'no specific sound isolation' | null
+}
+
+function toDjangoPayload(session: RecordingSessionPayload) {
+  const {
+    studies,
+    animal_profiles,
+    equipment_acquisition_software,
+    equipment_acquisition_hardware_soundcards,
+    equipment_acquisition_hardware_speakers,
+    equipment_acquisition_hardware_amplifiers,
+    equipment_acquisition_hardware_microphones,
+    laboratory,
+    ...rest
+  } = session
+
+  return {
+    ...rest,
+    laboratory_id: laboratory,
+    study_ids: studies,
+    animal_profile_ids: animal_profiles,
+    equipment_acquisition_software_ids: equipment_acquisition_software,
+    equipment_acquisition_hardware_soundcard_ids: equipment_acquisition_hardware_soundcards,
+    equipment_acquisition_hardware_speaker_ids: equipment_acquisition_hardware_speakers,
+    equipment_acquisition_hardware_amplifier_ids: equipment_acquisition_hardware_amplifiers,
+    equipment_acquisition_hardware_microphone_ids: equipment_acquisition_hardware_microphones,
+  }
 }
 
 export const useRecordingSessionStore = defineStore('recordingSession', {
@@ -115,10 +102,12 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
     totalPages: 1,
     pageSize: 10,
   }),
+
   actions: {
     getAuthHeaders() {
-      return token.value ? { Authorization: `Bearer ${token.value}` } : {};
+      return token.value ? { Authorization: `Bearer ${token.value}` } : {}
     },
+
     async fetchSessions() {
       this.loadingSessions = true
       this.errorSessions = null
@@ -129,12 +118,8 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
 
         while (url) {
           const res = await axios.get(url, { headers: this.getAuthHeaders() })
-          if (Array.isArray(res.data.results)) {
-            allSessions.push(...res.data.results)
-          } else {
-            allSessions.push(...res.data)
-            break
-          }
+          if (Array.isArray(res.data.results)) allSessions.push(...res.data.results)
+          else { allSessions.push(...res.data); break }
           url = res.data.next
         }
 
@@ -168,7 +153,6 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
       }
     },
 
-
     async searchRecordingSessions(query: string) {
       this.loadingSessions = true;
       this.errorSessions = null;
@@ -199,12 +183,8 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
 
         while (url) {
           const res = await axios.get(url, { headers: this.getAuthHeaders() })
-          if (Array.isArray(res.data.results)) {
-            allStudies.push(...res.data.results)
-          } else {
-            allStudies.push(...res.data)
-            break
-          }
+          if (Array.isArray(res.data.results)) allStudies.push(...res.data.results)
+          else { allStudies.push(...res.data); break }
           url = res.data.next
         }
 
@@ -218,86 +198,65 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
     },
 
     async createSession(data: RecordingSessionPayload) {
-      try {
-        const apiBaseUrl = useApiBaseUrl()
-        const res = await axios.post(`${apiBaseUrl}/recording-session/`, data, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...this.getAuthHeaders(),
-          },
-        })
-        this.sessions.push(res.data)
-        return res.data
-      } catch (err: any) {
-        throw err
-      }
+      const payload = toDjangoPayload(data)
+      const apiBaseUrl = useApiBaseUrl()
+      const res = await axios.post(`${apiBaseUrl}/recording-session/`, payload, {
+        headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
+      })
+      this.sessions.push(res.data)
+      return res.data
     },
 
     async updateSession(id: number, data: RecordingSessionPayload) {
+      const payload = toDjangoPayload(data)
+      console.log('Updating session with payload:', payload)
+      const apiBaseUrl = useApiBaseUrl()
+      const res = await axios.patch(`${apiBaseUrl}/recording-session/${id}/`, payload, {
+        headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
+      })
+      const index = this.sessions.findIndex(s => s.id === id)
+      if (index !== -1) this.sessions[index] = res.data
+      return res.data
+    },
+
+    // 🔹 Nouvelle fonction pour mettre à jour le protocole d'une session
+    async updateSessionProtocol(sessionId: number, protocolId: number) {
       try {
         const apiBaseUrl = useApiBaseUrl()
-        const res = await axios.patch(`${apiBaseUrl}/recording-session/${id}/`, data, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...this.getAuthHeaders(),
-          },
-        })
-        const index = this.sessions.findIndex(s => s.id === id)
-        if (index !== -1) this.sessions[index] = res.data
-        return res.data
-      } catch (err: any) {
-        throw err
-      }
-    },
-    async updateSessionProtocol(id: number, protocolId: number) {
-      try {
-        const apiBaseUrl = useApiBaseUrl();
+        const payload = { protocol_id: protocolId }
         const res = await axios.patch(
-          `${apiBaseUrl}/recording-session/${id}/`,
-          { protocol: protocolId },
+          `${apiBaseUrl}/recording-session/${sessionId}/`,
+          payload,
           {
             headers: {
               'Content-Type': 'application/json',
               ...this.getAuthHeaders(),
             },
-          },
-        );
-        const index = this.sessions.findIndex(s => s.id === id);
-        if (index !== -1) this.sessions[index] = res.data;
-        return res.data;
-      } catch (err: any) {
-        throw err;
+          }
+        )
+        const index = this.sessions.findIndex((s) => s.id === sessionId)
+        if (index !== -1) this.sessions[index] = res.data
+        return res.data
+      } catch (err) {
+        console.error('Error updating session protocol:', err)
+        throw err
       }
     },
 
     async getSessionById(id: number): Promise<RecordingSession | null> {
-
-      if (!this.sessions || this.sessions.length === 0) {
-        // eslint-disable-next-line no-console
-        console.warn('No sessions available to search');
-      } else {
-        const session = this.sessions.find(s => s.id === id);
-        if (session) {
-          return session;
-        }
-      }
+      const cached = this.sessions.find(s => s.id === id)
+      if (cached) return cached
 
       try {
-        const apiBaseUrl = useApiBaseUrl();
+        const apiBaseUrl = useApiBaseUrl()
         const res = await axios.get(`${apiBaseUrl}/recording-session/${id}/`, {
           headers: this.getAuthHeaders(),
-        });
-        this.sessions.push(res.data);
-        return res.data;
+        })
+        return res.data as RecordingSession
       } catch (err: any) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to fetch session from API:', err.message);
-        return null;
+        console.error('Failed to fetch session from API:', err.message)
+        return null
       }
     },
-
-    getStudyById(id: number): Study | null {
-      return this.studies.find(s => s.id === id) ?? null
-    },
-  }
+  },
 })

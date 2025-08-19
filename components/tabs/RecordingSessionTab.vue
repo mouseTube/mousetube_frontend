@@ -14,9 +14,10 @@ import HardwareModal from '@/components/modals/HardwareModal.vue';
 import SelectSessionModal from '@/components/modals/SessionModal.vue';
 import StudyModal from '@/components/modals/CreateStudyModal.vue';
 import HardwareSelectionModal from '@/components/modals/HardwareSelectionModal.vue';
-import type { Hardware } from '@/stores/hardware';
-import type { Software } from '@/stores/software';
 import type { SoftwareVersion } from '@/stores/software';
+import { useAuth } from '@/composables/useAuth';
+import { useRouter } from 'vue-router';
+import StudySelectionModal from '@/components/modals/StudySelectionModal.vue';
 
 ////////////////////////////////
 // STORES
@@ -26,6 +27,8 @@ const studyStore = useStudyStore();
 const laboratoryStore = useLaboratoryStore();
 const hardwareStore = useHardwareStore();
 const softwareStore = useSoftwareStore();
+const auth = useAuth();
+const router = useRouter();
 
 ////////////////////////////////
 // EMITS
@@ -37,7 +40,7 @@ const emit = defineEmits(['validate', 'session-selected']);
 ////////////////////////////////
 const formRef = ref<any>();
 const dateMenu = ref(false);
-const date = ref<string | null>(null);
+const date = ref<Date | null>(null);
 const time = ref<string | null>(null);
 
 const snackbar = ref(false);
@@ -48,6 +51,8 @@ const selectedSessionId = ref<'new' | 'select' | number>('new');
 
 const selectedSessionObject = ref<RecordingSession | null>(null);
 const selectedSessionName = ref<string>('');
+
+const formattedDate = ref('');
 
 const laboratoriesOptions = ref<any[]>([]);
 const studiesOptions = ref<any[]>([]);
@@ -66,7 +71,7 @@ const formData = ref({
   duration: null as number | null,
   studies: [] as number[],
   context: {
-    temperature: { value: null as string | null, unit: '°C' as '°C' | '°F' },
+    temperature: { value: '' as string | null, unit: '' as '' | '°C' | '°F' },
     brightness: null as number | null,
   },
   equipment: {
@@ -105,12 +110,12 @@ type HardwareArrayKeys = 'soundcards' | 'microphones' | 'amplifiers' | 'speakers
 ////////////////////////////////
 // COMPUTED
 ////////////////////////////////
-const formattedDate = computed(() => {
-  if (date.value && time.value) {
-    return `${date.value} ${time.value}`;
-  }
-  return '';
-});
+// const formattedDate = computed(() => {
+//   if (date.value && time.value) {
+//     return `${date.value} ${time.value}`;
+//   }
+//   return '';
+// });
 
 const selectItems = computed(() => {
   const items: Array<{ id: string | number; name: string }> = [
@@ -173,7 +178,7 @@ function resetForm() {
     duration: null,
     studies: [],
     context: {
-      temperature: { value: null, unit: '°C' },
+      temperature: { value: '', unit: '' },
       brightness: null,
     },
     equipment: {
@@ -194,24 +199,40 @@ function resetForm() {
   emit('session-selected', null);
 }
 
-/* Update local date and try to merge with time into formData.date. */
-function updateDate(newDate: string | null) {
+function updateDate(newDate: Date | null) {
   date.value = newDate;
   tryMergeDateTime();
 }
 
-/* Update local time and try to merge with date into formData.date. */
-function updateTime(newTime: string) {
+function updateTime(newTime: string | null) {
   time.value = newTime;
   tryMergeDateTime();
 }
 
-/* Merge date + time into an ISO string stored in formData.date and close the menu. */
+// ----- merge date + time -----
 function tryMergeDateTime() {
-  if (date.value && time.value) {
-    formData.value.date = new Date(`${date.value}T${time.value}`).toISOString();
-    dateMenu.value = false;
+  let dateStr = '';
+  let timeStr = '';
+
+  if (date.value) {
+    dateStr = date.value.toISOString().slice(0, 10); // YYYY-MM-DD
+    timeStr = time.value || date.value.toTimeString().slice(0, 5); // HH:mm
+  } else if (time.value) {
+    timeStr = time.value;
   }
+
+  // Affichage lisible immédiat
+  formattedDate.value = dateStr ? `${dateStr} ${timeStr || '00:00'}` : timeStr || '';
+
+  // Stockage ISO backend
+  if (!date.value) {
+    formData.value.date = null;
+    return;
+  }
+
+  const isoTime = timeStr || '00:00';
+  const datetime = new Date(`${dateStr}T${isoTime}`);
+  formData.value.date = !isNaN(datetime.getTime()) ? datetime.toISOString() : null;
 }
 
 /* Fetch lists used to populate selects (studies, hardware, software, labs). */
@@ -245,18 +266,33 @@ function openEditLabDialog() {
 
 /* Save or update the session using the store. Handles both 'new' and existing sessions. */
 async function saveSession() {
+  // Valide le formulaire
   const isValid = await formRef.value?.validate?.();
   if (!isValid) {
     showSnackbar('Please fill in all required fields.', 'error');
     return;
   }
 
-  if (date.value && time.value) {
-    formData.value.date = new Date(`${date.value}T${time.value}`).toISOString();
+  // Prépare la date ISO pour le backend
+  if (date.value) {
+    const dateStr = date.value.toISOString().slice(0, 10); // YYYY-MM-DD
+    const timeStr = time.value || '00:00'; // si aucune heure, 00:00 par défaut
+    const datetime = new Date(`${dateStr}T${timeStr}`);
+    if (!isNaN(datetime.getTime())) {
+      formData.value.date = datetime.toISOString();
+    } else {
+      formData.value.date = null;
+      console.error('Invalid date/time combination:', dateStr, timeStr);
+      showSnackbar('Invalid date or time selected.', 'error');
+      return;
+    }
+  } else {
+    formData.value.date = null;
   }
 
   try {
     if (selectedSessionId.value === 'new') {
+      // Création d’une nouvelle session
       const created = await recordingSessionStore.createSession(formData.value);
       showSnackbar('Session created successfully!', 'success');
       selectedSessionId.value = created.id;
@@ -268,11 +304,11 @@ async function saveSession() {
         protocolId: created.protocol?.id || null,
       });
     } else {
-      // Update existing session
+      // Mise à jour d’une session existante
       await recordingSessionStore.updateSession(Number(selectedSessionId.value), formData.value);
       showSnackbar('Session updated successfully!', 'success');
 
-      // Try to refresh selectedSessionObject from store (if present)
+      // Rafraîchit l’objet sélectionné depuis le store
       const updated = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
       if (updated) {
         selectedSessionObject.value = updated;
@@ -286,37 +322,10 @@ async function saveSession() {
       });
     }
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.error('Error saving session', e);
     showSnackbar('Error saving session.', 'error');
   }
 }
-
-/* Open dialog to create new hardware of the given type. */
-function openNewHardwareDialog(type: 'soundcard' | 'microphone' | 'speaker' | 'amplifier') {
-  hardwareTypeForModal.value = type;
-  editHardwareId.value = null;
-  newHardwareDialog.value = true;
-}
-
-/* Open dialog to edit selected hardware (by type). */
-function openEditHardwareDialog(type: 'soundcard' | 'microphone' | 'speaker' | 'amplifier') {
-  const selectedId = formData.value.equipment[hardwareFieldMap[type]][0];
-  if (!selectedId) {
-    showSnackbar(`No ${type} selected to edit.`, 'error');
-    return;
-  }
-  editHardwareId.value = selectedId;
-  hardwareTypeForModal.value = type;
-  editHardwareDialog.value = true;
-}
-
-const hardwareFieldMap = {
-  soundcard: 'soundcards',
-  microphone: 'microphones',
-  speaker: 'speakers',
-  amplifier: 'amplifiers',
-} as const;
 
 function onSessionSelected(session: RecordingSession) {
   selectedSessionId.value = session.id;
@@ -333,8 +342,8 @@ function onSessionSelected(session: RecordingSession) {
     context: {
       ...formData.value.context,
       temperature: {
-        value: session.context_temperature_value ?? null,
-        unit: session.context_temperature_unit ?? '°C',
+        value: session.context_temperature_value ?? '',
+        unit: session.context_temperature_unit ?? '',
       },
       brightness: session.context_brightness ?? null,
     },
@@ -354,11 +363,19 @@ function onSessionSelected(session: RecordingSession) {
 
   if (session.date) {
     const d = new Date(session.date);
-    date.value = d.toISOString().slice(0, 10); // format YYYY-MM-DD
-    time.value = d.toTimeString().slice(0, 5); // format HH:MM
+    if (!isNaN(d.getTime())) {
+      date.value = d; // <-- objet Date
+      time.value = d.toTimeString().slice(0, 5); // string HH:mm
+      formattedDate.value = `${d.toISOString().slice(0, 10)} ${time.value}`; // string pour affichage
+    } else {
+      date.value = null;
+      time.value = null;
+      formattedDate.value = '';
+    }
   } else {
-    date.value = '';
-    time.value = '';
+    date.value = null;
+    time.value = null;
+    formattedDate.value = '';
   }
 
   (['soundcards', 'microphones', 'amplifiers', 'speakers'] as HardwareArrayKeys[]).forEach(
@@ -390,6 +407,42 @@ function removeSoftware(softwareId: number) {
 
   formData.value.equipment.acquisition_software =
     formData.value.equipment.acquisition_software.filter((id) => id !== softwareId);
+}
+
+function clearHardware(type: 'soundcards' | 'microphones' | 'amplifiers' | 'speakers') {
+  formData.value.equipment[type] = [];
+  updateSelectedHardwareIds(type, []); // <-- vide aussi la sélection affichée
+}
+
+function clearSoftware() {
+  formData.value.equipment.acquisition_software = [];
+  acquisitionSoftwareDisplay.value = []; // <-- vide aussi l'affichage
+}
+////////////////////////////////
+// STUDIES HANDLING
+////////////////////////////////
+
+// Affichage des études sélectionnées sous forme de chips
+const selectedStudiesDisplay = computed(() => {
+  return formData.value.studies
+    .map((id) => studiesOptions.value.find((s) => s.id === id))
+    .filter((s): s is { id: number; name: string } => !!s);
+});
+
+// Ouvre la modale de sélection des études
+const showStudySelectionModal = ref(false);
+
+function openStudySelectionModal() {
+  showStudySelectionModal.value = true;
+}
+
+// Supprime une étude de la sélection
+function removeStudy(id: number) {
+  formData.value.studies = formData.value.studies.filter((sId) => sId !== id);
+}
+
+function clearAllStudies() {
+  formData.value.studies = [];
 }
 
 ////////////////////////////////
@@ -445,6 +498,10 @@ function onUpdateSelectedSoftwareVersions(val: number[]) {
 
 /* Component mounted: fetch lists and prefetch first page of sessions for modal */
 onMounted(async () => {
+  if (!auth.loggedIn.value) {
+    router.push('/account/login');
+    return;
+  }
   await fetchSelectableData();
   // Prefetch first page for modal convenience (modal also fetches on open)
   await recordingSessionStore.fetchSessionsPage(1);
@@ -534,34 +591,52 @@ onMounted(async () => {
             label="Duration (seconds)"
             type="number"
             outlined
-            class="mb-4"
+            class="mb-1"
           />
 
           <!-- Studies -->
-          <v-row class="mb-4" align="center" no-gutters>
-            <v-col cols="12" md="9">
-              <v-autocomplete
-                v-model="formData.studies"
-                :items="studiesOptions"
-                item-title="name"
-                item-value="id"
-                label="Associated Studies"
-                multiple
-                outlined
-                chips
-                class="mb-4"
-              />
-            </v-col>
-            <v-col cols="12" md="3" class="d-flex justify-end align-center mb-4">
-              <v-btn
-                color="primary"
-                variant="flat"
-                class="mr-2"
-                title="Add new study"
-                @click="newStudyDialog = true"
-              >
-                <v-icon start>mdi-plus</v-icon> Add
-              </v-btn>
+          <v-row class="mb-4" align="center">
+            <v-col cols="12" md="12" class="pa-0">
+              <v-card outlined class="pa-3 mb-5">
+                <v-card-subtitle class="mb-2">Studies</v-card-subtitle>
+
+                <div class="chip-list d-flex flex-wrap align-center">
+                  <!-- Chips des études sélectionnées -->
+                  <v-chip
+                    v-for="study in selectedStudiesDisplay"
+                    :key="study.id"
+                    variant="outlined"
+                    closable
+                    @click:close="removeStudy(study.id)"
+                    class="ma-1"
+                  >
+                    {{ study.name }}
+                  </v-chip>
+
+                  <!-- Chip spéciale Clear All -->
+                  <v-chip
+                    v-if="selectedStudiesDisplay.length > 0"
+                    color="primary"
+                    variant="outlined"
+                    class="ma-1"
+                    @click="clearAllStudies"
+                  >
+                    <v-icon start>mdi-close</v-icon>
+                    Clear All
+                  </v-chip>
+
+                  <!-- Chip pour ajouter -->
+                  <v-chip
+                    color="primary"
+                    variant="flat"
+                    class="ma-1"
+                    @click="openStudySelectionModal"
+                  >
+                    <v-icon start>mdi-plus</v-icon>
+                    Select
+                  </v-chip>
+                </div>
+              </v-card>
             </v-col>
           </v-row>
 
@@ -605,7 +680,8 @@ onMounted(async () => {
           <v-card class="pa-4 mb-4" outlined>
             <v-card-title>Context</v-card-title>
             <v-card-text>
-              <v-row>
+              <v-row class="g-4">
+                <!-- g-4 ajoute un gap horizontal et vertical entre les colonnes -->
                 <v-col cols="6">
                   <v-text-field
                     v-model="formData.context.temperature.value"
@@ -623,7 +699,7 @@ onMounted(async () => {
                 </v-col>
                 <v-col cols="12">
                   <v-text-field
-                    v-model="formData.context.brightness"
+                    v-model.number="formData.context.brightness"
                     label="Brightness (Lux)"
                     type="number"
                     outlined
@@ -652,149 +728,198 @@ onMounted(async () => {
                 class="mb-4"
               />
               <!-- soundcards -->
-              <v-row class="mb-6" align="center">
-                <v-col cols="12" md="9">
-                  <v-card outlined class="pa-3 mb-2">
-                    <v-card-subtitle class="mb-2">Soundcards</v-card-subtitle>
-                    <div class="chip-list">
-                      <v-chip
-                        v-for="item in soundcardsDisplay"
-                        :key="item.id"
-                        variant="outlined"
-                        closable
-                        @click:close="removeHardware('soundcards', item.id)"
-                        class="ma-1"
-                      >
-                        {{ item.label }}
-                      </v-chip>
-                    </div>
-                  </v-card>
-                </v-col>
-                <v-col cols="12" md="3" class="d-flex justify-end align-center">
-                  <v-btn
-                    title="Select and manage soundcards"
+              <v-card outlined class="pa-3 mb-5">
+                <v-card-subtitle class="mb-2">Soundcards</v-card-subtitle>
+
+                <div class="chip-list d-flex flex-wrap align-center">
+                  <!-- Chips -->
+                  <v-chip
+                    v-for="item in soundcardsDisplay"
+                    :key="item.id"
+                    variant="outlined"
+                    closable
+                    @click:close="removeHardware('soundcards', item.id)"
+                    class="ma-1"
+                  >
+                    {{ item.label }}
+                  </v-chip>
+
+                  <!-- Clear All -->
+                  <v-chip
+                    v-if="soundcardsDisplay.length > 0"
+                    color="primary"
+                    variant="outlined"
+                    class="ma-1"
+                    @click="clearHardware('soundcards')"
+                  >
+                    <v-icon start>mdi-close</v-icon> Clear All
+                  </v-chip>
+
+                  <!-- Add -->
+                  <v-chip
+                    color="primary"
+                    variant="flat"
+                    class="ma-1"
                     @click="openHardwareSelectionModal('soundcard', 'soundcards')"
                   >
                     <v-icon start>mdi-plus</v-icon> Select
-                  </v-btn>
-                </v-col>
-              </v-row>
+                  </v-chip>
+                </div>
+              </v-card>
 
               <!-- microphones -->
-              <v-row class="mb-6" align="center">
-                <v-col cols="12" md="9">
-                  <v-card outlined class="pa-3 mb-2">
-                    <v-card-subtitle class="mb-2">Microphones</v-card-subtitle>
-                    <div class="chip-list">
-                      <v-chip
-                        v-for="item in microphonesDisplay"
-                        :key="item.id"
-                        variant="outlined"
-                        closable
-                        @click:close="removeHardware('microphones', item.id)"
-                        class="ma-1"
-                      >
-                        {{ item.label }}
-                      </v-chip>
-                    </div>
-                  </v-card>
-                </v-col>
-                <v-col cols="12" md="3" class="d-flex justify-end align-center">
-                  <v-btn
-                    title="Select and manage microphones"
+              <v-card outlined class="pa-3 mb-5">
+                <v-card-subtitle class="mb-2">Microphones</v-card-subtitle>
+
+                <div class="chip-list d-flex flex-wrap align-center">
+                  <v-chip
+                    v-for="item in microphonesDisplay"
+                    :key="item.id"
+                    variant="outlined"
+                    closable
+                    @click:close="removeHardware('microphones', item.id)"
+                    class="ma-1"
+                  >
+                    {{ item.label }}
+                  </v-chip>
+
+                  <v-chip
+                    v-if="microphonesDisplay.length > 0"
+                    color="primary"
+                    variant="outlined"
+                    class="ma-1"
+                    @click="clearHardware('microphones')"
+                  >
+                    <v-icon start>mdi-close</v-icon> Clear All
+                  </v-chip>
+
+                  <v-chip
+                    color="primary"
+                    variant="flat"
+                    class="ma-1"
                     @click="openHardwareSelectionModal('microphone', 'microphones')"
                   >
                     <v-icon start>mdi-plus</v-icon> Select
-                  </v-btn>
-                </v-col>
-              </v-row>
+                  </v-chip>
+                </div>
+              </v-card>
 
               <!-- amplifiers -->
-              <v-row class="mb-6" align="center">
-                <v-col cols="12" md="9">
-                  <v-card outlined class="pa-3 mb-2">
-                    <v-card-subtitle class="mb-2">Amplifiers</v-card-subtitle>
-                    <div class="chip-list">
-                      <v-chip
-                        v-for="item in amplifiersDisplay"
-                        :key="item.id"
-                        variant="outlined"
-                        closable
-                        @click:close="removeHardware('amplifiers', item.id)"
-                        class="ma-1"
-                      >
-                        {{ item.label }}
-                      </v-chip>
-                    </div>
-                  </v-card>
-                </v-col>
-                <v-col cols="12" md="3" class="d-flex justify-end align-center">
-                  <v-btn
-                    title="Select and manage amplifiers"
+              <v-card outlined class="pa-3 mb-5">
+                <v-card-subtitle class="mb-2">Amplifiers</v-card-subtitle>
+
+                <div class="chip-list d-flex flex-wrap align-center">
+                  <v-chip
+                    v-for="item in amplifiersDisplay"
+                    :key="item.id"
+                    variant="outlined"
+                    closable
+                    @click:close="removeHardware('amplifiers', item.id)"
+                    class="ma-1"
+                  >
+                    {{ item.label }}
+                  </v-chip>
+
+                  <v-chip
+                    v-if="amplifiersDisplay.length > 0"
+                    color="primary"
+                    variant="outlined"
+                    class="ma-1"
+                    @click="clearHardware('amplifiers')"
+                  >
+                    <v-icon start>mdi-close</v-icon> Clear All
+                  </v-chip>
+
+                  <v-chip
+                    color="primary"
+                    variant="flat"
+                    class="ma-1"
                     @click="openHardwareSelectionModal('amplifier', 'amplifiers')"
                   >
                     <v-icon start>mdi-plus</v-icon> Select
-                  </v-btn>
-                </v-col>
-              </v-row>
+                  </v-chip>
+                </div>
+              </v-card>
 
               <!-- speakers -->
-              <v-row class="mb-6" align="center">
-                <v-col cols="12" md="9">
-                  <v-card outlined class="pa-3 mb-2">
-                    <v-card-subtitle class="mb-2">Speakers</v-card-subtitle>
-                    <div class="chip-list">
-                      <v-chip
-                        v-for="item in speakersDisplay"
-                        :key="item.id"
-                        variant="outlined"
-                        closable
-                        @click:close="removeHardware('speakers', item.id)"
-                        class="ma-1"
-                      >
-                        {{ item.label }}
-                      </v-chip>
-                    </div>
-                  </v-card>
-                </v-col>
-                <v-col cols="12" md="3" class="d-flex justify-end align-center">
-                  <v-btn
-                    title="Select and manage speakers"
+              <v-card outlined class="pa-3 mb-5">
+                <v-card-subtitle class="mb-2">Speakers</v-card-subtitle>
+
+                <div class="chip-list d-flex flex-wrap align-center">
+                  <v-chip
+                    v-for="item in speakersDisplay"
+                    :key="item.id"
+                    variant="outlined"
+                    closable
+                    @click:close="removeHardware('speakers', item.id)"
+                    class="ma-1"
+                  >
+                    {{ item.label }}
+                  </v-chip>
+
+                  <v-chip
+                    v-if="speakersDisplay.length > 0"
+                    color="primary"
+                    variant="outlined"
+                    class="ma-1"
+                    @click="clearHardware('speakers')"
+                  >
+                    <v-icon start>mdi-close</v-icon> Clear All
+                  </v-chip>
+
+                  <v-chip
+                    color="primary"
+                    variant="flat"
+                    class="ma-1"
                     @click="openHardwareSelectionModal('speaker', 'speakers')"
                   >
                     <v-icon start>mdi-plus</v-icon> Select
-                  </v-btn>
-                </v-col>
-              </v-row>
+                  </v-chip>
+                </div>
+              </v-card>
 
               <!-- acquisition software -->
-              <v-row class="mb-2" align="center">
-                <v-col cols="12" md="9">
-                  <v-card outlined class="pa-3">
-                    <v-card-subtitle class="mb-2">Acquisition Software Versions</v-card-subtitle>
-                    <div class="chip-list">
-                      <v-chip
-                        v-for="soft in acquisitionSoftwareDisplay"
-                        :key="soft.id"
-                        variant="outlined"
-                        closable
-                        @click:close="removeSoftware(soft.id)"
-                        class="ma-1 mb-2"
-                      >
-                        {{ soft.label }}
-                      </v-chip>
-                    </div>
-                  </v-card>
-                </v-col>
-                <v-col cols="12" md="3" class="d-flex justify-end align-center">
-                  <v-btn
-                    title="Select and manage software"
+              <v-card outlined class="pa-3 mb-5">
+                <v-card-subtitle class="mb-2">Acquisition Software Versions</v-card-subtitle>
+
+                <div class="chip-list d-flex flex-wrap align-center">
+                  <v-chip
+                    v-for="soft in acquisitionSoftwareDisplay"
+                    :key="soft.id"
+                    variant="outlined"
+                    closable
+                    @click:close="removeSoftware(soft.id)"
+                    class="ma-1"
+                  >
+                    {{ soft.label }}
+                  </v-chip>
+
+                  <v-chip
+                    v-if="acquisitionSoftwareDisplay.length > 0"
+                    color="primary"
+                    variant="outlined"
+                    class="ma-1"
+                    @click="clearSoftware"
+                  >
+                    <v-icon start>mdi-close</v-icon> Clear All
+                  </v-chip>
+
+                  <v-chip
+                    color="primary"
+                    variant="flat"
+                    class="ma-1"
                     @click="showSoftwareSelectionModal = true"
                   >
                     <v-icon start>mdi-plus</v-icon> Select
-                  </v-btn>
-                </v-col>
-              </v-row>
+                  </v-chip>
+                </div>
+              </v-card>
+
+              <StudySelectionModal
+                v-model="showStudySelectionModal"
+                :selectedStudies="formData.studies"
+                @update:selectedStudies="(newIds) => (formData.studies = newIds)"
+              />
 
               <HardwareSelectionModal
                 v-model="showHardwareSelectionModal"
