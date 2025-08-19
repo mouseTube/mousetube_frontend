@@ -56,6 +56,7 @@ async function loadLaboratory() {
     }
   } catch (e) {
     showSnackbar('Error loading laboratory.', 'error');
+    // eslint-disable-next-line no-console
     console.error(e);
   } finally {
     loading.value = false;
@@ -80,6 +81,7 @@ async function save() {
     emit('update:modelValue', false);
   } catch (e) {
     showSnackbar('Error saving laboratory.', 'error');
+    // eslint-disable-next-line no-console
     console.error(e);
   } finally {
     loading.value = false;

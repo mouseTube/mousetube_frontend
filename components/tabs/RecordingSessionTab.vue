@@ -282,6 +282,7 @@ async function saveSession() {
       formData.value.date = datetime.toISOString();
     } else {
       formData.value.date = null;
+      // eslint-disable-next-line no-console
       console.error('Invalid date/time combination:', dateStr, timeStr);
       showSnackbar('Invalid date or time selected.', 'error');
       return;
@@ -322,6 +323,7 @@ async function saveSession() {
       });
     }
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error('Error saving session', e);
     showSnackbar('Error saving session.', 'error');
   }

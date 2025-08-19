@@ -209,7 +209,6 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
 
     async updateSession(id: number, data: RecordingSessionPayload) {
       const payload = toDjangoPayload(data)
-      console.log('Updating session with payload:', payload)
       const apiBaseUrl = useApiBaseUrl()
       const res = await axios.patch(`${apiBaseUrl}/recording-session/${id}/`, payload, {
         headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
@@ -238,6 +237,7 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         if (index !== -1) this.sessions[index] = res.data
         return res.data
       } catch (err) {
+        // eslint-disable-next-line no-console
         console.error('Error updating session protocol:', err)
         throw err
       }
@@ -254,6 +254,7 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         })
         return res.data as RecordingSession
       } catch (err: any) {
+        // eslint-disable-next-line no-console
         console.error('Failed to fetch session from API:', err.message)
         return null
       }

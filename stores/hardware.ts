@@ -54,6 +54,7 @@ export const useHardwareStore = defineStore('hardware', {
         this.hardwares = allHardwares;
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch hardware';
+        // eslint-disable-next-line no-console
         console.error('Error fetching all hardware:', err);
       } finally {
         this.loading = false;
@@ -74,6 +75,7 @@ export const useHardwareStore = defineStore('hardware', {
         }
         return hw;
       } catch (e) {
+        // eslint-disable-next-line no-console
         console.error('Error fetching hardware by ID:', e);
         return null;
       }

@@ -90,6 +90,7 @@ async function confirmDelete() {
       (id) => id !== deleteTarget.value!.id
     );
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error(e);
     alert('Failed to delete study');
   } finally {

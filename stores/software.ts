@@ -68,6 +68,7 @@ export const useSoftwareStore = defineStore('software', {
         this.softwares = allSoftwares
       } catch (err: any) {
         this.error = err?.message ?? 'Failed to fetch software'
+        // eslint-disable-next-line no-console
         console.error('Error fetching all softwares:', err)
       } finally {
         this.loading = false
@@ -146,6 +147,7 @@ export const useSoftwareStore = defineStore('software', {
         this.softwareVersions = allVersions
       } catch (err: any) {
         this.error = err?.message ?? 'Failed to fetch software versions'
+        // eslint-disable-next-line no-console
         console.error('Error fetching all software versions:', err)
       } finally {
         this.loading = false

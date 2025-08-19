@@ -65,6 +65,7 @@ async function saveStudy() {
     emit('update:modelValue', false);
     resetForm();
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error(e);
     snackbar.value = { show: true, message: 'Error saving study.' };
   }

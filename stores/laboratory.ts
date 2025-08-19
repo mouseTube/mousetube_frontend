@@ -75,6 +75,7 @@ export const useLaboratoryStore = defineStore('laboratory', {
         this.laboratories.push(res.data);
         return res.data;
       } catch (err: any) {
+        // eslint-disable-next-line no-console
         console.error('Error creating laboratory:', err);
         throw err;
       }
@@ -91,6 +92,7 @@ export const useLaboratoryStore = defineStore('laboratory', {
         if (index !== -1) this.laboratories[index] = res.data;
         return res.data;
       } catch (err: any) {
+        // eslint-disable-next-line no-console
         console.error('Error updating laboratory:', err);
         throw err;
       }
@@ -108,6 +110,7 @@ export const useLaboratoryStore = defineStore('laboratory', {
         this.laboratories.push(lab); // ajoute au store local
         return lab;
       } catch (err: any) {
+        // eslint-disable-next-line no-console
         console.error(`Error fetching laboratory by ID ${id}:`, err);
         return null;
       }
