@@ -5,7 +5,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRecordingSessionStore, type RecordingSession } from '@/stores/recordingSession';
 import { useHardwareStore } from '@/stores/hardware';
-import { useSoftwareStore } from '@/stores/software';
+import { useSoftwareStore, type SoftwareVersion } from '@/stores/software';
 import { useStudyStore } from '@/stores/study';
 import { useLaboratoryStore } from '~/stores/laboratory';
 import SoftwareSelectionModal from '../modals/SoftwareSelectionModal.vue';
@@ -14,7 +14,6 @@ import HardwareModal from '@/components/modals/HardwareModal.vue';
 import SelectSessionModal from '@/components/modals/SessionModal.vue';
 import StudyModal from '@/components/modals/CreateStudyModal.vue';
 import HardwareSelectionModal from '@/components/modals/HardwareSelectionModal.vue';
-import type { SoftwareVersion } from '@/stores/software';
 import { useAuth } from '@/composables/useAuth';
 import { useRouter } from 'vue-router';
 import StudySelectionModal from '@/components/modals/StudySelectionModal.vue';
@@ -63,7 +62,9 @@ const newHardwareDialog = ref(false);
 const editHardwareDialog = ref(false);
 const editHardwareId = ref<number | null>(null);
 const hardwareTypeForModal = ref<'soundcard' | 'microphone' | 'speaker' | 'amplifier' | ''>('');
+
 const acquisitionSoftwareDisplay = ref<{ id: number; label: string }[]>([]);
+
 const formData = ref({
   name: '',
   description: '',
@@ -71,16 +72,16 @@ const formData = ref({
   duration: null as number | null,
   studies: [] as number[],
   context: {
-    temperature: { value: '' as string | null, unit: '' as '' | '°C' | '°F' },
+    temperature: { value: null as string | null, unit: null as '°C' | '°F' | null },
     brightness: null as number | null,
   },
   equipment: {
-    channels: '' as '' | 'mono' | 'stereo' | 'more than 2',
-    sound_isolation: '' as
-      | ''
+    channels: null as 'mono' | 'stereo' | 'more than 2' | null,
+    sound_isolation: null as
       | 'soundproof room'
       | 'soundproof cage'
-      | 'no specific sound isolation',
+      | 'no specific sound isolation'
+      | null,
     soundcards: [] as number[],
     microphones: [] as number[],
     amplifiers: [] as number[],
@@ -89,6 +90,7 @@ const formData = ref({
   },
   laboratory: null as number | null,
 });
+
 const newStudyDialog = ref(false);
 const newLabDialog = ref(false);
 const editLabDialog = ref(false);
@@ -96,6 +98,10 @@ const editLabId = ref<number | null>(null);
 
 const showSessionSelectModal = ref(false);
 const showHardwareSelectionModal = ref(false);
+
+type HardwareTypeKeys = 'soundcard' | 'microphone' | 'speaker' | 'amplifier';
+type HardwareArrayKeys = 'soundcards' | 'microphones' | 'amplifiers' | 'speakers';
+
 const selectedHardwareList = computed(
   () => formData.value.equipment[currentHardwareCategory.value]
 );
@@ -104,19 +110,10 @@ const soundcardsDisplay = ref<{ id: number; label: string }[]>([]);
 const microphonesDisplay = ref<{ id: number; label: string }[]>([]);
 const amplifiersDisplay = ref<{ id: number; label: string }[]>([]);
 const speakersDisplay = ref<{ id: number; label: string }[]>([]);
-type HardwareTypeKeys = 'soundcard' | 'microphone' | 'speaker' | 'amplifier';
-type HardwareArrayKeys = 'soundcards' | 'microphones' | 'amplifiers' | 'speakers';
 
 ////////////////////////////////
 // COMPUTED
 ////////////////////////////////
-// const formattedDate = computed(() => {
-//   if (date.value && time.value) {
-//     return `${date.value} ${time.value}`;
-//   }
-//   return '';
-// });
-
 const selectItems = computed(() => {
   const items: Array<{ id: string | number; name: string }> = [
     { id: 'new', name: 'Create New Session' },
@@ -171,6 +168,7 @@ function showSnackbar(message: string, color: string) {
 
 /* Reset the form to empty values (used when 'new' is selected). */
 function resetForm() {
+  // --- Reset form data ---
   formData.value = {
     name: '',
     description: '',
@@ -178,12 +176,12 @@ function resetForm() {
     duration: null,
     studies: [],
     context: {
-      temperature: { value: '', unit: '' },
+      temperature: { value: null, unit: null },
       brightness: null,
     },
     equipment: {
-      channels: '',
-      sound_isolation: '',
+      channels: null,
+      sound_isolation: null,
       soundcards: [],
       microphones: [],
       amplifiers: [],
@@ -192,10 +190,24 @@ function resetForm() {
     },
     laboratory: null,
   };
+
+  // --- Reset UI mirrors ---
   date.value = null;
   time.value = null;
+  formattedDate.value = '';
+
+  soundcardsDisplay.value = [];
+  microphonesDisplay.value = [];
+  amplifiersDisplay.value = [];
+  speakersDisplay.value = [];
+  acquisitionSoftwareDisplay.value = [];
+
+  // --- Reset session selection ---
   selectedSessionObject.value = null;
   selectedSessionName.value = '';
+  selectedSessionId.value = 'new'; // <-- remet le select sur "Create New Session"
+
+  // --- Emit null pour prévenir le parent ---
   emit('session-selected', null);
 }
 
@@ -318,7 +330,7 @@ async function saveSession() {
 
       const session = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
       emit('session-selected', {
-        sessionId: selectedSessionId.value,
+        sessionId: Number(selectedSessionId.value),
         protocolId: session?.protocol?.id || null,
       });
     }
@@ -344,15 +356,15 @@ function onSessionSelected(session: RecordingSession) {
     context: {
       ...formData.value.context,
       temperature: {
-        value: session.context_temperature_value ?? '',
-        unit: session.context_temperature_unit ?? '',
+        value: session.context_temperature_value ?? null,
+        unit: session.context_temperature_unit ?? null,
       },
       brightness: session.context_brightness ?? null,
     },
     equipment: {
       ...formData.value.equipment,
-      channels: session.equipment_channels ?? '',
-      sound_isolation: session.equipment_sound_isolation ?? '',
+      channels: session.equipment_channels ?? null,
+      sound_isolation: session.equipment_sound_isolation ?? null,
       soundcards: session.equipment_acquisition_hardware_soundcards?.map((h) => h.id) ?? [],
       microphones: session.equipment_acquisition_hardware_microphones?.map((h) => h.id) ?? [],
       amplifiers: session.equipment_acquisition_hardware_amplifiers?.map((h) => h.id) ?? [],
@@ -366,9 +378,9 @@ function onSessionSelected(session: RecordingSession) {
   if (session.date) {
     const d = new Date(session.date);
     if (!isNaN(d.getTime())) {
-      date.value = d; // <-- objet Date
-      time.value = d.toTimeString().slice(0, 5); // string HH:mm
-      formattedDate.value = `${d.toISOString().slice(0, 10)} ${time.value}`; // string pour affichage
+      date.value = d; // objet Date
+      time.value = d.toTimeString().slice(0, 5); // HH:mm
+      formattedDate.value = `${d.toISOString().slice(0, 10)} ${time.value}`;
     } else {
       date.value = null;
       time.value = null;
@@ -413,13 +425,14 @@ function removeSoftware(softwareId: number) {
 
 function clearHardware(type: 'soundcards' | 'microphones' | 'amplifiers' | 'speakers') {
   formData.value.equipment[type] = [];
-  updateSelectedHardwareIds(type, []); // <-- vide aussi la sélection affichée
+  updateSelectedHardwareIds(type, []); // vide aussi l’affichage
 }
 
 function clearSoftware() {
   formData.value.equipment.acquisition_software = [];
-  acquisitionSoftwareDisplay.value = []; // <-- vide aussi l'affichage
+  acquisitionSoftwareDisplay.value = []; // vide aussi l’affichage
 }
+
 ////////////////////////////////
 // STUDIES HANDLING
 ////////////////////////////////

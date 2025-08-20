@@ -50,30 +50,30 @@ export interface RecordingSessionPayload {
   studies?: number[]
   animal_profiles?: number[]
 
-  context_temperature_value?: string | null
-  context_temperature_unit?: '°C' | '°F' | null
-  context_brightness?: number | null
+  context?: {
+    temperature?: { value: string | null; unit: '°C' | '°F' | null }
+    brightness?: number | null
+  }
 
-  equipment_acquisition_software?: number[]
-  equipment_acquisition_hardware_soundcards?: number[]
-  equipment_acquisition_hardware_speakers?: number[]
-  equipment_acquisition_hardware_amplifiers?: number[]
-  equipment_acquisition_hardware_microphones?: number[]
 
-  equipment_channels?: 'mono' | 'stereo' | 'more than 2' | null
-  equipment_sound_isolation?: 'soundproof room' | 'soundproof cage' | 'no specific sound isolation' | null
+  equipment?: {
+    channels?: 'mono' | 'stereo' | 'more than 2' | null;
+    sound_isolation?: 'soundproof room' | 'soundproof cage' | 'no specific sound isolation' | null;
+    soundcards?: number[]
+    microphones?: number[]
+    speakers?: number[]
+    amplifiers?: number[]
+    acquisition_software?: number[]
+  }
 }
 
 function toDjangoPayload(session: RecordingSessionPayload) {
   const {
     studies,
     animal_profiles,
-    equipment_acquisition_software,
-    equipment_acquisition_hardware_soundcards,
-    equipment_acquisition_hardware_speakers,
-    equipment_acquisition_hardware_amplifiers,
-    equipment_acquisition_hardware_microphones,
     laboratory,
+    context,
+    equipment,
     ...rest
   } = session
 
@@ -82,11 +82,16 @@ function toDjangoPayload(session: RecordingSessionPayload) {
     laboratory_id: laboratory,
     study_ids: studies,
     animal_profile_ids: animal_profiles,
-    equipment_acquisition_software_ids: equipment_acquisition_software,
-    equipment_acquisition_hardware_soundcard_ids: equipment_acquisition_hardware_soundcards,
-    equipment_acquisition_hardware_speaker_ids: equipment_acquisition_hardware_speakers,
-    equipment_acquisition_hardware_amplifier_ids: equipment_acquisition_hardware_amplifiers,
-    equipment_acquisition_hardware_microphone_ids: equipment_acquisition_hardware_microphones,
+    equipment_acquisition_software_ids: equipment?.acquisition_software,
+    equipment_acquisition_hardware_soundcard_ids: equipment?.soundcards,
+    equipment_acquisition_hardware_speaker_ids: equipment?.speakers,
+    equipment_acquisition_hardware_amplifier_ids: equipment?.amplifiers,
+    equipment_acquisition_hardware_microphone_ids: equipment?.microphones,
+    equipment_channels: equipment?.channels,
+    equipment_sound_isolation: equipment?.sound_isolation,
+    context_temperature_value: context?.temperature?.value || null,
+    context_temperature_unit: context?.temperature?.unit || null,
+    context_brightness: context?.brightness || null,
   }
 }
 
@@ -209,6 +214,8 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
 
     async updateSession(id: number, data: RecordingSessionPayload) {
       const payload = toDjangoPayload(data)
+      console.log('Updating session with payload:', payload)
+      console.log('data content:', data)
       const apiBaseUrl = useApiBaseUrl()
       const res = await axios.patch(`${apiBaseUrl}/recording-session/${id}/`, payload, {
         headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
