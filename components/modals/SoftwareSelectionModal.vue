@@ -26,10 +26,13 @@ const showDeleteConfirm = ref(false);
 const deleteTarget = ref<{ id: number; softwareName: string; version: string | null } | null>(null);
 
 const searchQuery = ref('');
-const sortBy = ref<'name' | 'version'>('name');
 const sortOrder = ref<'asc' | 'desc'>('asc');
 const page = ref(1);
-const itemsPerPage = 9;
+const itemsPerPage = ref(6);
+
+// Map softwareId -> versionId sélectionnée
+const selectedVersionBySoftware = ref<Record<number, number>>({});
+const selectedSoftwareIds = ref<number[]>([]); // multi-sélection
 
 // Computed
 const localDialog = computed({
@@ -42,52 +45,78 @@ const internalSelectedVersionIds = computed({
   set: (value: number[]) => emit('update:selectedSoftwareVersions', value),
 });
 
-const filteredSoftwareVersions = computed(() => {
-  let items = softwareStore.softwareVersions.filter(
-    (sv) => sv.software.type === 'acquisition' || sv.software.type === 'acquisition and analysis'
+const groupedSoftware = computed(() => {
+  const items = softwareStore.softwareVersions
+    .filter(
+      (sv) => sv.software.type === 'acquisition' || sv.software.type === 'acquisition and analysis'
+    )
+    .filter(
+      (sv) =>
+        !searchQuery.value.trim() ||
+        sv.software.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+        (sv.version && sv.version.toLowerCase().includes(searchQuery.value.toLowerCase()))
+    );
+
+  const map = new Map<number, { software: any; versions: any[]; selectedVersionId?: number }>();
+
+  items.forEach((sv) => {
+    if (!map.has(sv.software.id)) {
+      map.set(sv.software.id, {
+        software: sv.software,
+        versions: [],
+        selectedVersionId: undefined,
+      });
+    }
+    map.get(sv.software.id)!.versions.push(sv);
+  });
+
+  map.forEach((group) => {
+    const lastSelected = group.versions.find((v) =>
+      internalSelectedVersionIds.value.includes(v.id)
+    );
+    group.selectedVersionId = lastSelected
+      ? lastSelected.id
+      : group.versions[group.versions.length - 1].id;
+
+    selectedVersionBySoftware.value[group.software.id] = group.selectedVersionId!;
+  });
+
+  let groupsArray = Array.from(map.values());
+
+  groupsArray.sort((a, b) =>
+    sortOrder.value === 'asc'
+      ? a.software.name.localeCompare(b.software.name)
+      : b.software.name.localeCompare(a.software.name)
   );
 
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase();
-    items = items.filter(
-      (sv) =>
-        sv.software.name.toLowerCase().includes(query) ||
-        (sv.version && sv.version.toLowerCase().includes(query))
-    );
-  }
-
-  return items;
+  return groupsArray;
 });
 
-const sortedSoftwareVersions = computed(() => {
-  const items = [...filteredSoftwareVersions.value];
-  return items.sort((a, b) => {
-    let comparison = 0;
-    if (sortBy.value === 'name') {
-      comparison = a.software.name.localeCompare(b.software.name);
-    } else {
-      comparison = (a.version || '').localeCompare(b.version || '');
-    }
-    return sortOrder.value === 'asc' ? comparison : -comparison;
-  });
-});
-
-const paginatedSoftwareVersions = computed(() => {
-  const start = (page.value - 1) * itemsPerPage;
-  return sortedSoftwareVersions.value.slice(start, start + itemsPerPage);
+const paginatedGroups = computed(() => {
+  const start = (page.value - 1) * itemsPerPage.value;
+  return groupedSoftware.value.slice(start, start + itemsPerPage.value);
 });
 
 // Methods
-function toggleSelection(id: number) {
-  const newSelection = [...internalSelectedVersionIds.value];
-  const index = newSelection.indexOf(id);
-  if (index === -1) newSelection.push(id);
-  else newSelection.splice(index, 1);
-  internalSelectedVersionIds.value = newSelection;
+function toggleCardSelection(group: { software: any }) {
+  const idx = selectedSoftwareIds.value.indexOf(group.software.id);
+  if (idx === -1) {
+    selectedSoftwareIds.value.push(group.software.id);
+  } else {
+    selectedSoftwareIds.value.splice(idx, 1);
+  }
+
+  const versionId = selectedVersionBySoftware.value[group.software.id];
+  if (versionId && !internalSelectedVersionIds.value.includes(versionId)) {
+    internalSelectedVersionIds.value = [...internalSelectedVersionIds.value, versionId];
+  }
 }
 
-function isSelected(id: number) {
-  return internalSelectedVersionIds.value.includes(id);
+function onVersionSelected(softwareId: number, versionId: number) {
+  selectedVersionBySoftware.value[softwareId] = versionId;
+  if (!internalSelectedVersionIds.value.includes(versionId)) {
+    internalSelectedVersionIds.value = [...internalSelectedVersionIds.value, versionId];
+  }
 }
 
 function onAddSoftware() {
@@ -95,27 +124,25 @@ function onAddSoftware() {
   showEditModal.value = true;
 }
 
-function onEditSoftware() {
-  if (internalSelectedVersionIds.value.length === 0) return;
-  const firstVersionId = internalSelectedVersionIds.value[0];
-  const version = softwareStore.getSoftwareVersionById(firstVersionId);
-  if (version) {
-    editSoftwareId.value = version.software.id;
-    showEditModal.value = true;
-  }
+function onEditSoftware(softwareId: number) {
+  editSoftwareId.value = softwareId;
+  showEditModal.value = true;
+}
+
+function onCreateVersion(softwareId: number) {
+  editSoftwareId.value = softwareId;
+  editSoftwareVersionId.value = null;
+  showSoftwareVersionModal.value = true;
 }
 
 function onEditVersion(versionId: number) {
+  if (!versionId) return;
   editSoftwareVersionId.value = versionId;
   showSoftwareVersionModal.value = true;
 }
 
 function onDeleteVersion(item: { id: number; softwareName: string; version: string | null }) {
-  deleteTarget.value = {
-    id: item.id,
-    softwareName: item.softwareName,
-    version: item.version,
-  };
+  deleteTarget.value = item;
   showDeleteConfirm.value = true;
 }
 
@@ -123,14 +150,18 @@ async function confirmDelete() {
   if (deleteTarget.value) {
     await softwareStore.deleteSoftwareVersion(deleteTarget.value.id);
     await softwareStore.fetchAllSoftwareVersions();
-
-    const totalPages = Math.ceil(filteredSoftwareVersions.value.length / itemsPerPage);
-    if (page.value > totalPages) {
-      page.value = totalPages > 0 ? totalPages : 1;
-    }
   }
   showDeleteConfirm.value = false;
   deleteTarget.value = null;
+}
+
+function toggleSortOrder() {
+  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+}
+
+function clearAllSoftwareSelection() {
+  internalSelectedVersionIds.value = [];
+  selectedSoftwareIds.value = [];
 }
 
 async function handleDialogOpen(val: boolean) {
@@ -145,11 +176,7 @@ function onSoftwareSaved(newOrEditedSoftwareId: number, createdNew: boolean) {
   showEditModal.value = false;
   softwareStore.fetchAllSoftware();
   softwareStore.fetchAllSoftwareVersions();
-
-  if (createdNew) {
-    editSoftwareVersionId.value = null;
-    showSoftwareVersionModal.value = true;
-  }
+  if (createdNew) onCreateVersion(newOrEditedSoftwareId);
 }
 
 function onVersionCreated() {
@@ -158,15 +185,18 @@ function onVersionCreated() {
   softwareStore.fetchAllSoftwareVersions();
 }
 
-function toggleSortOrder() {
-  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
-}
-
-function clearAllSoftwareSelection() {
-  internalSelectedVersionIds.value = [];
-}
-
 watch(localDialog, handleDialogOpen, { immediate: true });
+watch(
+  internalSelectedVersionIds,
+  (ids) => {
+    const newSelected: number[] = [];
+    for (const [softwareId, versionId] of Object.entries(selectedVersionBySoftware.value)) {
+      if (ids.includes(versionId)) newSelected.push(Number(softwareId));
+    }
+    selectedSoftwareIds.value = newSelected;
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -182,20 +212,12 @@ watch(localDialog, handleDialogOpen, { immediate: true });
           variant="outlined"
           hide-details
           prepend-inner-icon="mdi-magnify"
-          class="ml-4"
           style="max-width: 300px"
         />
       </v-card-title>
 
       <v-card-text>
         <div class="d-flex align-center mb-4">
-          <v-btn-toggle v-model="sortBy" mandatory divided>
-            <v-btn value="name" size="small">
-              <v-icon start>mdi-sort-alphabetical</v-icon> Name
-            </v-btn>
-            <v-btn value="version" size="small"> <v-icon start>mdi-numeric</v-icon> Version </v-btn>
-          </v-btn-toggle>
-
           <v-btn
             @click="toggleSortOrder"
             size="small"
@@ -205,75 +227,83 @@ watch(localDialog, handleDialogOpen, { immediate: true });
           />
         </div>
 
-        <v-row v-if="paginatedSoftwareVersions.length > 0" dense>
-          <v-col v-for="item in paginatedSoftwareVersions" :key="item.id" cols="12" sm="6" md="4">
+        <v-row v-if="paginatedGroups.length > 0" dense>
+          <v-col v-for="group in paginatedGroups" :key="group.software.id" cols="12" sm="6" md="4">
             <v-card
-              :elevation="isSelected(item.id) ? 8 : 1"
-              :class="[
-                'cursor-pointer',
-                'h-100',
-                'd-flex',
-                'flex-column',
-                'justify-space-between',
-                'position-relative',
-                { 'border-primary': isSelected(item.id) },
-              ]"
-              @click="toggleSelection(item.id)"
+              class="h-100 d-flex flex-column justify-space-between"
+              :class="{ 'selected-card': selectedSoftwareIds.includes(group.software.id) }"
+              outlined
             >
-              <!-- Check icon top-right -->
-              <v-icon v-if="isSelected(item.id)" color="primary" size="24" class="check-icon">
-                mdi-check-circle
-              </v-icon>
+              <v-card-title class="d-flex justify-space-between align-center pa-2">
+                {{ group.software.name }}
+                <div>
+                  <v-icon
+                    small
+                    color="primary"
+                    class="hover-icon mr-2"
+                    @click.stop="onEditSoftware(group.software.id)"
+                    >mdi-pencil</v-icon
+                  >
+                </div>
+              </v-card-title>
 
-              <div style="flex-grow: 1; padding: 16px">
-                <v-card-title class="pa-0">
-                  {{ item.software.name }}
-                </v-card-title>
-                <v-card-subtitle> Version: {{ item.version || 'N/A' }} </v-card-subtitle>
-                <v-card-subtitle> Type: {{ item.software.type }} </v-card-subtitle>
-              </div>
+              <v-card-text>
+                <v-autocomplete
+                  v-model="selectedVersionBySoftware[group.software.id]"
+                  :items="group.versions"
+                  item-title="version"
+                  item-value="id"
+                  label="Select Version"
+                  dense
+                  outlined
+                  @change.stop="(val: number) => onVersionSelected(group.software.id, val)"
+                />
+              </v-card-text>
 
-              <v-card-actions class="justify-end pt-0">
-                <!-- Edit version icon -->
-                <v-icon
-                  color="primary"
-                  @click.stop="onEditVersion(item.id)"
-                  title="Edit this software version"
-                  class="mr-2 cursor-pointer hover-icon"
+              <v-card-actions class="justify-between align-center">
+                <!-- Carré de sélection -->
+                <div
+                  class="selection-box"
+                  :class="{ selected: selectedSoftwareIds.includes(group.software.id) }"
+                  @click.stop="toggleCardSelection(group)"
                 >
-                  mdi-pencil
-                </v-icon>
+                  <v-icon v-if="selectedSoftwareIds.includes(group.software.id)" small color="red"
+                    >mdi-check</v-icon
+                  >
+                </div>
 
-                <!-- Edit software icon -->
-                <v-icon
-                  color="primary"
-                  @click.stop="
-                    () => {
-                      editSoftwareId = item.software.id;
-                      showEditModal = true;
-                    }
-                  "
-                  title="Edit software"
-                  class="mr-2 cursor-pointer hover-icon"
-                >
-                  mdi-cog
-                </v-icon>
-
-                <!-- Delete version icon -->
-                <v-icon
-                  color="error"
-                  @click.stop="
-                    onDeleteVersion({
-                      id: item.id,
-                      softwareName: item.software.name,
-                      version: item.version ?? null,
-                    })
-                  "
-                  title="Delete this software version"
-                  class="cursor-pointer hover-icon"
-                >
-                  mdi-delete
-                </v-icon>
+                <div>
+                  <v-icon
+                    small
+                    color="primary"
+                    class="hover-icon"
+                    @click.stop="onCreateVersion(group.software.id)"
+                    >mdi-plus</v-icon
+                  >
+                  <v-icon
+                    small
+                    color="primary"
+                    class="hover-icon mr-2"
+                    @click.stop="onEditVersion(selectedVersionBySoftware[group.software.id])"
+                    >mdi-pencil</v-icon
+                  >
+                  <v-icon
+                    small
+                    color="error"
+                    class="hover-icon"
+                    @click.stop="
+                      onDeleteVersion({
+                        id: selectedVersionBySoftware[group.software.id],
+                        softwareName: group.software.name,
+                        version:
+                          group.versions.find(
+                            (v) => v.id === selectedVersionBySoftware[group.software.id]
+                          )?.version ?? null,
+                      })
+                    "
+                    >mdi-delete</v-icon
+                  >
+                </div>
               </v-card-actions>
             </v-card>
           </v-col>
@@ -284,9 +314,9 @@ watch(localDialog, handleDialogOpen, { immediate: true });
         </v-alert>
 
         <v-pagination
-          v-if="filteredSoftwareVersions.length > itemsPerPage"
+          v-if="groupedSoftware.length > itemsPerPage"
           v-model="page"
-          :length="Math.ceil(filteredSoftwareVersions.length / itemsPerPage)"
+          :length="Math.ceil(groupedSoftware.length / itemsPerPage)"
           class="mt-4"
           total-visible="5"
         />
@@ -301,54 +331,47 @@ watch(localDialog, handleDialogOpen, { immediate: true });
           variant="outlined"
           :disabled="internalSelectedVersionIds.length === 0"
           @click="clearAllSoftwareSelection"
-          title="Clear All Selection"
         >
           <v-icon start>mdi-close</v-icon> Clear All
         </v-btn>
         <v-btn color="primary" variant="flat" @click="localDialog = false">Close</v-btn>
       </v-card-actions>
     </v-card>
+
+    <!-- Delete confirmation -->
+    <v-dialog v-model="showDeleteConfirm" max-width="400">
+      <v-card>
+        <v-card-title class="text-h6">Confirm deletion</v-card-title>
+        <v-card-text>
+          Are you sure you want to delete the software version
+          <strong>{{ deleteTarget?.softwareName }} {{ deleteTarget?.version || '' }}</strong
+          >? This action cannot be undone.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn text @click="showDeleteConfirm = false">Cancel</v-btn>
+          <v-btn color="primary" @click="confirmDelete">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <SoftwareEditModal
+      v-model="showEditModal"
+      :software-id="editSoftwareId"
+      @saved="onSoftwareSaved"
+    />
+
+    <CreateSoftwareVersionModal
+      v-if="showSoftwareVersionModal"
+      v-model="showSoftwareVersionModal"
+      :software-id="editSoftwareId!"
+      :software-version-id="editSoftwareVersionId"
+      @saved="onVersionCreated"
+    />
   </v-dialog>
-
-  <!-- Delete confirmation dialog -->
-  <v-dialog v-model="showDeleteConfirm" max-width="400">
-    <v-card>
-      <v-card-title class="text-h6">Confirm deletion</v-card-title>
-      <v-card-text>
-        Are you sure you want to delete the software version
-        <strong>{{ deleteTarget?.softwareName }} {{ deleteTarget?.version || '' }}</strong
-        >? This action cannot be undone.
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn text @click="showDeleteConfirm = false">Cancel</v-btn>
-        <v-btn color="error" @click="confirmDelete">Delete</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
-
-  <SoftwareEditModal
-    v-model="showEditModal"
-    :software-id="editSoftwareId"
-    @saved="onSoftwareSaved"
-  />
-
-  <CreateSoftwareVersionModal
-    v-if="showSoftwareVersionModal"
-    v-model="showSoftwareVersionModal"
-    :software-id="editSoftwareId!"
-    :software-version-id="editSoftwareVersionId"
-    @saved="onVersionCreated"
-  />
 </template>
 
 <style scoped>
-.cursor-pointer {
-  cursor: pointer;
-}
-.h-100 {
-  height: 100%;
-}
 .hover-icon:hover {
   color: #000000 !important;
   transform: scale(1.1);
@@ -356,17 +379,23 @@ watch(localDialog, handleDialogOpen, { immediate: true });
     transform 0.2s,
     color 0.2s;
 }
-.v-card {
-  border: 2px solid transparent;
-  border-radius: 8px;
-  position: relative;
+.h-100 {
+  height: 100%;
 }
-.border-primary {
-  border: 2px solid rgb(var(--v-theme-primary));
+.selected-card {
+  border: 2px solid rgb(143, 5, 5);
 }
-.check-icon {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+.selection-box {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.selection-box.selected {
+  border-color: rgb(143, 5, 5);
+  background-color: #ffe6e6;
 }
 </style>
