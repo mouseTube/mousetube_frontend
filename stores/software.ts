@@ -179,7 +179,12 @@ export const useSoftwareStore = defineStore('software', {
       this.error = null
       try {
         // Convert empty release_date to null
-        const payload = { ...data, release_date: data.release_date || null }
+        const payload = {
+          version: data.version,
+          release_date: data.release_date || null,
+          software_id: data.software,
+        }
+        console.log('Creating software version with payload:', payload)
         const apiBaseUrl = useApiBaseUrl()
         const res: AxiosResponse<SoftwareVersion> = await axios.post(`${apiBaseUrl}/software-version/`, payload, {
           headers: this.getAuthHeaders(),
@@ -196,7 +201,11 @@ export const useSoftwareStore = defineStore('software', {
       this.error = null
       try {
         // Convert empty release_date to null
-        const payload = { ...data, release_date: data.release_date || null }
+        const payload = {
+          version: data.version,
+          release_date: data.release_date || null,
+          software_id: data.software,
+        }
         const apiBaseUrl = useApiBaseUrl()
         const res: AxiosResponse<SoftwareVersion> = await axios.put(`${apiBaseUrl}/software-version/${id}/`, payload, {
           headers: this.getAuthHeaders(),
@@ -213,16 +222,12 @@ export const useSoftwareStore = defineStore('software', {
       this.error = null;
       try {
         const apiBaseUrl = useApiBaseUrl();
-
-        // Supprimer toutes les versions associées localement
         this.softwareVersions = this.softwareVersions.filter(v => v.software.id !== id);
 
-        // Appel API pour supprimer le software
         await axios.delete(`${apiBaseUrl}/software/${id}/`, {
           headers: this.getAuthHeaders(),
         });
 
-        // Supprimer le software du store local
         this.softwares = this.softwares.filter(s => s.id !== id);
       } catch (err: any) {
         this.error = err?.message ?? 'Failed to delete software';

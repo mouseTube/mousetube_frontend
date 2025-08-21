@@ -66,6 +66,7 @@ const groupedSoftware = computed(() => {
       selectedVersionBySoftware.value[group.software.id] ??
       selected?.id ??
       group.versions.at(-1)!.id;
+
     selectedVersionBySoftware.value[group.software.id] = group.selectedVersionId;
   });
 
@@ -102,15 +103,20 @@ function toggleCardSelection(group: { software: any }) {
 function onVersionSelected(softwareId: number, versionId: number) {
   selectedVersionBySoftware.value[softwareId] = versionId;
 
-  const softwareVersions = softwareStore.softwareVersions
+  const softwareVersionIds = softwareStore.softwareVersions
     .filter((sv) => sv.software.id === softwareId)
     .map((sv) => sv.id);
+
   internalSelectedVersionIds.value = [
-    ...internalSelectedVersionIds.value.filter((id) => !softwareVersions.includes(id)),
+    ...internalSelectedVersionIds.value.filter((id) => !softwareVersionIds.includes(id)),
     versionId,
   ];
 
-  if (!selectedSoftwareIds.value.includes(softwareId)) selectedSoftwareIds.value.push(softwareId);
+  emit('update:selectedSoftwareVersions', internalSelectedVersionIds.value);
+
+  if (!selectedSoftwareIds.value.includes(softwareId)) {
+    selectedSoftwareIds.value.push(softwareId);
+  }
 }
 
 function clearAllSoftwareSelection() {
@@ -149,28 +155,73 @@ function onDeleteVersion(item: { id: number; softwareName: string; version: stri
 }
 async function confirmDelete() {
   if (!deleteTarget.value) return;
+
+  const softwareId = softwareStore.softwareVersions.find((sv) => sv.id === deleteTarget.value!.id)
+    ?.software.id;
+
   await softwareStore.deleteSoftwareVersion(deleteTarget.value.id);
   await softwareStore.fetchAllSoftwareVersions();
+  if (softwareId) {
+    const remainingVersions = softwareStore.softwareVersions
+      .filter((sv) => sv.software.id === softwareId)
+      .map((sv) => sv.id);
+
+    if (remainingVersions.length) {
+      onVersionSelected(softwareId, remainingVersions.at(-1)!);
+    } else {
+      delete selectedVersionBySoftware.value[softwareId];
+      selectedSoftwareIds.value = selectedSoftwareIds.value.filter((id) => id !== softwareId);
+      internalSelectedVersionIds.value = internalSelectedVersionIds.value.filter(
+        (id) => ![deleteTarget.value!.id].includes(id)
+      );
+    }
+  }
+
   showDeleteConfirm.value = false;
   deleteTarget.value = null;
 }
+
+async function onDeleteSoftware(softwareId: number) {
+  await softwareStore.deleteSoftware(softwareId);
+  await softwareStore.fetchAllSoftware();
+  await softwareStore.fetchAllSoftwareVersions();
+
+  // Nettoyage des sélections
+  selectedSoftwareIds.value = selectedSoftwareIds.value.filter((id) => id !== softwareId);
+  delete selectedVersionBySoftware.value[softwareId];
+  internalSelectedVersionIds.value = internalSelectedVersionIds.value.filter(
+    (id) =>
+      !groupedSoftware.value.some(
+        (g) => g.software.id === softwareId && g.versions.some((v) => v.id === id)
+      )
+  );
+}
+
 function toggleSortOrder() {
   sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
 }
+
 function onSoftwareSaved(newOrEditedSoftwareId: number, createdNew: boolean) {
   showEditModal.value = false;
   softwareStore.fetchAllSoftware();
   softwareStore.fetchAllSoftwareVersions();
+
   if (createdNew) onCreateVersion(newOrEditedSoftwareId);
 }
-function onVersionCreated() {
+
+async function onVersionCreated(versionId: number) {
   showSoftwareVersionModal.value = false;
   editSoftwareVersionId.value = null;
-  softwareStore.fetchAllSoftwareVersions();
+
+  const softwareId = editSoftwareId.value!;
+
+  await softwareStore.fetchAllSoftwareVersions();
+  onVersionSelected(softwareId, versionId);
 }
 
 // Watchers
 watch(localDialog, handleDialogOpen, { immediate: true });
+
 watch(
   internalSelectedVersionIds,
   () => {
@@ -219,13 +270,22 @@ watch(
               <!-- Card header -->
               <v-card-title class="d-flex justify-space-between align-center pa-2">
                 {{ group.software.name }}
-                <v-icon
-                  small
-                  color="primary"
-                  class="hover-icon"
-                  @click.stop="onEditSoftware(group.software.id)"
-                  >mdi-pencil</v-icon
-                >
+                <div class="d-flex align-center gap-1">
+                  <v-icon
+                    small
+                    color="primary"
+                    class="hover-icon"
+                    @click.stop="onEditSoftware(group.software.id)"
+                    >mdi-pencil</v-icon
+                  >
+                  <v-icon
+                    small
+                    color="primary"
+                    class="hover-icon"
+                    @click.stop="onDeleteSoftware(group.software.id)"
+                    >mdi-delete</v-icon
+                  >
+                </div>
               </v-card-title>
 
               <!-- Version selector -->
@@ -249,7 +309,10 @@ watch(
                   :class="{ selected: selectedSoftwareIds.includes(group.software.id) }"
                   @click.stop="toggleCardSelection(group)"
                 >
-                  <v-icon v-if="selectedSoftwareIds.includes(group.software.id)" small color="red"
+                  <v-icon
+                    v-if="selectedSoftwareIds.includes(group.software.id)"
+                    small
+                    color="primary"
                     >mdi-check</v-icon
                   >
                 </div>
@@ -327,7 +390,7 @@ watch(
       <v-card>
         <v-card-title class="text-h6">Confirm deletion</v-card-title>
         <v-card-text>
-          Are you sure you want to delete the software version
+          Are you sure you want to delete
           <strong>{{ deleteTarget?.softwareName }} {{ deleteTarget?.version || '' }}</strong
           >? This action cannot be undone.
         </v-card-text>
@@ -339,6 +402,7 @@ watch(
       </v-card>
     </v-dialog>
 
+    <!-- Modals -->
     <SoftwareEditModal
       v-model="showEditModal"
       :software-id="editSoftwareId"
@@ -359,7 +423,7 @@ watch(
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 220px; /* Fixe la hauteur pour éviter redimensionnement */
+  min-height: 220px;
 }
 
 .hover-icon:hover {

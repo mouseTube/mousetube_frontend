@@ -74,7 +74,11 @@ watch(
 
 async function submit() {
   const result = await formRef.value?.validate();
-  if (!result?.valid) return;
+  if (!result?.valid) {
+    snackbarMessage.value = 'Please fill in the required fields';
+    snackbar.value = true;
+    return;
+  }
 
   loading.value = true;
   try {
@@ -107,10 +111,6 @@ function close() {
     <v-card>
       <v-card-title class="d-flex align-center">
         {{ softwareId ? 'Edit Software' : 'Create Software' }}
-        <v-spacer />
-        <v-btn icon @click="close" :disabled="loading">
-          <v-icon>mdi-close</v-icon>
-        </v-btn>
       </v-card-title>
 
       <v-card-text>
@@ -123,8 +123,9 @@ function close() {
             :rules="[nameRule]"
             :disabled="loading"
             class="mb-4"
-          />
-
+          >
+            <template #label> Name <span class="text-error">*</span> </template>
+          </v-text-field>
           <v-select
             v-model="formData.type"
             :items="['acquisition', 'analysis', 'acquisition and analysis']"
@@ -134,8 +135,9 @@ function close() {
             :rules="[typeRule]"
             :disabled="loading"
             class="mb-4"
-          />
-
+          >
+            <template #label> Type <span class="text-error">*</span> </template>
+          </v-select>
           <v-text-field
             v-model="formData.made_by"
             label="Made By"
