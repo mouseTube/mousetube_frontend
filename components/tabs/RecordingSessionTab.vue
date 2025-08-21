@@ -205,9 +205,8 @@ function resetForm() {
   // --- Reset session selection ---
   selectedSessionObject.value = null;
   selectedSessionName.value = '';
-  selectedSessionId.value = 'new'; // <-- remet le select sur "Create New Session"
+  selectedSessionId.value = 'new';
 
-  // --- Emit null pour prévenir le parent ---
   emit('session-selected', null);
 }
 
@@ -233,10 +232,8 @@ function tryMergeDateTime() {
     timeStr = time.value;
   }
 
-  // Affichage lisible immédiat
   formattedDate.value = dateStr ? `${dateStr} ${timeStr || '00:00'}` : timeStr || '';
 
-  // Stockage ISO backend
   if (!date.value) {
     formData.value.date = null;
     return;
@@ -278,17 +275,15 @@ function openEditLabDialog() {
 
 /* Save or update the session using the store. Handles both 'new' and existing sessions. */
 async function saveSession() {
-  // Valide le formulaire
   const isValid = await formRef.value?.validate?.();
   if (!isValid) {
     showSnackbar('Please fill in all required fields.', 'error');
     return;
   }
 
-  // Prépare la date ISO pour le backend
   if (date.value) {
-    const dateStr = date.value.toISOString().slice(0, 10); // YYYY-MM-DD
-    const timeStr = time.value || '00:00'; // si aucune heure, 00:00 par défaut
+    const dateStr = date.value.toISOString().slice(0, 10);
+    const timeStr = time.value || '00:00';
     const datetime = new Date(`${dateStr}T${timeStr}`);
     if (!isNaN(datetime.getTime())) {
       formData.value.date = datetime.toISOString();
@@ -305,7 +300,6 @@ async function saveSession() {
 
   try {
     if (selectedSessionId.value === 'new') {
-      // Création d’une nouvelle session
       const created = await recordingSessionStore.createSession(formData.value);
       showSnackbar('Session created successfully!', 'success');
       selectedSessionId.value = created.id;
@@ -317,11 +311,9 @@ async function saveSession() {
         protocolId: created.protocol?.id || null,
       });
     } else {
-      // Mise à jour d’une session existante
       await recordingSessionStore.updateSession(Number(selectedSessionId.value), formData.value);
       showSnackbar('Session updated successfully!', 'success');
 
-      // Rafraîchit l’objet sélectionné depuis le store
       const updated = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
       if (updated) {
         selectedSessionObject.value = updated;
@@ -437,21 +429,18 @@ function clearSoftware() {
 // STUDIES HANDLING
 ////////////////////////////////
 
-// Affichage des études sélectionnées sous forme de chips
 const selectedStudiesDisplay = computed(() => {
   return formData.value.studies
     .map((id) => studiesOptions.value.find((s) => s.id === id))
     .filter((s): s is { id: number; name: string } => !!s);
 });
 
-// Ouvre la modale de sélection des études
 const showStudySelectionModal = ref(false);
 
 function openStudySelectionModal() {
   showStudySelectionModal.value = true;
 }
 
-// Supprime une étude de la sélection
 function removeStudy(id: number) {
   formData.value.studies = formData.value.studies.filter((sId) => sId !== id);
 }
@@ -616,7 +605,6 @@ onMounted(async () => {
                 <v-card-subtitle class="mb-2">Studies</v-card-subtitle>
 
                 <div class="chip-list d-flex flex-wrap align-center">
-                  <!-- Chips des études sélectionnées -->
                   <v-chip
                     v-for="study in selectedStudiesDisplay"
                     :key="study.id"
@@ -628,7 +616,6 @@ onMounted(async () => {
                     {{ study.name }}
                   </v-chip>
 
-                  <!-- Chip spéciale Clear All -->
                   <v-chip
                     v-if="selectedStudiesDisplay.length > 0"
                     color="primary"

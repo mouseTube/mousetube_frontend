@@ -129,7 +129,6 @@ function close() {
       </v-card-title>
 
       <v-card-text>
-        <!-- Validation synchronisée -->
         <v-form ref="formRef">
           <v-text-field
             v-model="formData.version"

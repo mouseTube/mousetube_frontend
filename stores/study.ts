@@ -85,11 +85,8 @@ export const useStudyStore = defineStore('study', {
     },
 
     async getStudyById(id: number): Promise<Study | null> {
-      // Vérifie dans le store
       const found = this.studies.find(s => s.id === id)
       if (found) return found
-
-      // Sinon fait un appel API
       try {
         const apiBaseUrl = useApiBaseUrl()
         const res = await axios.get(`${apiBaseUrl}/study/${id}/`, {

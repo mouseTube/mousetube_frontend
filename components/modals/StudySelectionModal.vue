@@ -72,7 +72,7 @@ function toggleSortOrder() {
 }
 
 function onEditStudy(study: Study) {
-  editStudy.value = { ...study }; // clone pour éviter mutation directe
+  editStudy.value = { ...study };
   showCreateStudyModal.value = true;
 }
 
@@ -85,7 +85,6 @@ async function confirmDelete() {
   if (!deleteTarget.value) return;
   try {
     await studyStore.deleteStudy(deleteTarget.value.id);
-    // retirer de la sélection si nécessaire
     internalSelectedStudyIds.value = internalSelectedStudyIds.value.filter(
       (id) => id !== deleteTarget.value!.id
     );
@@ -99,7 +98,6 @@ async function confirmDelete() {
   }
 }
 
-// Utilitaires
 function truncate(text: string | null | undefined, length: number): string {
   if (!text) return '';
   return text.length > length ? text.substring(0, length) + '…' : text;
@@ -162,7 +160,6 @@ watch(localDialog, handleDialogOpen, { immediate: true });
               ]"
               @click="toggleSelection(study.id)"
             >
-              <!-- Icône de sélection -->
               <v-icon v-if="isSelected(study.id)" class="check-icon" color="primary" size="28">
                 mdi-check-circle
               </v-icon>
@@ -223,7 +220,6 @@ watch(localDialog, handleDialogOpen, { immediate: true });
       </v-card-actions>
     </v-card>
 
-    <!-- Modale création/édition -->
     <CreateStudyModal
       v-model="showCreateStudyModal"
       :study="

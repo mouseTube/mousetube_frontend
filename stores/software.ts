@@ -184,7 +184,6 @@ export const useSoftwareStore = defineStore('software', {
           release_date: data.release_date || null,
           software_id: data.software,
         }
-        console.log('Creating software version with payload:', payload)
         const apiBaseUrl = useApiBaseUrl()
         const res: AxiosResponse<SoftwareVersion> = await axios.post(`${apiBaseUrl}/software-version/`, payload, {
           headers: this.getAuthHeaders(),

@@ -28,7 +28,6 @@ const sortOrder = ref<'asc' | 'desc'>('asc');
 const page = ref(1);
 const itemsPerPage = ref(6);
 
-// Map softwareId -> versionId sélectionnée
 const selectedVersionBySoftware = ref<Record<number, number>>({});
 const selectedSoftwareIds = ref<number[]>([]);
 
@@ -64,12 +63,10 @@ const groupedSoftware = computed(() => {
     const currentSelected = selectedVersionBySoftware.value[group.software.id];
 
     if (!currentSelected || !group.versions.find((v) => v.id === currentSelected)) {
-      // Si aucune sélection ou si la sélection n'existe plus, prendre la dernière
       const selected = group.versions.find((v) => internalSelectedVersionIds.value.includes(v.id));
       group.selectedVersionId = selected?.id ?? group.versions.at(-1)!.id;
       selectedVersionBySoftware.value[group.software.id] = group.selectedVersionId;
     } else {
-      // Sinon, garder la sélection actuelle
       group.selectedVersionId = currentSelected;
     }
   });
@@ -107,24 +104,19 @@ function toggleCardSelection(group: { software: any }) {
 function onVersionSelected(softwareId: number, versionId: number) {
   selectedVersionBySoftware.value[softwareId] = versionId;
 
-  // Retirer toutes les autres versions de ce software
   const softwareVersionIds = softwareStore.softwareVersions
     .filter((sv) => sv.software.id === softwareId)
     .map((sv) => sv.id);
 
-  // Construire le nouveau tableau à émettre
   const newSelectedVersions = [
     ...internalSelectedVersionIds.value.filter((id) => !softwareVersionIds.includes(id)),
-    versionId, // ajouter la nouvelle sélection
+    versionId,
   ];
 
-  // Émettre immédiatement
   emit('update:selectedSoftwareVersions', newSelectedVersions);
 
-  // Mettre à jour la liste locale également
   internalSelectedVersionIds.value = newSelectedVersions;
 
-  // Marquer le logiciel comme sélectionné
   if (!selectedSoftwareIds.value.includes(softwareId)) {
     selectedSoftwareIds.value.push(softwareId);
   }
@@ -193,7 +185,6 @@ async function confirmDelete() {
       .filter((sv) => sv.software.id === softwareId)
       .map((sv) => sv.id);
 
-    // Déclencher onVersionSelected uniquement si la version supprimée était sélectionnée
     if (internalSelectedVersionIds.value.includes(deletedVersionId)) {
       if (remainingVersions.length) {
         onVersionSelected(softwareId, remainingVersions.at(-1)!);
@@ -216,7 +207,6 @@ async function onDeleteSoftware(softwareId: number) {
   await softwareStore.fetchAllSoftware();
   await softwareStore.fetchAllSoftwareVersions();
 
-  // Nettoyage des sélections
   selectedSoftwareIds.value = selectedSoftwareIds.value.filter((id) => id !== softwareId);
   delete selectedVersionBySoftware.value[softwareId];
   internalSelectedVersionIds.value = internalSelectedVersionIds.value.filter(

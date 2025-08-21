@@ -214,8 +214,6 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
 
     async updateSession(id: number, data: RecordingSessionPayload) {
       const payload = toDjangoPayload(data)
-      console.log('Updating session with payload:', payload)
-      console.log('data content:', data)
       const apiBaseUrl = useApiBaseUrl()
       const res = await axios.patch(`${apiBaseUrl}/recording-session/${id}/`, payload, {
         headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
