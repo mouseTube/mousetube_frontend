@@ -61,13 +61,17 @@ const groupedSoftware = computed(() => {
   });
 
   map.forEach((group) => {
-    const selected = group.versions.find((v) => internalSelectedVersionIds.value.includes(v.id));
-    group.selectedVersionId =
-      selectedVersionBySoftware.value[group.software.id] ??
-      selected?.id ??
-      group.versions.at(-1)!.id;
+    const currentSelected = selectedVersionBySoftware.value[group.software.id];
 
-    selectedVersionBySoftware.value[group.software.id] = group.selectedVersionId;
+    if (!currentSelected || !group.versions.find((v) => v.id === currentSelected)) {
+      // Si aucune sélection ou si la sélection n'existe plus, prendre la dernière
+      const selected = group.versions.find((v) => internalSelectedVersionIds.value.includes(v.id));
+      group.selectedVersionId = selected?.id ?? group.versions.at(-1)!.id;
+      selectedVersionBySoftware.value[group.software.id] = group.selectedVersionId;
+    } else {
+      // Sinon, garder la sélection actuelle
+      group.selectedVersionId = currentSelected;
+    }
   });
 
   return Array.from(map.values()).sort((a, b) =>
@@ -103,17 +107,24 @@ function toggleCardSelection(group: { software: any }) {
 function onVersionSelected(softwareId: number, versionId: number) {
   selectedVersionBySoftware.value[softwareId] = versionId;
 
+  // Retirer toutes les autres versions de ce software
   const softwareVersionIds = softwareStore.softwareVersions
     .filter((sv) => sv.software.id === softwareId)
     .map((sv) => sv.id);
 
-  internalSelectedVersionIds.value = [
+  // Construire le nouveau tableau à émettre
+  const newSelectedVersions = [
     ...internalSelectedVersionIds.value.filter((id) => !softwareVersionIds.includes(id)),
-    versionId,
+    versionId, // ajouter la nouvelle sélection
   ];
 
-  emit('update:selectedSoftwareVersions', internalSelectedVersionIds.value);
+  // Émettre immédiatement
+  emit('update:selectedSoftwareVersions', newSelectedVersions);
 
+  // Mettre à jour la liste locale également
+  internalSelectedVersionIds.value = newSelectedVersions;
+
+  // Marquer le logiciel comme sélectionné
   if (!selectedSoftwareIds.value.includes(softwareId)) {
     selectedSoftwareIds.value.push(softwareId);
   }
@@ -126,9 +137,22 @@ function clearAllSoftwareSelection() {
 
 async function handleDialogOpen(val: boolean) {
   if (!val) return;
+
   await softwareStore.fetchAllSoftware();
   await softwareStore.fetchAllSoftwareVersions();
   page.value = 1;
+
+  // Initialiser selectedVersionBySoftware avec les valeurs du parent
+  selectedVersionBySoftware.value = {};
+
+  softwareStore.softwareVersions.forEach((sv) => {
+    if (props.selectedSoftwareVersions.includes(sv.id)) {
+      selectedVersionBySoftware.value[sv.software.id] = sv.id;
+      if (!selectedSoftwareIds.value.includes(sv.software.id)) {
+        selectedSoftwareIds.value.push(sv.software.id);
+      }
+    }
+  });
 }
 
 // Modal / CRUD
@@ -159,21 +183,27 @@ async function confirmDelete() {
   const softwareId = softwareStore.softwareVersions.find((sv) => sv.id === deleteTarget.value!.id)
     ?.software.id;
 
-  await softwareStore.deleteSoftwareVersion(deleteTarget.value.id);
+  const deletedVersionId = deleteTarget.value.id;
+
+  await softwareStore.deleteSoftwareVersion(deletedVersionId);
   await softwareStore.fetchAllSoftwareVersions();
+
   if (softwareId) {
     const remainingVersions = softwareStore.softwareVersions
       .filter((sv) => sv.software.id === softwareId)
       .map((sv) => sv.id);
 
-    if (remainingVersions.length) {
-      onVersionSelected(softwareId, remainingVersions.at(-1)!);
-    } else {
-      delete selectedVersionBySoftware.value[softwareId];
-      selectedSoftwareIds.value = selectedSoftwareIds.value.filter((id) => id !== softwareId);
-      internalSelectedVersionIds.value = internalSelectedVersionIds.value.filter(
-        (id) => ![deleteTarget.value!.id].includes(id)
-      );
+    // Déclencher onVersionSelected uniquement si la version supprimée était sélectionnée
+    if (internalSelectedVersionIds.value.includes(deletedVersionId)) {
+      if (remainingVersions.length) {
+        onVersionSelected(softwareId, remainingVersions.at(-1)!);
+      } else {
+        delete selectedVersionBySoftware.value[softwareId];
+        selectedSoftwareIds.value = selectedSoftwareIds.value.filter((id) => id !== softwareId);
+        internalSelectedVersionIds.value = internalSelectedVersionIds.value.filter(
+          (id) => id !== deletedVersionId
+        );
+      }
     }
   }
 
@@ -216,7 +246,9 @@ async function onVersionCreated(versionId: number) {
   const softwareId = editSoftwareId.value!;
 
   await softwareStore.fetchAllSoftwareVersions();
-  onVersionSelected(softwareId, versionId);
+
+  // Mettre l'autocomplete sur la nouvelle version
+  selectedVersionBySoftware.value[softwareId] = versionId;
 }
 
 // Watchers
