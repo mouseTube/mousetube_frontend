@@ -122,8 +122,8 @@ watch(localDialog, handleDialogOpen, { immediate: true });
 
 <template>
   <v-dialog v-model="localDialog" max-width="900px">
-    <v-card>
-      <v-card-title class="d-flex align-center">
+    <v-card class="pa-3">
+      <v-card-title class="d-flex align-center font-weight-bold">
         <span>Select Studies</span>
         <v-spacer />
         <v-text-field

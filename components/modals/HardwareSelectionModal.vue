@@ -132,8 +132,8 @@ function clearAllHardwareSelection() {
 
 <template>
   <v-dialog v-model="localDialog" max-width="900px">
-    <v-card>
-      <v-card-title class="d-flex align-center">
+    <v-card class="pa-3">
+      <v-card-title class="d-flex align-center font-weight-bold">
         <span>Select {{ hardwareType }}s</span>
         <v-spacer />
         <v-text-field
@@ -146,19 +146,16 @@ function clearAllHardwareSelection() {
           class="ml-4"
           style="max-width: 300px"
         />
+        <v-btn
+          @click="toggleSortOrder"
+          size="small"
+          class="ml-2"
+          :icon="sortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'"
+          :title="sortOrder === 'asc' ? 'Ascending' : 'Descending'"
+        />
       </v-card-title>
 
       <v-card-text>
-        <div class="d-flex align-center mb-4">
-          <v-btn
-            @click="toggleSortOrder"
-            size="small"
-            class="ml-2"
-            :icon="sortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'"
-            :title="sortOrder === 'asc' ? 'Ascending' : 'Descending'"
-          />
-        </div>
-
         <v-row v-if="paginatedHardware.length > 0" dense>
           <v-col v-for="hw in paginatedHardware" :key="hw.id" cols="12" sm="6" md="4">
             <v-card

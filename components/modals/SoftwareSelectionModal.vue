@@ -8,7 +8,6 @@ const props = defineProps<{
   modelValue: boolean;
   selectedSoftwareVersions: number[];
 }>();
-
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
   (e: 'update:selectedSoftwareVersions', value: number[]): void;
@@ -21,7 +20,6 @@ const showEditModal = ref(false);
 const editSoftwareId = ref<number | null>(null);
 const showSoftwareVersionModal = ref(false);
 const editSoftwareVersionId = ref<number | null>(null);
-
 const showDeleteConfirm = ref(false);
 const deleteTarget = ref<{ id: number; softwareName: string; version: string | null } | null>(null);
 
@@ -32,64 +30,50 @@ const itemsPerPage = ref(6);
 
 // Map softwareId -> versionId sélectionnée
 const selectedVersionBySoftware = ref<Record<number, number>>({});
-const selectedSoftwareIds = ref<number[]>([]); // multi-sélection
+const selectedSoftwareIds = ref<number[]>([]);
 
-// Computed
 const localDialog = computed({
   get: () => props.modelValue,
-  set: (value: boolean) => emit('update:modelValue', value),
+  set: (val: boolean) => emit('update:modelValue', val),
 });
-
 const internalSelectedVersionIds = computed({
   get: () => props.selectedSoftwareVersions,
-  set: (value: number[]) => emit('update:selectedSoftwareVersions', value),
+  set: (val: number[]) => emit('update:selectedSoftwareVersions', val),
 });
 
+// Grouped software pour affichage
 const groupedSoftware = computed(() => {
-  const items = softwareStore.softwareVersions
-    .filter(
-      (sv) => sv.software.type === 'acquisition' || sv.software.type === 'acquisition and analysis'
-    )
-    .filter(
-      (sv) =>
-        !searchQuery.value.trim() ||
+  const items = softwareStore.softwareVersions.filter(
+    (sv) =>
+      (sv.software.type === 'acquisition' || sv.software.type === 'acquisition and analysis') &&
+      (!searchQuery.value.trim() ||
         sv.software.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        (sv.version && sv.version.toLowerCase().includes(searchQuery.value.toLowerCase()))
-    );
+        sv.version?.toLowerCase().includes(searchQuery.value.toLowerCase()))
+  );
 
-  const map = new Map<number, { software: any; versions: any[]; selectedVersionId?: number }>();
+  const map = new Map<number, { software: any; versions: any[]; selectedVersionId: number }>();
 
   items.forEach((sv) => {
     if (!map.has(sv.software.id)) {
-      map.set(sv.software.id, {
-        software: sv.software,
-        versions: [],
-        selectedVersionId: undefined,
-      });
+      map.set(sv.software.id, { software: sv.software, versions: [], selectedVersionId: 0 });
     }
     map.get(sv.software.id)!.versions.push(sv);
   });
 
   map.forEach((group) => {
-    const lastSelected = group.versions.find((v) =>
-      internalSelectedVersionIds.value.includes(v.id)
-    );
-    group.selectedVersionId = lastSelected
-      ? lastSelected.id
-      : group.versions[group.versions.length - 1].id;
-
-    selectedVersionBySoftware.value[group.software.id] = group.selectedVersionId!;
+    const selected = group.versions.find((v) => internalSelectedVersionIds.value.includes(v.id));
+    group.selectedVersionId =
+      selectedVersionBySoftware.value[group.software.id] ??
+      selected?.id ??
+      group.versions.at(-1)!.id;
+    selectedVersionBySoftware.value[group.software.id] = group.selectedVersionId;
   });
 
-  let groupsArray = Array.from(map.values());
-
-  groupsArray.sort((a, b) =>
+  return Array.from(map.values()).sort((a, b) =>
     sortOrder.value === 'asc'
       ? a.software.name.localeCompare(b.software.name)
       : b.software.name.localeCompare(a.software.name)
   );
-
-  return groupsArray;
 });
 
 const paginatedGroups = computed(() => {
@@ -97,66 +81,36 @@ const paginatedGroups = computed(() => {
   return groupedSoftware.value.slice(start, start + itemsPerPage.value);
 });
 
-// Methods
+// Handlers
 function toggleCardSelection(group: { software: any }) {
-  const idx = selectedSoftwareIds.value.indexOf(group.software.id);
+  const softwareId = group.software.id;
+  const versionId = selectedVersionBySoftware.value[softwareId];
+  const idx = selectedSoftwareIds.value.indexOf(softwareId);
+
   if (idx === -1) {
-    selectedSoftwareIds.value.push(group.software.id);
+    selectedSoftwareIds.value.push(softwareId);
+    if (versionId && !internalSelectedVersionIds.value.includes(versionId))
+      internalSelectedVersionIds.value = [...internalSelectedVersionIds.value, versionId];
   } else {
     selectedSoftwareIds.value.splice(idx, 1);
-  }
-
-  const versionId = selectedVersionBySoftware.value[group.software.id];
-  if (versionId && !internalSelectedVersionIds.value.includes(versionId)) {
-    internalSelectedVersionIds.value = [...internalSelectedVersionIds.value, versionId];
+    internalSelectedVersionIds.value = internalSelectedVersionIds.value.filter(
+      (id) => id !== versionId
+    );
   }
 }
 
 function onVersionSelected(softwareId: number, versionId: number) {
   selectedVersionBySoftware.value[softwareId] = versionId;
-  if (!internalSelectedVersionIds.value.includes(versionId)) {
-    internalSelectedVersionIds.value = [...internalSelectedVersionIds.value, versionId];
-  }
-}
 
-function onAddSoftware() {
-  editSoftwareId.value = null;
-  showEditModal.value = true;
-}
+  const softwareVersions = softwareStore.softwareVersions
+    .filter((sv) => sv.software.id === softwareId)
+    .map((sv) => sv.id);
+  internalSelectedVersionIds.value = [
+    ...internalSelectedVersionIds.value.filter((id) => !softwareVersions.includes(id)),
+    versionId,
+  ];
 
-function onEditSoftware(softwareId: number) {
-  editSoftwareId.value = softwareId;
-  showEditModal.value = true;
-}
-
-function onCreateVersion(softwareId: number) {
-  editSoftwareId.value = softwareId;
-  editSoftwareVersionId.value = null;
-  showSoftwareVersionModal.value = true;
-}
-
-function onEditVersion(versionId: number) {
-  if (!versionId) return;
-  editSoftwareVersionId.value = versionId;
-  showSoftwareVersionModal.value = true;
-}
-
-function onDeleteVersion(item: { id: number; softwareName: string; version: string | null }) {
-  deleteTarget.value = item;
-  showDeleteConfirm.value = true;
-}
-
-async function confirmDelete() {
-  if (deleteTarget.value) {
-    await softwareStore.deleteSoftwareVersion(deleteTarget.value.id);
-    await softwareStore.fetchAllSoftwareVersions();
-  }
-  showDeleteConfirm.value = false;
-  deleteTarget.value = null;
-}
-
-function toggleSortOrder() {
-  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  if (!selectedSoftwareIds.value.includes(softwareId)) selectedSoftwareIds.value.push(softwareId);
 }
 
 function clearAllSoftwareSelection() {
@@ -165,35 +119,64 @@ function clearAllSoftwareSelection() {
 }
 
 async function handleDialogOpen(val: boolean) {
-  if (val) {
-    await softwareStore.fetchAllSoftware();
-    await softwareStore.fetchAllSoftwareVersions();
-    page.value = 1;
-  }
+  if (!val) return;
+  await softwareStore.fetchAllSoftware();
+  await softwareStore.fetchAllSoftwareVersions();
+  page.value = 1;
 }
 
+// Modal / CRUD
+function onAddSoftware() {
+  editSoftwareId.value = null;
+  showEditModal.value = true;
+}
+function onEditSoftware(softwareId: number) {
+  editSoftwareId.value = softwareId;
+  showEditModal.value = true;
+}
+function onCreateVersion(softwareId: number) {
+  editSoftwareId.value = softwareId;
+  editSoftwareVersionId.value = null;
+  showSoftwareVersionModal.value = true;
+}
+function onEditVersion(versionId: number) {
+  editSoftwareVersionId.value = versionId;
+  showSoftwareVersionModal.value = true;
+}
+function onDeleteVersion(item: { id: number; softwareName: string; version: string | null }) {
+  deleteTarget.value = item;
+  showDeleteConfirm.value = true;
+}
+async function confirmDelete() {
+  if (!deleteTarget.value) return;
+  await softwareStore.deleteSoftwareVersion(deleteTarget.value.id);
+  await softwareStore.fetchAllSoftwareVersions();
+  showDeleteConfirm.value = false;
+  deleteTarget.value = null;
+}
+function toggleSortOrder() {
+  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+}
 function onSoftwareSaved(newOrEditedSoftwareId: number, createdNew: boolean) {
   showEditModal.value = false;
   softwareStore.fetchAllSoftware();
   softwareStore.fetchAllSoftwareVersions();
   if (createdNew) onCreateVersion(newOrEditedSoftwareId);
 }
-
 function onVersionCreated() {
   showSoftwareVersionModal.value = false;
   editSoftwareVersionId.value = null;
   softwareStore.fetchAllSoftwareVersions();
 }
 
+// Watchers
 watch(localDialog, handleDialogOpen, { immediate: true });
 watch(
   internalSelectedVersionIds,
-  (ids) => {
-    const newSelected: number[] = [];
-    for (const [softwareId, versionId] of Object.entries(selectedVersionBySoftware.value)) {
-      if (ids.includes(versionId)) newSelected.push(Number(softwareId));
-    }
-    selectedSoftwareIds.value = newSelected;
+  () => {
+    selectedSoftwareIds.value = Object.entries(selectedVersionBySoftware.value)
+      .filter(([_, vId]) => internalSelectedVersionIds.value.includes(vId))
+      .map(([sId]) => Number(sId));
   },
   { immediate: true }
 );
@@ -201,8 +184,9 @@ watch(
 
 <template>
   <v-dialog v-model="localDialog" max-width="900px">
-    <v-card>
-      <v-card-title class="d-flex align-center">
+    <v-card class="pa-3">
+      <!-- Header -->
+      <v-card-title class="d-flex align-center font-weight-bold">
         <span>Select Acquisition Software Version</span>
         <v-spacer />
         <v-text-field
@@ -214,39 +198,37 @@ watch(
           prepend-inner-icon="mdi-magnify"
           style="max-width: 300px"
         />
+        <v-btn
+          @click="toggleSortOrder"
+          size="small"
+          class="ml-2"
+          :icon="sortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'"
+          :title="sortOrder === 'asc' ? 'Ascending' : 'Descending'"
+        />
       </v-card-title>
 
+      <!-- Body -->
       <v-card-text>
-        <div class="d-flex align-center mb-4">
-          <v-btn
-            @click="toggleSortOrder"
-            size="small"
-            class="ml-2"
-            :icon="sortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'"
-            :title="sortOrder === 'asc' ? 'Ascending' : 'Descending'"
-          />
-        </div>
-
-        <v-row v-if="paginatedGroups.length > 0" dense>
+        <v-row dense v-if="paginatedGroups.length">
           <v-col v-for="group in paginatedGroups" :key="group.software.id" cols="12" sm="6" md="4">
             <v-card
-              class="h-100 d-flex flex-column justify-space-between"
+              class="software-card"
               :class="{ 'selected-card': selectedSoftwareIds.includes(group.software.id) }"
               outlined
             >
+              <!-- Card header -->
               <v-card-title class="d-flex justify-space-between align-center pa-2">
                 {{ group.software.name }}
-                <div>
-                  <v-icon
-                    small
-                    color="primary"
-                    class="hover-icon mr-2"
-                    @click.stop="onEditSoftware(group.software.id)"
-                    >mdi-pencil</v-icon
-                  >
-                </div>
+                <v-icon
+                  small
+                  color="primary"
+                  class="hover-icon"
+                  @click.stop="onEditSoftware(group.software.id)"
+                  >mdi-pencil</v-icon
+                >
               </v-card-title>
 
+              <!-- Version selector -->
               <v-card-text>
                 <v-autocomplete
                   v-model="selectedVersionBySoftware[group.software.id]"
@@ -256,12 +238,12 @@ watch(
                   label="Select Version"
                   dense
                   outlined
-                  @change.stop="(val: number) => onVersionSelected(group.software.id, val)"
+                  @update:model-value="(val: number) => onVersionSelected(group.software.id, val)"
                 />
               </v-card-text>
 
+              <!-- Card actions -->
               <v-card-actions class="justify-between align-center">
-                <!-- Carré de sélection -->
                 <div
                   class="selection-box"
                   :class="{ selected: selectedSoftwareIds.includes(group.software.id) }"
@@ -271,8 +253,7 @@ watch(
                     >mdi-check</v-icon
                   >
                 </div>
-
-                <div>
+                <div class="d-flex gap-1">
                   <v-icon
                     small
                     color="primary"
@@ -283,13 +264,13 @@ watch(
                   <v-icon
                     small
                     color="primary"
-                    class="hover-icon mr-2"
+                    class="hover-icon"
                     @click.stop="onEditVersion(selectedVersionBySoftware[group.software.id])"
                     >mdi-pencil</v-icon
                   >
                   <v-icon
                     small
-                    color="error"
+                    color="primary"
                     class="hover-icon"
                     @click.stop="
                       onDeleteVersion({
@@ -309,10 +290,12 @@ watch(
           </v-col>
         </v-row>
 
+        <!-- Empty state -->
         <v-alert v-else type="info" variant="tonal" class="mt-4">
           No software found matching your search criteria
         </v-alert>
 
+        <!-- Pagination -->
         <v-pagination
           v-if="groupedSoftware.length > itemsPerPage"
           v-model="page"
@@ -322,6 +305,7 @@ watch(
         />
       </v-card-text>
 
+      <!-- Footer -->
       <v-card-actions class="justify-space-between">
         <v-btn color="primary" variant="flat" @click="onAddSoftware" title="Add new software">
           <v-icon start>mdi-plus</v-icon> Add Software
@@ -360,7 +344,6 @@ watch(
       :software-id="editSoftwareId"
       @saved="onSoftwareSaved"
     />
-
     <CreateSoftwareVersionModal
       v-if="showSoftwareVersionModal"
       v-model="showSoftwareVersionModal"
@@ -372,19 +355,25 @@ watch(
 </template>
 
 <style scoped>
+.software-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 220px; /* Fixe la hauteur pour éviter redimensionnement */
+}
+
 .hover-icon:hover {
-  color: #000000 !important;
+  color: #000 !important;
   transform: scale(1.1);
   transition:
     transform 0.2s,
     color 0.2s;
 }
-.h-100 {
-  height: 100%;
-}
+
 .selected-card {
-  border: 2px solid rgb(143, 5, 5);
+  border: 2px solid #c62828;
 }
+
 .selection-box {
   width: 20px;
   height: 20px;
@@ -395,7 +384,7 @@ watch(
   cursor: pointer;
 }
 .selection-box.selected {
-  border-color: rgb(143, 5, 5);
+  border-color: #c62828;
   background-color: #ffe6e6;
 }
 </style>
