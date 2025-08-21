@@ -527,6 +527,16 @@ onMounted(async () => {
       @change="handleSessionSelection"
     >
     </v-select>
+    <v-alert
+      v-if="selectedSessionId !== 'new' && selectedSessionId !== 'select'"
+      type="warning"
+      variant="outlined"
+      border="start"
+      class="mb-4"
+    >
+      Files could be linked to this recording session. Editing this session will affect those linked
+      resources.
+    </v-alert>
 
     <v-card class="pa-6" outlined>
       <v-card-title class="d-flex justify-space-between align-center mb-4">
