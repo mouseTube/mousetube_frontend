@@ -89,6 +89,7 @@ const formData = ref({
     acquisition_software: [] as number[],
   },
   laboratory: null as number | null,
+  is_multiple: false,
 });
 
 const newStudyDialog = ref(false);
@@ -110,6 +111,8 @@ const soundcardsDisplay = ref<{ id: number; label: string }[]>([]);
 const microphonesDisplay = ref<{ id: number; label: string }[]>([]);
 const amplifiersDisplay = ref<{ id: number; label: string }[]>([]);
 const speakersDisplay = ref<{ id: number; label: string }[]>([]);
+const isSaveEnabled = ref(false);
+const initialFormData = ref('');
 
 ////////////////////////////////
 // COMPUTED
@@ -189,6 +192,7 @@ function resetForm() {
       acquisition_software: [],
     },
     laboratory: null,
+    is_multiple: false,
   };
 
   // --- Reset UI mirrors ---
@@ -206,6 +210,8 @@ function resetForm() {
   selectedSessionObject.value = null;
   selectedSessionName.value = '';
   selectedSessionId.value = 'new';
+
+  updateInitialSnapshot();
 
   emit('session-selected', null);
 }
@@ -236,6 +242,9 @@ function tryMergeDateTime() {
 
   if (!date.value) {
     formData.value.date = null;
+    if (!formData.value.is_multiple) {
+      formattedDate.value = '';
+    }
     return;
   }
 
@@ -279,6 +288,13 @@ async function saveSession() {
   if (!isValid) {
     showSnackbar('Please fill in all required fields.', 'error');
     return;
+  }
+
+  if (!formData.value.is_multiple) {
+    if (!date.value) {
+      showSnackbar('Recording date is required for single sessions.', 'error');
+      return;
+    }
   }
 
   if (date.value) {
@@ -326,11 +342,17 @@ async function saveSession() {
         protocolId: session?.protocol?.id || null,
       });
     }
+    updateInitialSnapshot();
+    isSaveEnabled.value = false;
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('Error saving session', e);
     showSnackbar('Error saving session.', 'error');
   }
+}
+
+function updateInitialSnapshot() {
+  initialFormData.value = JSON.stringify(formData.value);
 }
 
 function onSessionSelected(session: RecordingSession) {
@@ -365,6 +387,7 @@ function onSessionSelected(session: RecordingSession) {
         session.equipment_acquisition_software?.map((soft: SoftwareVersion) => soft.id) ?? [],
     },
     laboratory: session.laboratory?.id ?? null,
+    is_multiple: session.is_multiple ?? false,
   };
 
   if (session.date) {
@@ -399,6 +422,8 @@ function onSessionSelected(session: RecordingSession) {
         label: `${softwareName}${versionName ? ' – ' + versionName : ''}`,
       };
     }) ?? [];
+
+  updateInitialSnapshot();
 
   emit('session-selected', {
     sessionId: session.id,
@@ -467,6 +492,14 @@ watch(selectedSessionId, (newId, oldId) => {
   const idNum = Number(newId);
 });
 
+watch(
+  formData,
+  (newVal) => {
+    isSaveEnabled.value = JSON.stringify(newVal) !== initialFormData.value;
+  },
+  { deep: true }
+);
+
 function handleSessionSelection(newId: 'new' | 'select' | number) {
   if (newId === 'select') {
     showSessionSelectModal.value = true;
@@ -514,6 +547,68 @@ onMounted(async () => {
 
 <template>
   <v-container>
+    <v-row class="mb-4">
+      <v-col>
+        <p class="text--secondary">
+          A <strong>Recording Session</strong> represents a set of audio recordings made under the
+          same experimental conditions. It can be <strong>single</strong> or
+          <strong>multiple</strong>
+          . Recording sessions are used to organize and link recorded data, the laboratory, studies,
+          animal subjects, and equipment used, ensuring that all metadata is properly tracked.
+        </p>
+      </v-col>
+    </v-row>
+    <v-row align="center" justify="space-between">
+      <!-- Single Recording -->
+      <v-col cols="5" class="mb-6">
+        <div
+          class="status-card blue"
+          :class="{ active: !formData.is_multiple }"
+          @click="formData.is_multiple = false"
+        >
+          <div class="status-text">
+            <strong>Single</strong>
+            <p>
+              A Single experiment where animals are recorded for a given time. The experiment is
+              done at a precise date. Several vocalization files could be recorded during this
+              experiment: a chronological order of those files could be registered.
+            </p>
+          </div>
+        </div>
+      </v-col>
+
+      <!-- Toggle -->
+      <v-col cols="2" class="d-flex justify-center">
+        <v-switch
+          v-model="formData.is_multiple"
+          inset
+          hide-details
+          :color="formData.is_multiple ? '#ff9800' : '#1976d2'"
+          :track-color="formData.is_multiple ? '#ffcc80' : '#90caf9'"
+          class="toggle-switch"
+        ></v-switch>
+      </v-col>
+
+      <!-- Multiple Recording -->
+      <v-col cols="5" class="mb-6">
+        <div
+          class="status-card orange"
+          :class="{ active: formData.is_multiple }"
+          @click="formData.is_multiple = true"
+        >
+          <div class="status-text">
+            <strong>Multiple</strong>
+            <p>
+              A set of experiment from a single study. All those experiments shared the same
+              experimental conditions and the same animal profiles. Each experiment from this set
+              could provide one or several vocalization files. If you want to keep chronological
+              order of those file, you should use single recording session instead multiple
+              recording session.
+            </p>
+          </div>
+        </div>
+      </v-col>
+    </v-row>
     <v-select
       v-model="selectedSessionId"
       :items="selectItems"
@@ -522,7 +617,6 @@ onMounted(async () => {
       label="Select Recording Session"
       outlined
       dense
-      class="mb-4"
       :value-comparator="(a, b) => a === b"
       @change="handleSessionSelection"
     >
@@ -532,7 +626,7 @@ onMounted(async () => {
       type="warning"
       variant="outlined"
       border="start"
-      class="mb-4"
+      class="mb-6"
     >
       Files could be linked to this recording session. Editing this session will affect those linked
       resources.
@@ -543,7 +637,7 @@ onMounted(async () => {
         <h3>Recording Session Metadata</h3>
         <div>
           <v-btn color="grey" variant="outlined" @click="resetForm" class="mr-2">Reset</v-btn>
-          <v-btn color="primary" @click="saveSession">Save</v-btn>
+          <v-btn color="primary" :disabled="!isSaveEnabled" @click="saveSession"> Save </v-btn>
         </div>
       </v-card-title>
 
@@ -576,10 +670,12 @@ onMounted(async () => {
                 readonly
                 outlined
                 class="mb-4"
-                :rules="[(v) => !!v || 'Recording Date is required']"
+                :rules="[(v) => formData.is_multiple || !!v || 'Recording Date is required']"
                 v-bind="props"
               >
-                <template #label> Recording Date <span style="color: red">*</span> </template>
+                <template #label>
+                  Recording Date <span style="color: red" v-if="!formData.is_multiple">*</span>
+                </template>
               </v-text-field>
             </template>
 
@@ -992,5 +1088,73 @@ onMounted(async () => {
 .chip-spacing {
   margin-right: 2px;
   margin-bottom: 2px;
+}
+/* Status card */
+.status-card {
+  position: relative;
+  background-color: rgba(0, 0, 0, 0.05); /* carte terne par défaut */
+  color: rgba(0, 0, 0, 0.7);
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 10px;
+  text-align: center;
+}
+
+/* Couleurs par type */
+.status-card.blue {
+  background-color: rgba(25, 118, 210, 0.2);
+}
+.status-card.orange {
+  background-color: rgba(255, 152, 0, 0.2);
+}
+
+/* Texte et opacité active */
+.status-card.blue.active {
+  background-color: #1976d2; /* bleu plein */
+  color: white;
+}
+
+.status-card.orange.active {
+  background-color: #ff9800; /* orange plein */
+  color: white;
+}
+
+/* Texte helper à l'intérieur */
+.status-text p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: inherit; /* suit la couleur active ou non */
+}
+
+/* Flèches triangulaires vers le switch */
+.status-card.active::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 12px solid transparent;
+  border-bottom: 12px solid transparent;
+}
+
+.status-card.blue.active::after {
+  border-left: 12px solid #1976d2;
+  right: -12px;
+}
+
+.status-card.orange.active::after {
+  border-right: 12px solid #ff9800;
+  left: -12px;
+}
+
+/* Switch centré */
+.toggle-switch {
+  align-self: center;
 }
 </style>

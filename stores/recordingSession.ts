@@ -14,6 +14,7 @@ export interface AnimalProfile { id: number; name: string }
 export interface RecordingSession {
   id: number
   name: string
+  is_multiple: boolean
   protocol: Protocol | null
   studies: Study[]
   description?: string | null
@@ -42,6 +43,7 @@ export interface RecordingSession {
 
 export interface RecordingSessionPayload {
   name: string
+  is_multiple?: boolean
   description?: string | null
   date?: string | null
   status?: 'draft' | 'published'
@@ -74,11 +76,13 @@ function toDjangoPayload(session: RecordingSessionPayload) {
     laboratory,
     context,
     equipment,
+    is_multiple,
     ...rest
   } = session
 
   return {
     ...rest,
+    is_multiple,
     laboratory_id: laboratory,
     study_ids: studies,
     animal_profile_ids: animal_profiles,
