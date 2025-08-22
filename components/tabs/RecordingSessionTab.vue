@@ -47,6 +47,7 @@ const snackbarMessage = ref('');
 const snackbarColor = ref('');
 
 const selectedSessionId = ref<'new' | 'select' | number>('new');
+const showAlert = ref(selectedSessionId.value !== 'new' && selectedSessionId.value !== 'select');
 
 const selectedSessionObject = ref<RecordingSession | null>(null);
 const selectedSessionName = ref<string>('');
@@ -500,6 +501,10 @@ watch(
   { deep: true }
 );
 
+watch(selectedSessionId, (val) => {
+  showAlert.value = val !== 'new' && val !== 'select';
+});
+
 function handleSessionSelection(newId: 'new' | 'select' | number) {
   if (newId === 'select') {
     showSessionSelectModal.value = true;
@@ -547,9 +552,9 @@ onMounted(async () => {
 
 <template>
   <v-container>
-    <v-row class="mb-4">
+    <v-row>
       <v-col>
-        <p class="text--secondary">
+        <p class="text--secondary mb-4">
           A <strong>Recording Session</strong> represents a set of audio recordings made under the
           same experimental conditions. It can be <strong>single</strong> or
           <strong>multiple</strong>
@@ -558,6 +563,44 @@ onMounted(async () => {
         </p>
       </v-col>
     </v-row>
+    <v-alert
+      v-if="showAlert"
+      type="info"
+      variant="outlined"
+      border="start"
+      class="mb-6 position-relative"
+    >
+      Files could be linked to this recording session. Editing this session will affect those linked
+      resources.
+
+      <!-- Petite croix bleue sur fond transparent -->
+      <v-btn
+        icon
+        size="small"
+        style="
+          position: absolute;
+          top: 4px;
+          right: 4px;
+          background: transparent !important;
+          color: #1976d2 !important;
+        "
+        @click="showAlert = false"
+      >
+        <v-icon size="16" style="color: #1976d2 !important">mdi-close</v-icon>
+      </v-btn>
+    </v-alert>
+    <v-select
+      v-model="selectedSessionId"
+      :items="selectItems"
+      item-title="name"
+      item-value="id"
+      label="Select Recording Session"
+      outlined
+      dense
+      :value-comparator="(a, b) => a === b"
+      @change="handleSessionSelection"
+    >
+    </v-select>
     <v-row align="center" justify="space-between">
       <!-- Single Recording -->
       <v-col cols="5" class="mb-6">
@@ -609,28 +652,6 @@ onMounted(async () => {
         </div>
       </v-col>
     </v-row>
-    <v-select
-      v-model="selectedSessionId"
-      :items="selectItems"
-      item-title="name"
-      item-value="id"
-      label="Select Recording Session"
-      outlined
-      dense
-      :value-comparator="(a, b) => a === b"
-      @change="handleSessionSelection"
-    >
-    </v-select>
-    <v-alert
-      v-if="selectedSessionId !== 'new' && selectedSessionId !== 'select'"
-      type="warning"
-      variant="outlined"
-      border="start"
-      class="mb-6"
-    >
-      Files could be linked to this recording session. Editing this session will affect those linked
-      resources.
-    </v-alert>
 
     <v-card class="pa-6" outlined>
       <v-card-title class="d-flex justify-space-between align-center mb-4">

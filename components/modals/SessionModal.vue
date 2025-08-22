@@ -4,23 +4,21 @@ import { debounce } from 'lodash';
 import { useRecordingSessionStore, type RecordingSession } from '@/stores/recordingSession';
 
 // Props: controls dialog open/close
-const props = defineProps<{
-  modelValue: boolean;
-}>();
+const props = defineProps<{ modelValue: boolean }>();
 
 // Emits: send selected session object + close modal
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
-  (e: 'selected', session: RecordingSession): void; // ✅ Send full object, not just ID
+  (e: 'selected', session: RecordingSession): void;
 }>();
 
-// Store for fetching sessions
+// Store
 const store = useRecordingSessionStore();
 
-// Search & pagination state
+// Search & pagination
 const search = ref('');
 const page = ref(1);
-const pageSize = 10; // not used directly, backend handles it
+const filterMultiple = ref<'all' | 'single' | 'multiple'>('all'); // 🔹 Nouveau filtre
 
 // Computed store state
 const loading = computed(() => store.loadingSessions);
@@ -37,9 +35,7 @@ const headers = [
   { text: 'Studies', value: 'studies' },
 ];
 
-/**
- * Format date for display
- */
+// Format date
 function formatDate(dateStr: string | undefined | null) {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
@@ -48,88 +44,88 @@ function formatDate(dateStr: string | undefined | null) {
   );
 }
 
-/**
- * Fetch data from API with debounce
- */
-const debouncedFetch = debounce((val: string, pg: number) => {
-  fetchData(pg, val);
+// 🔹 Fonction de fetch avec filtre
+const debouncedFetch = debounce((pg: number) => {
+  fetchData(pg);
 }, 300);
 
-/**
- * Fetch sessions from store depending on search query
- */
-async function fetchData(pg: number, searchQuery: string) {
-  if (searchQuery.trim() !== '') {
-    await store.searchRecordingSessions(searchQuery.trim());
-  } else {
-    await store.fetchSessionsPage(pg);
-  }
+async function fetchData(pg: number) {
+  let isMultiple: boolean | null = null;
+  if (filterMultiple.value === 'single') isMultiple = false;
+  if (filterMultiple.value === 'multiple') isMultiple = true;
+
+  await store.fetchSessionsPage(pg, search.value, isMultiple);
   page.value = pg;
 }
 
-// React when search input changes
-watch(search, (val) => {
-  debouncedFetch(val, 1);
-});
-
-// React when page changes
-watch(page, (val) => {
-  fetchData(val, search.value);
-});
-
-// When modal opens, reset and fetch first page
+// Watchers
+watch(search, () => debouncedFetch(1));
+watch(page, (val) => fetchData(val));
+watch(filterMultiple, () => fetchData(1));
 watch(
   () => props.modelValue,
   (val) => {
     if (val) {
       page.value = 1;
       search.value = '';
-      fetchData(1, '');
+      filterMultiple.value = 'all';
+      fetchData(1);
     }
   }
 );
 
-/**
- * When a session is selected from the table
- */
+// Selection
 function selectSession(session: RecordingSession) {
-  emit('selected', session); // ✅ Send full object
-  emit('update:modelValue', false); // Close modal
+  emit('selected', session);
+  emit('update:modelValue', false);
 }
-
-/**
- * Close modal without selecting
- */
 function close() {
   emit('update:modelValue', false);
 }
 
-// Fetch when mounted if modal already open
+// Fetch on mounted if already open
 onMounted(() => {
-  if (props.modelValue) {
-    fetchData(page.value, search.value);
-  }
+  if (props.modelValue) fetchData(page.value);
 });
 </script>
 
 <template>
   <v-dialog :model-value="modelValue" max-width="1200px" @click:outside="close">
-    <v-card>
-      <v-card-title>
-        Select a Session
-        <v-spacer />
+    <v-card class="pa-3">
+      <v-card-title class="d-flex align-center justify-space-between gap-4">
+        <!-- Titre -->
+        <span class="text-h6 font-weight-bold">Select a Recording Session</span>
+
+        <div class="d-flex align-center gap-3 flex-wrap">
+          <!-- Barre de recherche -->
+          <v-text-field
+            v-model="search"
+            placeholder="Search recording session"
+            clearable
+            append-inner-icon="mdi-magnify"
+            density="comfortable"
+            hide-details
+            class="search-field"
+          />
+
+          <!-- 🔹 Filtre Single / Multiple / All -->
+          <v-btn-toggle
+            v-model="filterMultiple"
+            mandatory
+            density="comfortable"
+            divided
+            color="primary"
+            variant="outlined"
+            class="rounded-lg ml-3"
+          >
+            <v-btn value="all" size="small">All</v-btn>
+            <v-btn value="single" size="small">Single</v-btn>
+            <v-btn value="multiple" size="small">Multiple</v-btn>
+          </v-btn-toggle>
+        </div>
       </v-card-title>
 
       <v-card-text>
-        <!-- Search input -->
-        <v-text-field
-          v-model="search"
-          label="Search session"
-          clearable
-          append-inner-icon="mdi-magnify"
-          class="mb-4"
-        />
-
         <!-- Sessions table -->
         <v-data-table
           :headers="headers"
@@ -143,54 +139,18 @@ onMounted(() => {
           "
           hide-default-footer
         >
-          <!-- Custom headers -->
-          <template #header.name>
-            <span>Session Name</span>
-          </template>
-
-          <template #header.protocol>
-            <span>Protocol</span>
-          </template>
-
-          <template #header.laboratory>
-            <span>Laboratory</span>
-          </template>
-
-          <template #header.date>
-            <span>Date</span>
-          </template>
-
-          <template #header.status>
-            <span>Status</span>
-          </template>
-
-          <template #header.studies>
-            <span>Studies</span>
-          </template>
-
-          <!-- Custom column renderers -->
-          <template #item.protocol="{ item }">
-            {{ item.protocol?.name || '—' }}
-          </template>
-
-          <template #item.laboratory="{ item }">
-            {{ item.laboratory?.name || '—' }}
-          </template>
-
-          <template #item.date="{ item }">
-            {{ formatDate(item.date) }}
-          </template>
-
+          <template #item.protocol="{ item }">{{ item.protocol?.name || '—' }}</template>
+          <template #item.laboratory="{ item }">{{ item.laboratory?.name || '—' }}</template>
+          <template #item.date="{ item }">{{ formatDate(item.date) }}</template>
           <template #item.status="{ item }">
             <v-chip :color="item.status === 'published' ? 'green' : 'grey'" dark small class="ma-0">
               {{ item.status }}
             </v-chip>
           </template>
-
           <template #item.studies="{ item }">
-            <span v-if="item.studies?.length">
-              {{ item.studies.map((s) => s.name).join(', ') }}
-            </span>
+            <span v-if="item.studies?.length">{{
+              item.studies.map((s) => s.name).join(', ')
+            }}</span>
             <span v-else>—</span>
           </template>
         </v-data-table>
@@ -218,5 +178,9 @@ onMounted(() => {
   background-color: #f5f5f5 !important;
   cursor: pointer !important;
   transform: scale(1.01) !important;
+}
+.search-field {
+  min-width: 350px;
+  max-width: 450px;
 }
 </style>

@@ -141,14 +141,25 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
       }
     },
 
-    async fetchSessionsPage(page = 1) {
+    async fetchSessionsPage(
+      page = 1,
+      searchQuery: string | null = null,
+      isMultiple: boolean | null = null
+    ) {
       this.loadingSessions = true;
       this.errorSessions = null;
 
       try {
         const apiBaseUrl = useApiBaseUrl();
-        const res = await axios.get(`${apiBaseUrl}/recording-session/?page=${page}`, {
+
+        // Construction des paramètres
+        const params: any = { page };
+        if (searchQuery?.trim()) params.search = searchQuery.trim();
+        if (isMultiple !== null) params.is_multiple = isMultiple;
+
+        const res = await axios.get(`${apiBaseUrl}/recording-session/`, {
           headers: this.getAuthHeaders(),
+          params,
         });
 
         this.sessions = res.data.results;
@@ -159,26 +170,6 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         this.sessions = [];
       } finally {
         this.loadingSessions = false;
-      }
-    },
-
-    async searchRecordingSessions(query: string) {
-      this.loadingSessions = true;
-      this.errorSessions = null;
-      try {
-        const apiBaseUrl = useApiBaseUrl();
-        const res = await axios.get(`${apiBaseUrl}/recording-session/`, {
-          headers: this.getAuthHeaders(),
-          params: { search: query },
-        });
-        this.sessions = res.data.results;
-        this.currentPage = 1;
-        this.totalPages = Math.ceil(res.data.count / this.pageSize);
-      } catch (err: any) {
-        this.errorSessions = err.message || 'Failed to search recording sessions'
-        this.sessions = []
-      } finally {
-        this.loadingSessions = false
       }
     },
 
