@@ -70,6 +70,7 @@ const formData = ref({
   name: '',
   description: '',
   date: null as string | null,
+  status: 'draft' as 'draft' | 'published' | null,
   duration: null as number | null,
   studies: [] as number[],
   context: {
@@ -129,6 +130,8 @@ const selectItems = computed(() => {
   return items;
 });
 
+const isPublished = computed(() => formData.value.status === 'published');
+
 ////////////////////////////////
 // METHODS
 ////////////////////////////////
@@ -177,6 +180,7 @@ function resetForm() {
     name: '',
     description: '',
     date: null,
+    status: 'draft',
     duration: null,
     studies: [],
     context: {
@@ -367,6 +371,7 @@ function onSessionSelected(session: RecordingSession) {
     description: session.description ?? '',
     duration: session.duration ?? null,
     date: session.date ?? null,
+    status: session.status ?? null,
     studies: session.studies?.map((s) => s.id) ?? [],
     context: {
       ...formData.value.context,
@@ -570,13 +575,18 @@ onMounted(async () => {
       border="start"
       class="mb-6 position-relative"
     >
-      Files could be linked to this recording session. Editing this session will affect those linked
-      resources.
+      <template v-if="formData.status === 'published'">
+        A published recording session cannot be edited or deleted.
+      </template>
+      <template v-else>
+        Files could be linked to this recording session. Editing this session will affect those
+        linked resources.
+      </template>
 
-      <!-- Petite croix bleue sur fond transparent -->
       <v-btn
         icon
         size="small"
+        elevation="0"
         style="
           position: absolute;
           top: 4px;
@@ -586,7 +596,7 @@ onMounted(async () => {
         "
         @click="showAlert = false"
       >
-        <v-icon size="16" style="color: #1976d2 !important">mdi-close</v-icon>
+        <v-icon>mdi-close</v-icon>
       </v-btn>
     </v-alert>
     <v-select
@@ -608,6 +618,7 @@ onMounted(async () => {
           class="status-card blue"
           :class="{ active: !formData.is_multiple }"
           @click="formData.is_multiple = false"
+          :style="isPublished ? 'pointer-events: none; opacity: 0.6;' : ''"
         >
           <div class="status-text">
             <strong>Single</strong>
@@ -629,6 +640,7 @@ onMounted(async () => {
           :color="formData.is_multiple ? '#ff9800' : '#1976d2'"
           :track-color="formData.is_multiple ? '#ffcc80' : '#90caf9'"
           class="toggle-switch"
+          :disabled="isPublished"
         ></v-switch>
       </v-col>
 
@@ -638,6 +650,7 @@ onMounted(async () => {
           class="status-card orange"
           :class="{ active: formData.is_multiple }"
           @click="formData.is_multiple = true"
+          :style="isPublished ? 'pointer-events: none; opacity: 0.6;' : ''"
         >
           <div class="status-text">
             <strong>Multiple</strong>
@@ -655,10 +668,26 @@ onMounted(async () => {
 
     <v-card class="pa-6" outlined>
       <v-card-title class="d-flex justify-space-between align-center mb-4">
-        <h3>Recording Session Metadata</h3>
+        <div class="d-flex align-center" style="gap: 12px">
+          <h3 class="m-0">Recording Session Metadata</h3>
+          <v-chip :color="formData.status === 'published' ? 'green' : 'grey'" dark small>
+            {{ formData.status }}
+          </v-chip>
+        </div>
+
         <div>
-          <v-btn color="grey" variant="outlined" @click="resetForm" class="mr-2">Reset</v-btn>
-          <v-btn color="primary" :disabled="!isSaveEnabled" @click="saveSession"> Save </v-btn>
+          <v-btn
+            color="grey"
+            variant="outlined"
+            @click="resetForm"
+            class="mr-2"
+            :disabled="isPublished"
+          >
+            Reset
+          </v-btn>
+          <v-btn color="primary" :disabled="!isSaveEnabled || isPublished" @click="saveSession">
+            Save
+          </v-btn>
         </div>
       </v-card-title>
 
@@ -671,12 +700,19 @@ onMounted(async () => {
             required
             :rules="[(v) => !!v || 'Name is required']"
             class="mb-4"
+            :disabled="isPublished"
           >
             <template #label>Name <span style="color: red">*</span></template>
           </v-text-field>
 
           <!-- Description -->
-          <v-textarea v-model="formData.description" label="Description" outlined class="mb-4" />
+          <v-textarea
+            v-model="formData.description"
+            label="Description"
+            outlined
+            class="mb-4"
+            :disabled="isPublished"
+          />
 
           <!-- Date / Time -->
           <v-menu
@@ -693,6 +729,7 @@ onMounted(async () => {
                 class="mb-4"
                 :rules="[(v) => formData.is_multiple || !!v || 'Recording Date is required']"
                 v-bind="props"
+                :disabled="isPublished"
               >
                 <template #label>
                   Recording Date <span style="color: red" v-if="!formData.is_multiple">*</span>
@@ -723,6 +760,7 @@ onMounted(async () => {
             type="number"
             outlined
             class="mb-1"
+            :disabled="isPublished"
           />
 
           <!-- Studies -->
@@ -731,7 +769,10 @@ onMounted(async () => {
               <v-card outlined class="pa-3 mb-5">
                 <v-card-subtitle class="mb-2">Studies</v-card-subtitle>
 
-                <div class="chip-list d-flex flex-wrap align-center">
+                <div
+                  class="chip-list d-flex flex-wrap align-center"
+                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                >
                   <v-chip
                     v-for="study in selectedStudiesDisplay"
                     :key="study.id"
@@ -781,6 +822,7 @@ onMounted(async () => {
                 outlined
                 clearable
                 density="comfortable"
+                :disabled="isPublished"
               />
             </v-col>
             <v-col cols="12" md="3" class="d-flex justify-end align-center mb-4">
@@ -790,6 +832,7 @@ onMounted(async () => {
                 class="mr-2"
                 title="Add new laboratory"
                 @click="newLabDialog = true"
+                :disabled="isPublished"
               >
                 <v-icon start>mdi-plus</v-icon> Add
               </v-btn>
@@ -798,7 +841,7 @@ onMounted(async () => {
                 variant="flat"
                 title="Edit selected laboratory"
                 @click="openEditLabDialog"
-                :disabled="!formData.laboratory"
+                :disabled="!formData.laboratory || isPublished"
               >
                 <v-icon start>mdi-pencil</v-icon> Edit
               </v-btn>
@@ -816,6 +859,7 @@ onMounted(async () => {
                     v-model="formData.context.temperature.value"
                     label="Temperature Value"
                     outlined
+                    :disabled="isPublished"
                   />
                 </v-col>
                 <v-col cols="6">
@@ -824,6 +868,7 @@ onMounted(async () => {
                     :items="['°C', '°F']"
                     label="Temperature Unit"
                     outlined
+                    :disabled="isPublished"
                   />
                 </v-col>
                 <v-col cols="12">
@@ -832,6 +877,7 @@ onMounted(async () => {
                     label="Brightness (Lux)"
                     type="number"
                     outlined
+                    :disabled="isPublished"
                   />
                 </v-col>
               </v-row>
@@ -848,6 +894,7 @@ onMounted(async () => {
                 label="Channels"
                 outlined
                 class="mb-4"
+                :disabled="isPublished"
               />
               <v-select
                 v-model="formData.equipment.sound_isolation"
@@ -855,12 +902,16 @@ onMounted(async () => {
                 label="Sound Isolation"
                 outlined
                 class="mb-4"
+                :disabled="isPublished"
               />
               <!-- soundcards -->
               <v-card outlined class="pa-3 mb-5">
                 <v-card-subtitle class="mb-2">Soundcards</v-card-subtitle>
 
-                <div class="chip-list d-flex flex-wrap align-center">
+                <div
+                  class="chip-list d-flex flex-wrap align-center"
+                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                >
                   <!-- Chips -->
                   <v-chip
                     v-for="item in soundcardsDisplay"
@@ -900,7 +951,10 @@ onMounted(async () => {
               <v-card outlined class="pa-3 mb-5">
                 <v-card-subtitle class="mb-2">Microphones</v-card-subtitle>
 
-                <div class="chip-list d-flex flex-wrap align-center">
+                <div
+                  class="chip-list d-flex flex-wrap align-center"
+                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                >
                   <v-chip
                     v-for="item in microphonesDisplay"
                     :key="item.id"
@@ -937,7 +991,10 @@ onMounted(async () => {
               <v-card outlined class="pa-3 mb-5">
                 <v-card-subtitle class="mb-2">Amplifiers</v-card-subtitle>
 
-                <div class="chip-list d-flex flex-wrap align-center">
+                <div
+                  class="chip-list d-flex flex-wrap align-center"
+                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                >
                   <v-chip
                     v-for="item in amplifiersDisplay"
                     :key="item.id"
@@ -974,7 +1031,10 @@ onMounted(async () => {
               <v-card outlined class="pa-3 mb-5">
                 <v-card-subtitle class="mb-2">Speakers</v-card-subtitle>
 
-                <div class="chip-list d-flex flex-wrap align-center">
+                <div
+                  class="chip-list d-flex flex-wrap align-center"
+                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                >
                   <v-chip
                     v-for="item in speakersDisplay"
                     :key="item.id"
@@ -1011,7 +1071,10 @@ onMounted(async () => {
               <v-card outlined class="pa-3 mb-5">
                 <v-card-subtitle class="mb-2">Acquisition Software Versions</v-card-subtitle>
 
-                <div class="chip-list d-flex flex-wrap align-center">
+                <div
+                  class="chip-list d-flex flex-wrap align-center"
+                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                >
                   <v-chip
                     v-for="soft in acquisitionSoftwareDisplay"
                     :key="soft.id"

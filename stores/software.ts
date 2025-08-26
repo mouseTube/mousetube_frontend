@@ -12,6 +12,8 @@ export interface Software {
   technical_requirements?: string
   created_at?: string
   modified_at?: string
+  linked_sessions_count?: number;
+  linked_sessions_from_other_users?: number;
 }
 
 export interface SoftwareVersion {
@@ -21,6 +23,8 @@ export interface SoftwareVersion {
   release_date?: string | null
   created_at?: string
   modified_at?: string
+  linked_sessions_count?: number;
+  linked_sessions_from_other_users?: number;
 }
 
 export interface SoftwareVersionPayload {
@@ -65,6 +69,7 @@ export const useSoftwareStore = defineStore('software', {
           allSoftwares.push(...data.results)
           nextPage = data.next
         }
+        console.log('Fetched softwares:', allSoftwares)
         this.softwares = allSoftwares
       } catch (err: any) {
         this.error = err?.message ?? 'Failed to fetch software'

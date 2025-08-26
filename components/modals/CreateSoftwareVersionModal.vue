@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed, nextTick } from 'vue';
 import { useSoftwareStore } from '@/stores/software';
 
 interface SoftwareVersionPayload {
@@ -30,6 +30,14 @@ const formData = ref<SoftwareVersionPayload>({
   software: props.softwareId,
 });
 
+// Infos sessions liées
+const linkedSessionsCount = ref(0);
+const linkedSessionsFromOthers = ref<number | null>(0);
+
+const isReadOnly = computed(
+  () => linkedSessionsFromOthers.value !== null && linkedSessionsFromOthers.value > 0
+);
+
 const versionRule = (v: string) => !!v || 'Version is required';
 
 function formatDate(date: string | Date): string {
@@ -42,9 +50,9 @@ function formatDate(date: string | Date): string {
 }
 
 async function loadVersionData() {
-  if (props.softwareVersionId) {
-    loading.value = true;
-    try {
+  loading.value = true;
+  try {
+    if (props.softwareVersionId) {
       const data = await store.fetchSoftwareVersionById(props.softwareVersionId);
       if (data) {
         formData.value = {
@@ -52,21 +60,26 @@ async function loadVersionData() {
           release_date: data.release_date ? formatDate(data.release_date) : '',
           software: data.software?.id ?? props.softwareId,
         };
+        linkedSessionsCount.value = data.linked_sessions_count ?? 0;
+        linkedSessionsFromOthers.value = data.linked_sessions_from_other_users ?? 0;
       }
-    } catch {
-      snackbarMessage.value = 'Failed to load software version data';
-      snackbar.value = true;
-    } finally {
-      loading.value = false;
+    } else {
+      formData.value = {
+        version: '',
+        release_date: '',
+        software: props.softwareId,
+      };
+      linkedSessionsCount.value = 0;
+      linkedSessionsFromOthers.value = 0;
     }
-  } else {
-    formData.value = {
-      version: '',
-      release_date: '',
-      software: props.softwareId,
-    };
+  } catch {
+    snackbarMessage.value = 'Failed to load software version data';
+    snackbar.value = true;
+  } finally {
+    loading.value = false;
+    await nextTick();
+    formRef.value?.resetValidation();
   }
-  formRef.value?.resetValidation();
 }
 
 watch(
@@ -94,6 +107,13 @@ async function submit() {
     return;
   }
 
+  if (isReadOnly.value) {
+    snackbarMessage.value =
+      'This software version is linked to other users’ sessions and cannot be edited. Please create a new version to make changes.';
+    snackbar.value = true;
+    return;
+  }
+
   loading.value = true;
   try {
     if (props.softwareVersionId) {
@@ -102,7 +122,7 @@ async function submit() {
       await store.createSoftwareVersion(formData.value);
     }
     emit('saved');
-    emit('update:modelValue', false); // ferme uniquement si tout est OK
+    emit('update:modelValue', false);
   } catch (e) {
     snackbarMessage.value = store.error ?? 'Error saving software version';
     snackbar.value = true;
@@ -129,12 +149,29 @@ function close() {
       </v-card-title>
 
       <v-card-text>
+        <!-- Alertes -->
+        <v-alert v-if="isReadOnly" type="warning" variant="outlined" border="start" class="mb-4">
+          This software version is linked to recording sessions from other users. You cannot edit
+          it. Please create a new version to make changes.
+        </v-alert>
+
+        <v-alert
+          v-else-if="linkedSessionsCount > 0"
+          type="info"
+          variant="outlined"
+          border="start"
+          class="mb-4"
+        >
+          This software version is linked to {{ linkedSessionsCount }} of your recording sessions.
+          Editing it will affect all linked sessions.
+        </v-alert>
+
         <v-form ref="formRef">
           <v-text-field
             v-model="formData.version"
             outlined
             :rules="[versionRule]"
-            :disabled="loading"
+            :disabled="loading || isReadOnly"
             class="mb-4"
           >
             <template #label> Version <span style="color: red">*</span> </template>
@@ -146,7 +183,7 @@ function close() {
             outlined
             readonly
             @click="dateDialog = true"
-            :disabled="loading"
+            :disabled="loading || isReadOnly"
             class="mb-4"
           />
 
@@ -170,7 +207,7 @@ function close() {
       <v-card-actions>
         <v-spacer />
         <v-btn text @click="close" :disabled="loading">Cancel</v-btn>
-        <v-btn color="primary" @click="submit" :loading="loading" :disabled="loading">
+        <v-btn color="primary" @click="submit" :loading="loading" :disabled="loading || isReadOnly">
           {{ softwareVersionId ? 'Save Changes' : 'Create' }}
         </v-btn>
       </v-card-actions>

@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { useSoftwareStore } from '@/stores/software';
 import SoftwareEditModal from '@/components/modals/SoftwareModal.vue';
 import CreateSoftwareVersionModal from '@/components/modals/CreateSoftwareVersionModal.vue';
+import { useAuth } from '@/composables/useAuth';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -14,15 +15,20 @@ const emit = defineEmits<{
 }>();
 
 const softwareStore = useSoftwareStore();
+const { id_user } = useAuth();
 
 // UI state
 const showEditModal = ref(false);
 const editSoftwareId = ref<number | null>(null);
 const showSoftwareVersionModal = ref(false);
 const editSoftwareVersionId = ref<number | null>(null);
+
 const showDeleteConfirm = ref(false);
 const deleteTarget = ref<{ id: number; softwareName: string; version: string | null } | null>(null);
 
+const showDeleteSoftwareConfirm = ref(false); // 🔹 nouveau
+const deleteSoftwareTarget = ref<{ id: number; name: string } | null>(null); // 🔹 nouveau
+const duplicatedSoftwareData = ref(null);
 const searchQuery = ref('');
 const sortOrder = ref<'asc' | 'desc'>('asc');
 const page = ref(1);
@@ -202,19 +208,31 @@ async function confirmDelete() {
   deleteTarget.value = null;
 }
 
-async function onDeleteSoftware(softwareId: number) {
-  await softwareStore.deleteSoftware(softwareId);
+function onDeleteSoftware(softwareId: number, name: string) {
+  deleteSoftwareTarget.value = { id: softwareId, name };
+  showDeleteSoftwareConfirm.value = true;
+}
+
+async function confirmDeleteSoftware() {
+  if (!deleteSoftwareTarget.value) return;
+  await softwareStore.deleteSoftware(deleteSoftwareTarget.value.id);
   await softwareStore.fetchAllSoftware();
   await softwareStore.fetchAllSoftwareVersions();
 
-  selectedSoftwareIds.value = selectedSoftwareIds.value.filter((id) => id !== softwareId);
-  delete selectedVersionBySoftware.value[softwareId];
+  selectedSoftwareIds.value = selectedSoftwareIds.value.filter(
+    (id) => id !== deleteSoftwareTarget.value!.id
+  );
+  delete selectedVersionBySoftware.value[deleteSoftwareTarget.value.id];
   internalSelectedVersionIds.value = internalSelectedVersionIds.value.filter(
     (id) =>
       !groupedSoftware.value.some(
-        (g) => g.software.id === softwareId && g.versions.some((v) => v.id === id)
+        (g) =>
+          g.software.id === deleteSoftwareTarget.value!.id && g.versions.some((v) => v.id === id)
       )
   );
+
+  showDeleteSoftwareConfirm.value = false;
+  deleteSoftwareTarget.value = null;
 }
 
 function toggleSortOrder() {
@@ -237,8 +255,17 @@ async function onVersionCreated(versionId: number) {
 
   await softwareStore.fetchAllSoftwareVersions();
 
-  // Mettre l'autocomplete sur la nouvelle version
   selectedVersionBySoftware.value[softwareId] = versionId;
+}
+
+function onDuplicateSoftware(data: any) {
+  showEditModal.value = false;
+  editSoftwareId.value = null;
+
+  setTimeout(() => {
+    duplicatedSoftwareData.value = data;
+    showEditModal.value = true;
+  }, 0);
 }
 
 // Watchers
@@ -292,7 +319,7 @@ watch(
               <!-- Card header -->
               <v-card-title class="d-flex justify-space-between align-center pa-2">
                 {{ group.software.name }}
-                <div class="d-flex align-center gap-1">
+                <div class="d-flex align-center gap-1" v-if="group.software.created_by === id_user">
                   <v-icon
                     small
                     color="primary"
@@ -304,7 +331,7 @@ watch(
                     small
                     color="primary"
                     class="hover-icon"
-                    @click.stop="onDeleteSoftware(group.software.id)"
+                    @click.stop="onDeleteSoftware(group.software.id, group.software.name)"
                     >mdi-delete</v-icon
                   >
                 </div>
@@ -407,13 +434,14 @@ watch(
       </v-card-actions>
     </v-card>
 
-    <!-- Delete confirmation -->
+    <!-- Delete version confirmation -->
     <v-dialog v-model="showDeleteConfirm" max-width="400">
       <v-card>
         <v-card-title class="text-h6">Confirm deletion</v-card-title>
         <v-card-text>
           Are you sure you want to delete
-          <strong>{{ deleteTarget?.softwareName }} {{ deleteTarget?.version || '' }}</strong
+          <strong> version {{ deleteTarget?.version || '' }}</strong> of
+          <strong>{{ deleteTarget?.softwareName }}</strong
           >? This action cannot be undone.
         </v-card-text>
         <v-card-actions>
@@ -424,11 +452,30 @@ watch(
       </v-card>
     </v-dialog>
 
+    <!-- Delete software confirmation -->
+    <v-dialog v-model="showDeleteSoftwareConfirm" max-width="400">
+      <v-card>
+        <v-card-title class="text-h6">Confirm software deletion</v-card-title>
+        <v-card-text>
+          Are you sure you want to delete the software
+          <strong>{{ deleteSoftwareTarget?.name }}</strong
+          >? All its versions will also be deleted. This action cannot be undone.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn text @click="showDeleteSoftwareConfirm = false">Cancel</v-btn>
+          <v-btn color="primary" @click="confirmDeleteSoftware">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Modals -->
     <SoftwareEditModal
       v-model="showEditModal"
       :software-id="editSoftwareId"
+      :initial-data="duplicatedSoftwareData"
       @saved="onSoftwareSaved"
+      @duplicate="onDuplicateSoftware"
     />
     <CreateSoftwareVersionModal
       v-if="showSoftwareVersionModal"

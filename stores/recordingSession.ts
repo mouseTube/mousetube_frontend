@@ -43,17 +43,17 @@ export interface RecordingSession {
 
 export interface RecordingSessionPayload {
   name: string
+  protocol?: number | null
   is_multiple?: boolean
   description?: string | null
   date?: string | null
-  status?: 'draft' | 'published'
   duration?: number | null
   laboratory?: number | null
   studies?: number[]
   animal_profiles?: number[]
 
   context?: {
-    temperature?: { value: string | null; unit: '°C' | '°F' | null }
+    temperature?: { value: string | null; unit: '°C' | '°F' | null | undefined }
     brightness?: number | null
   }
 
@@ -77,12 +77,14 @@ function toDjangoPayload(session: RecordingSessionPayload) {
     context,
     equipment,
     is_multiple,
+    protocol,
     ...rest
   } = session
 
   return {
     ...rest,
     is_multiple,
+    protocol_id: protocol ?? null,
     laboratory_id: laboratory,
     study_ids: studies,
     animal_profile_ids: animal_profiles,
@@ -144,7 +146,8 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
     async fetchSessionsPage(
       page = 1,
       searchQuery: string | null = null,
-      isMultiple: boolean | null = null
+      isMultiple: boolean | null = null,
+      ordering: string | null = null
     ) {
       this.loadingSessions = true;
       this.errorSessions = null;
@@ -152,10 +155,10 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
       try {
         const apiBaseUrl = useApiBaseUrl();
 
-        // Construction des paramètres
         const params: any = { page };
         if (searchQuery?.trim()) params.search = searchQuery.trim();
         if (isMultiple !== null) params.is_multiple = isMultiple;
+        if (ordering) params.ordering = ordering;
 
         const res = await axios.get(`${apiBaseUrl}/recording-session/`, {
           headers: this.getAuthHeaders(),
@@ -205,6 +208,42 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
       })
       this.sessions.push(res.data)
       return res.data
+    },
+
+    async duplicateSession(original: RecordingSession, newName: string, newDate: string | null) {
+      console.log(original)
+      const payload: RecordingSessionPayload = {
+        name: newName,
+        date: newDate,
+        is_multiple: original.is_multiple,
+        protocol: original.protocol?.id ?? undefined,
+        laboratory: original.laboratory?.id ?? undefined,
+        studies: original.studies?.map(s => s.id) ?? [],
+        animal_profiles: original.animal_profiles?.map(a => a.id) ?? [],
+        description: original.description ?? null,
+        duration: original.duration ?? null,
+        context: {
+          temperature: original.context_temperature_value
+            ? {
+                value: original.context_temperature_value,
+                unit: original.context_temperature_unit,
+              }
+            : undefined,
+          brightness: original.context_brightness ?? undefined,
+        },
+        equipment: {
+          channels: original.equipment_channels ?? undefined,
+          sound_isolation: original.equipment_sound_isolation ?? undefined,
+          soundcards: original.equipment_acquisition_hardware_soundcards?.map(h => h.id) ?? [],
+          microphones: original.equipment_acquisition_hardware_microphones?.map(h => h.id) ?? [],
+          speakers: original.equipment_acquisition_hardware_speakers?.map(h => h.id) ?? [],
+          amplifiers: original.equipment_acquisition_hardware_amplifiers?.map(h => h.id) ?? [],
+          acquisition_software: original.equipment_acquisition_software?.map(s => s.id) ?? [],
+        },
+      }
+      console.log('Duplicating session with payload:', payload)
+
+      return await this.createSession(payload)
     },
 
     async updateSession(id: number, data: RecordingSessionPayload) {
@@ -259,5 +298,19 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         return null
       }
     },
+
+    async deleteSession(id: number) {
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        await axios.delete(`${apiBaseUrl}/recording-session/${id}/`, {
+          headers: this.getAuthHeaders(),
+        });
+        this.sessions = this.sessions.filter((s) => s.id !== id);
+        return true;
+      } catch (err: any) {
+        console.error('Failed to delete session:', err.message);
+        throw err;
+      }
+    }
   },
 })
