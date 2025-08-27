@@ -30,7 +30,6 @@ const formData = ref<SoftwareVersionPayload>({
   software: props.softwareId,
 });
 
-// Infos sessions liées
 const linkedSessionsCount = ref(0);
 const linkedSessionsFromOthers = ref<number | null>(0);
 

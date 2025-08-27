@@ -107,7 +107,6 @@ export const useStudyStore = defineStore('study', {
         await axios.delete(`${apiBaseUrl}/study/${id}/`, {
           headers: this.getAuthHeaders(),
         })
-        // Supprime du store local
         this.studies = this.studies.filter(s => s.id !== id)
         return true
       } catch (err: any) {

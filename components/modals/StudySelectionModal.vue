@@ -111,7 +111,7 @@ async function handleDialogOpen(val: boolean) {
 }
 
 function resetAndOpenModal() {
-  editStudy.value = undefined; // reset le formulaire
+  editStudy.value = undefined;
   showCreateStudyModal.value = true;
 }
 
@@ -236,7 +236,6 @@ watch(localDialog, handleDialogOpen, { immediate: true });
       @saved="editStudy = undefined"
     />
 
-    <!-- Confirmation suppression -->
     <v-dialog v-model="showDeleteConfirm" max-width="400">
       <v-card>
         <v-card-title class="text-h6">Confirm deletion</v-card-title>

@@ -107,7 +107,7 @@ export const useLaboratoryStore = defineStore('laboratory', {
           headers: this.getAuthHeaders(),
         });
         const lab: Laboratory = res.data;
-        this.laboratories.push(lab); // ajoute au store local
+        this.laboratories.push(lab);
         return lab;
       } catch (err: any) {
         // eslint-disable-next-line no-console

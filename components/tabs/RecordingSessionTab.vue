@@ -399,8 +399,8 @@ function onSessionSelected(session: RecordingSession) {
   if (session.date) {
     const d = new Date(session.date);
     if (!isNaN(d.getTime())) {
-      date.value = d; // objet Date
-      time.value = d.toTimeString().slice(0, 5); // HH:mm
+      date.value = d;
+      time.value = d.toTimeString().slice(0, 5);
       formattedDate.value = `${d.toISOString().slice(0, 10)} ${time.value}`;
     } else {
       date.value = null;
@@ -448,12 +448,12 @@ function removeSoftware(softwareId: number) {
 
 function clearHardware(type: 'soundcards' | 'microphones' | 'amplifiers' | 'speakers') {
   formData.value.equipment[type] = [];
-  updateSelectedHardwareIds(type, []); // vide aussi l’affichage
+  updateSelectedHardwareIds(type, []);
 }
 
 function clearSoftware() {
   formData.value.equipment.acquisition_software = [];
-  acquisitionSoftwareDisplay.value = []; // vide aussi l’affichage
+  acquisitionSoftwareDisplay.value = [];
 }
 
 ////////////////////////////////
@@ -794,8 +794,6 @@ onMounted(async () => {
                     <v-icon start>mdi-close</v-icon>
                     Clear All
                   </v-chip>
-
-                  <!-- Chip pour ajouter -->
                   <v-chip
                     color="primary"
                     variant="flat"
@@ -853,7 +851,6 @@ onMounted(async () => {
             <v-card-title>Context</v-card-title>
             <v-card-text>
               <v-row class="g-4">
-                <!-- g-4 ajoute un gap horizontal et vertical entre les colonnes -->
                 <v-col cols="6">
                   <v-text-field
                     v-model="formData.context.temperature.value"
@@ -1176,7 +1173,7 @@ onMounted(async () => {
 /* Status card */
 .status-card {
   position: relative;
-  background-color: rgba(0, 0, 0, 0.05); /* carte terne par défaut */
+  background-color: rgba(0, 0, 0, 0.05);
   color: rgba(0, 0, 0, 0.7);
   height: 180px;
   display: flex;
@@ -1189,7 +1186,6 @@ onMounted(async () => {
   text-align: center;
 }
 
-/* Couleurs par type */
 .status-card.blue {
   background-color: rgba(25, 118, 210, 0.2);
 }
@@ -1197,25 +1193,22 @@ onMounted(async () => {
   background-color: rgba(255, 152, 0, 0.2);
 }
 
-/* Texte et opacité active */
 .status-card.blue.active {
-  background-color: #1976d2; /* bleu plein */
+  background-color: #1976d2;
   color: white;
 }
 
 .status-card.orange.active {
-  background-color: #ff9800; /* orange plein */
+  background-color: #ff9800;
   color: white;
 }
 
-/* Texte helper à l'intérieur */
 .status-text p {
   margin: 0;
   font-size: 0.85rem;
-  color: inherit; /* suit la couleur active ou non */
+  color: inherit;
 }
 
-/* Flèches triangulaires vers le switch */
 .status-card.active::after {
   content: '';
   position: absolute;
@@ -1237,7 +1230,6 @@ onMounted(async () => {
   left: -12px;
 }
 
-/* Switch centré */
 .toggle-switch {
   align-self: center;
 }

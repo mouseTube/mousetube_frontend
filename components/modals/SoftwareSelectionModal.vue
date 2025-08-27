@@ -46,7 +46,7 @@ const internalSelectedVersionIds = computed({
   set: (val: number[]) => emit('update:selectedSoftwareVersions', val),
 });
 
-// Grouped software pour affichage
+// Grouped software to display
 const groupedSoftware = computed(() => {
   const items = softwareStore.softwareVersions.filter(
     (sv) =>
@@ -140,7 +140,6 @@ async function handleDialogOpen(val: boolean) {
   await softwareStore.fetchAllSoftwareVersions();
   page.value = 1;
 
-  // Initialiser selectedVersionBySoftware avec les valeurs du parent
   selectedVersionBySoftware.value = {};
 
   softwareStore.softwareVersions.forEach((sv) => {

@@ -32,11 +32,9 @@ const snackbar = ref(false);
 const snackbarMessage = ref('');
 const formRef = ref<VForm | null>(null);
 
-// infos sessions liées
 const linkedSessionsCount = ref(0);
 const linkedSessionsFromOthers = ref<number | null>(null);
 
-// règles
 const nameRule = (v: string) => !!v || 'Name is required';
 const typeRule = (v: string | null) =>
   v === 'acquisition' || v === 'analysis' || v === 'acquisition and analysis' || 'Type is required';
@@ -240,7 +238,6 @@ function duplicate() {
           Duplicate
         </v-btn>
 
-        <!-- Submit/Create button : toujours présent, désactivé si read-only -->
         <v-btn color="primary" @click="submit" :loading="loading" :disabled="loading || isReadOnly">
           {{ softwareId ? 'Save Changes' : 'Create' }}
         </v-btn>

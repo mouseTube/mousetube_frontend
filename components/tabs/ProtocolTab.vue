@@ -210,7 +210,6 @@ onMounted(async () => {
       </v-card-title>
 
       <v-card-text>
-        <!-- Nom et description -->
         <v-text-field v-model="formData.name" outlined required class="mb-4">
           <template #label> Protocol Name <span style="color: red">*</span> </template>
         </v-text-field>

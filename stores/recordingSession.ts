@@ -211,7 +211,6 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
     },
 
     async duplicateSession(original: RecordingSession, newName: string, newDate: string | null) {
-      console.log(original)
       const payload: RecordingSessionPayload = {
         name: newName,
         date: newDate,
@@ -241,8 +240,6 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
           acquisition_software: original.equipment_acquisition_software?.map(s => s.id) ?? [],
         },
       }
-      console.log('Duplicating session with payload:', payload)
-
       return await this.createSession(payload)
     },
 
@@ -257,7 +254,6 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
       return res.data
     },
 
-    // 🔹 Nouvelle fonction pour mettre à jour le protocole d'une session
     async updateSessionProtocol(sessionId: number, protocolId: number) {
       try {
         const apiBaseUrl = useApiBaseUrl()
@@ -308,6 +304,7 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         this.sessions = this.sessions.filter((s) => s.id !== id);
         return true;
       } catch (err: any) {
+        // eslint-disable-next-line no-console
         console.error('Failed to delete session:', err.message);
         throw err;
       }

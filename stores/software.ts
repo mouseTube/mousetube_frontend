@@ -69,7 +69,6 @@ export const useSoftwareStore = defineStore('software', {
           allSoftwares.push(...data.results)
           nextPage = data.next
         }
-        console.log('Fetched softwares:', allSoftwares)
         this.softwares = allSoftwares
       } catch (err: any) {
         this.error = err?.message ?? 'Failed to fetch software'
@@ -183,7 +182,6 @@ export const useSoftwareStore = defineStore('software', {
     async createSoftwareVersion(data: SoftwareVersionPayload) {
       this.error = null
       try {
-        // Convert empty release_date to null
         const payload = {
           version: data.version,
           release_date: data.release_date || null,
@@ -204,7 +202,6 @@ export const useSoftwareStore = defineStore('software', {
     async updateSoftwareVersion(id: number, data: SoftwareVersionPayload) {
       this.error = null
       try {
-        // Convert empty release_date to null
         const payload = {
           version: data.version,
           release_date: data.release_date || null,
