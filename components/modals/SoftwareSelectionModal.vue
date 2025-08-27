@@ -389,7 +389,8 @@ watch(
                         softwareName: group.software.name,
                         version:
                           group.versions.find(
-                            (v) => v.id === selectedVersionBySoftware[group.software.id]
+                            (v: { id: number; version: string | null }) =>
+                              v.id === selectedVersionBySoftware[group.software.id]
                           )?.version ?? null,
                       })
                     "

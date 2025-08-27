@@ -140,7 +140,7 @@ function close() {
     :model-value="modelValue"
     persistent
     max-width="500"
-    @update:model-value="(val) => emit('update:modelValue', val)"
+    @update:model-value="(val: boolean) => emit('update:modelValue', val)"
   >
     <v-card>
       <v-card-title class="d-flex align-center">

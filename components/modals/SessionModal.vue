@@ -290,7 +290,7 @@ onMounted(() => {
           </template>
           <template #item.studies="{ item }">
             <span v-if="item.studies?.length">{{
-              item.studies.map((s) => s.name).join(', ')
+              item.studies.map((s: { name: string }) => s.name).join(', ')
             }}</span>
             <span v-else>—</span>
           </template>
@@ -379,7 +379,7 @@ onMounted(() => {
                 <v-col cols="6">
                   <v-time-picker
                     v-model="time"
-                    @update:model-value="(val) => updateTime(val || '')"
+                    @update:model-value="(val: string | null) => updateTime(val || '')"
                     format="24hr"
                   />
                 </v-col>

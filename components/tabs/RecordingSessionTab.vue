@@ -607,7 +607,7 @@ onMounted(async () => {
       label="Select Recording Session"
       outlined
       dense
-      :value-comparator="(a, b) => a === b"
+      :value-comparator="(a: string, b: string) => a === b"
       @change="handleSessionSelection"
     >
     </v-select>
@@ -698,7 +698,7 @@ onMounted(async () => {
             v-model="formData.name"
             outlined
             required
-            :rules="[(v) => !!v || 'Name is required']"
+            :rules="[(v: string) => !!v || 'Name is required']"
             class="mb-4"
             :disabled="isPublished"
           >
@@ -727,7 +727,9 @@ onMounted(async () => {
                 readonly
                 outlined
                 class="mb-4"
-                :rules="[(v) => formData.is_multiple || !!v || 'Recording Date is required']"
+                :rules="[
+                  (v: string) => formData.is_multiple || !!v || 'Recording Date is required',
+                ]"
                 v-bind="props"
                 :disabled="isPublished"
               >
@@ -1107,7 +1109,7 @@ onMounted(async () => {
               <StudySelectionModal
                 v-model="showStudySelectionModal"
                 :selectedStudies="formData.studies"
-                @update:selectedStudies="(newIds) => (formData.studies = newIds)"
+                @update:selectedStudies="(newIds: number[]) => (formData.studies = newIds)"
               />
 
               <HardwareSelectionModal

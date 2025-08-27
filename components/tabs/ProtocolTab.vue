@@ -3,7 +3,7 @@
 // IMPORT
 ////////////////////////////////
 import { ref, watch, onMounted } from 'vue';
-import { useProtocolStore } from '@/stores/protocol';
+import { useProtocolStore, type Protocol } from '@/stores/protocol';
 import { useRecordingSessionStore } from '@/stores/recordingSession';
 
 ////////////////////////////////
@@ -189,8 +189,10 @@ onMounted(async () => {
       v-model="selectedId"
       :items="[
         { id: 'new', name: 'Create New Protocol' },
-        ...(protocolStore.protocols.results?.map((p) => ({ id: String(p.id), name: p.name })) ??
-          []),
+        ...(protocolStore.protocols.results?.map((p: Protocol) => ({
+          id: String(p.id),
+          name: p.name,
+        })) ?? []),
       ]"
       item-title="name"
       item-value="id"
