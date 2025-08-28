@@ -47,8 +47,6 @@ const snackbarMessage = ref('');
 const snackbarColor = ref('');
 
 const selectedSessionId = ref<'new' | 'select' | number>('new');
-const showAlert = ref(selectedSessionId.value !== 'new' && selectedSessionId.value !== 'select');
-
 const selectedSessionObject = ref<RecordingSession | null>(null);
 const selectedSessionName = ref<string>('');
 
@@ -65,7 +63,7 @@ const editHardwareId = ref<number | null>(null);
 const hardwareTypeForModal = ref<'soundcard' | 'microphone' | 'speaker' | 'amplifier' | ''>('');
 
 const acquisitionSoftwareDisplay = ref<{ id: number; label: string }[]>([]);
-
+const isExistingSession = ref(false);
 const formData = ref({
   name: '',
   description: '',
@@ -318,7 +316,7 @@ async function saveSession() {
   } else {
     formData.value.date = null;
   }
-
+  isExistingSession.value = false;
   try {
     if (selectedSessionId.value === 'new') {
       const created = await recordingSessionStore.createSession(formData.value);
@@ -364,6 +362,7 @@ function onSessionSelected(session: RecordingSession) {
   selectedSessionId.value = session.id;
   selectedSessionObject.value = session;
   selectedSessionName.value = session.name ?? '';
+  isExistingSession.value = true;
 
   formData.value = {
     ...formData.value,
@@ -506,10 +505,6 @@ watch(
   { deep: true }
 );
 
-watch(selectedSessionId, (val) => {
-  showAlert.value = val !== 'new' && val !== 'select';
-});
-
 function handleSessionSelection(newId: 'new' | 'select' | number) {
   if (newId === 'select') {
     showSessionSelectModal.value = true;
@@ -569,7 +564,7 @@ onMounted(async () => {
       </v-col>
     </v-row>
     <v-alert
-      v-if="showAlert"
+      v-if="isExistingSession"
       type="info"
       variant="outlined"
       border="start"
@@ -594,7 +589,7 @@ onMounted(async () => {
           background: transparent !important;
           color: #1976d2 !important;
         "
-        @click="showAlert = false"
+        @click="isExistingSession = false"
       >
         <v-icon>mdi-close</v-icon>
       </v-btn>
