@@ -23,10 +23,19 @@ const isLoadingUser = ref(true);
 const apiBaseUrl = useApiBaseUrl();
 const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
 const viewMode = ref('cards');
+const snackbar = ref(false);
 
 ////////////////////////////
 // METHODS
 ////////////////////////////
+
+function copyToken() {
+  if (navigator.clipboard && token) {
+    navigator.clipboard.writeText(token.value).then(() => {
+      snackbar.value = true;
+    });
+  }
+}
 
 /**
  * Fetch user profile data from the API
@@ -181,7 +190,13 @@ watch(
           <v-window-item value="token">
             <div>
               <p><strong>Token:</strong> {{ token }}</p>
-              <v-btn color="red darken-2" @click="refreshToken">Refresh Token</v-btn>
+              <v-btn color="primary" @click="refreshToken" class="mr-4">Refresh Token</v-btn>
+              <v-btn color="primary" @click="copyToken">Copy Token</v-btn>
+
+              <!-- Snackbar -->
+              <v-snackbar v-model="snackbar" :timeout="3000" color="green">
+                Token copied!
+              </v-snackbar>
             </div>
           </v-window-item>
           <v-window-item value="hardware">
