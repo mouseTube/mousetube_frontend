@@ -238,7 +238,7 @@ onMounted(() => {
   <v-dialog :model-value="modelValue" max-width="1200px" @click:outside="close">
     <v-card class="pa-3">
       <v-card-title class="d-flex align-center justify-space-between gap-4">
-        <span class="text-h6 font-weight-bold">Select a Recording Session</span>
+        <span class="text-h6 font-weight-bold">Recording Sessions</span>
         <div class="d-flex align-center gap-3 flex-wrap">
           <v-text-field
             v-model="search"

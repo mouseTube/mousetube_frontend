@@ -37,6 +37,7 @@ export interface RecordingSession {
   equipment_channels?: 'mono' | 'stereo' | 'more than 2' | null
   equipment_sound_isolation?: 'soundproof room' | 'soundproof cage' | 'no specific sound isolation' | null
 
+  created_by?: number | null
   created_at?: string | null
   modified_at?: string | null
 }
