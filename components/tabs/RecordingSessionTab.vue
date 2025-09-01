@@ -1,0 +1,1233 @@
+<script setup lang="ts">
+////////////////////////////////
+// IMPORTS
+////////////////////////////////
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRecordingSessionStore, type RecordingSession } from '@/stores/recordingSession';
+import { useHardwareStore } from '@/stores/hardware';
+import { useSoftwareStore, type SoftwareVersion } from '@/stores/software';
+import { useStudyStore } from '@/stores/study';
+import { useLaboratoryStore } from '~/stores/laboratory';
+import SoftwareSelectionModal from '../modals/SoftwareSelectionModal.vue';
+import LaboratoryModal from '@/components/modals/LaboratoryModal.vue';
+import HardwareModal from '@/components/modals/HardwareModal.vue';
+import SelectSessionModal from '@/components/modals/SessionModal.vue';
+import StudyModal from '@/components/modals/CreateStudyModal.vue';
+import HardwareSelectionModal from '@/components/modals/HardwareSelectionModal.vue';
+import { useAuth } from '@/composables/useAuth';
+import { useRouter } from 'vue-router';
+import StudySelectionModal from '@/components/modals/StudySelectionModal.vue';
+
+////////////////////////////////
+// STORES
+////////////////////////////////
+const recordingSessionStore = useRecordingSessionStore();
+const studyStore = useStudyStore();
+const laboratoryStore = useLaboratoryStore();
+const hardwareStore = useHardwareStore();
+const softwareStore = useSoftwareStore();
+const auth = useAuth();
+const router = useRouter();
+
+////////////////////////////////
+// EMITS
+////////////////////////////////
+const emit = defineEmits(['validate', 'session-selected']);
+
+////////////////////////////////
+// DATA & STATE
+////////////////////////////////
+const formRef = ref<any>();
+const dateMenu = ref(false);
+const date = ref<Date | null>(null);
+const time = ref<string | null>(null);
+
+const snackbar = ref(false);
+const snackbarMessage = ref('');
+const snackbarColor = ref('');
+
+const selectedSessionId = ref<'new' | 'select' | number>('new');
+const selectedSessionObject = ref<RecordingSession | null>(null);
+const selectedSessionName = ref<string>('');
+
+const formattedDate = ref('');
+
+const laboratoriesOptions = ref<any[]>([]);
+const studiesOptions = ref<any[]>([]);
+const hardwareOptions = ref<any[]>([]);
+const softwareOptions = ref<any[]>([]);
+const showSoftwareSelectionModal = ref(false);
+const newHardwareDialog = ref(false);
+const editHardwareDialog = ref(false);
+const editHardwareId = ref<number | null>(null);
+const hardwareTypeForModal = ref<'soundcard' | 'microphone' | 'speaker' | 'amplifier' | ''>('');
+
+const acquisitionSoftwareDisplay = ref<{ id: number; label: string }[]>([]);
+const isExistingSession = ref(false);
+const formData = ref({
+  name: '',
+  description: '',
+  date: null as string | null,
+  status: 'draft' as 'draft' | 'published' | null,
+  duration: null as number | null,
+  studies: [] as number[],
+  context: {
+    temperature: { value: null as string | null, unit: null as '°C' | '°F' | null },
+    brightness: null as number | null,
+  },
+  equipment: {
+    channels: null as 'mono' | 'stereo' | 'more than 2' | null,
+    sound_isolation: null as
+      | 'soundproof room'
+      | 'soundproof cage'
+      | 'no specific sound isolation'
+      | null,
+    soundcards: [] as number[],
+    microphones: [] as number[],
+    amplifiers: [] as number[],
+    speakers: [] as number[],
+    acquisition_software: [] as number[],
+  },
+  laboratory: null as number | null,
+  is_multiple: false,
+});
+
+const newStudyDialog = ref(false);
+const newLabDialog = ref(false);
+const editLabDialog = ref(false);
+const editLabId = ref<number | null>(null);
+
+const showSessionSelectModal = ref(false);
+const showHardwareSelectionModal = ref(false);
+
+type HardwareTypeKeys = 'soundcard' | 'microphone' | 'speaker' | 'amplifier';
+type HardwareArrayKeys = 'soundcards' | 'microphones' | 'amplifiers' | 'speakers';
+
+const selectedHardwareList = computed(
+  () => formData.value.equipment[currentHardwareCategory.value]
+);
+
+const soundcardsDisplay = ref<{ id: number; label: string }[]>([]);
+const microphonesDisplay = ref<{ id: number; label: string }[]>([]);
+const amplifiersDisplay = ref<{ id: number; label: string }[]>([]);
+const speakersDisplay = ref<{ id: number; label: string }[]>([]);
+const isSaveEnabled = ref(false);
+const initialFormData = ref('');
+
+////////////////////////////////
+// COMPUTED
+////////////////////////////////
+const selectItems = computed(() => {
+  const items: Array<{ id: string | number; name: string }> = [
+    { id: 'new', name: 'Create New Session' },
+    { id: 'select', name: 'Select Existing Session' },
+  ];
+  if (selectedSessionObject.value) {
+    items.push({ id: selectedSessionObject.value.id, name: selectedSessionObject.value.name });
+  }
+  return items;
+});
+
+const isPublished = computed(() => formData.value.status === 'published');
+
+////////////////////////////////
+// METHODS
+////////////////////////////////
+
+const hardwareTypeForSelection = ref<HardwareTypeKeys | ''>('');
+const currentHardwareCategory = ref<HardwareArrayKeys>('soundcards');
+
+function openHardwareSelectionModal(type: HardwareTypeKeys, category: HardwareArrayKeys) {
+  hardwareTypeForSelection.value = type;
+  currentHardwareCategory.value = category;
+  showHardwareSelectionModal.value = true;
+}
+
+function updateSelectedHardwareIds(field: HardwareArrayKeys, ids: number[]) {
+  formData.value.equipment[field] = ids;
+
+  const displayList = ids
+    .map((id) => {
+      const hw = hardwareStore.hardwares.find((h) => h.id === id);
+      return hw ? { id: hw.id!, label: hw.name } : null;
+    })
+    .filter((x): x is { id: number; label: string } => x !== null);
+
+  if (field === 'soundcards') soundcardsDisplay.value = displayList;
+  if (field === 'microphones') microphonesDisplay.value = displayList;
+  if (field === 'amplifiers') amplifiersDisplay.value = displayList;
+  if (field === 'speakers') speakersDisplay.value = displayList;
+}
+
+function removeHardware(field: HardwareArrayKeys, id: number) {
+  formData.value.equipment[field] = formData.value.equipment[field].filter((i) => i !== id);
+  updateSelectedHardwareIds(field, formData.value.equipment[field]);
+}
+
+/* Show a snackbar notification with the given message and color. */
+function showSnackbar(message: string, color: string) {
+  snackbarMessage.value = message;
+  snackbarColor.value = color;
+  snackbar.value = true;
+}
+
+/* Reset the form to empty values (used when 'new' is selected). */
+function resetForm() {
+  // --- Reset form data ---
+  formData.value = {
+    name: '',
+    description: '',
+    date: null,
+    status: 'draft',
+    duration: null,
+    studies: [],
+    context: {
+      temperature: { value: null, unit: null },
+      brightness: null,
+    },
+    equipment: {
+      channels: null,
+      sound_isolation: null,
+      soundcards: [],
+      microphones: [],
+      amplifiers: [],
+      speakers: [],
+      acquisition_software: [],
+    },
+    laboratory: null,
+    is_multiple: false,
+  };
+
+  // --- Reset UI mirrors ---
+  date.value = null;
+  time.value = null;
+  formattedDate.value = '';
+
+  soundcardsDisplay.value = [];
+  microphonesDisplay.value = [];
+  amplifiersDisplay.value = [];
+  speakersDisplay.value = [];
+  acquisitionSoftwareDisplay.value = [];
+
+  // --- Reset session selection ---
+  selectedSessionObject.value = null;
+  selectedSessionName.value = '';
+  selectedSessionId.value = 'new';
+
+  updateInitialSnapshot();
+
+  emit('session-selected', null);
+}
+
+function updateDate(newDate: Date | null) {
+  date.value = newDate;
+  tryMergeDateTime();
+}
+
+function updateTime(newTime: string | null) {
+  time.value = newTime;
+  tryMergeDateTime();
+}
+
+// ----- merge date + time -----
+function tryMergeDateTime() {
+  let dateStr = '';
+  let timeStr = '';
+
+  if (date.value) {
+    dateStr = date.value.toISOString().slice(0, 10); // YYYY-MM-DD
+    timeStr = time.value || date.value.toTimeString().slice(0, 5); // HH:mm
+  } else if (time.value) {
+    timeStr = time.value;
+  }
+
+  formattedDate.value = dateStr ? `${dateStr} ${timeStr || '00:00'}` : timeStr || '';
+
+  if (!date.value) {
+    formData.value.date = null;
+    if (!formData.value.is_multiple) {
+      formattedDate.value = '';
+    }
+    return;
+  }
+
+  const isoTime = timeStr || '00:00';
+  const datetime = new Date(`${dateStr}T${isoTime}`);
+  formData.value.date = !isNaN(datetime.getTime()) ? datetime.toISOString() : null;
+}
+
+/* Fetch lists used to populate selects (studies, hardware, software, labs). */
+async function fetchSelectableData() {
+  try {
+    await Promise.all([
+      hardwareStore.fetchAllHardware(),
+      softwareStore.fetchAllSoftware(),
+      studyStore.fetchAllStudies(),
+      laboratoryStore.fetchAllLaboratories(),
+    ]);
+    hardwareOptions.value = hardwareStore.hardwares;
+    softwareOptions.value = softwareStore.softwares;
+    studiesOptions.value = studyStore.studies;
+    laboratoriesOptions.value = laboratoryStore.laboratories;
+  } catch (e) {
+    showSnackbar('Error loading selectable data.', 'error');
+  }
+}
+
+/* Open edit dialog for the selected laboratory. */
+function openEditLabDialog() {
+  const selectedLab = laboratoriesOptions.value.find((lab) => lab.id === formData.value.laboratory);
+  if (!selectedLab) {
+    showSnackbar('No laboratory selected to edit.', 'error');
+    return;
+  }
+  editLabId.value = selectedLab.id;
+  editLabDialog.value = true;
+}
+
+/* Save or update the session using the store. Handles both 'new' and existing sessions. */
+async function saveSession() {
+  const isValid = await formRef.value?.validate?.();
+  if (!isValid) {
+    showSnackbar('Please fill in all required fields.', 'error');
+    return;
+  }
+
+  if (!formData.value.is_multiple) {
+    if (!date.value) {
+      showSnackbar('Recording date is required for single sessions.', 'error');
+      return;
+    }
+  }
+
+  if (date.value) {
+    const dateStr = date.value.toISOString().slice(0, 10);
+    const timeStr = time.value || '00:00';
+    const datetime = new Date(`${dateStr}T${timeStr}`);
+    if (!isNaN(datetime.getTime())) {
+      formData.value.date = datetime.toISOString();
+    } else {
+      formData.value.date = null;
+      // eslint-disable-next-line no-console
+      console.error('Invalid date/time combination:', dateStr, timeStr);
+      showSnackbar('Invalid date or time selected.', 'error');
+      return;
+    }
+  } else {
+    formData.value.date = null;
+  }
+  isExistingSession.value = false;
+  try {
+    if (selectedSessionId.value === 'new') {
+      const created = await recordingSessionStore.createSession(formData.value);
+      showSnackbar('Session created successfully!', 'success');
+      selectedSessionId.value = created.id;
+      selectedSessionObject.value = created as RecordingSession;
+      selectedSessionName.value = created.name ?? '';
+
+      emit('session-selected', {
+        sessionId: created.id,
+        protocolId: created.protocol?.id || null,
+      });
+    } else {
+      await recordingSessionStore.updateSession(Number(selectedSessionId.value), formData.value);
+      showSnackbar('Session updated successfully!', 'success');
+
+      const updated = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
+      if (updated) {
+        selectedSessionObject.value = updated;
+        selectedSessionName.value = updated.name ?? '';
+      }
+
+      const session = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
+      emit('session-selected', {
+        sessionId: Number(selectedSessionId.value),
+        protocolId: session?.protocol?.id || null,
+      });
+    }
+    updateInitialSnapshot();
+    isSaveEnabled.value = false;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('Error saving session', e);
+    showSnackbar('Error saving session.', 'error');
+  }
+}
+
+function updateInitialSnapshot() {
+  initialFormData.value = JSON.stringify(formData.value);
+}
+
+function onSessionSelected(session: RecordingSession) {
+  selectedSessionId.value = session.id;
+  selectedSessionObject.value = session;
+  selectedSessionName.value = session.name ?? '';
+  isExistingSession.value = true;
+
+  formData.value = {
+    ...formData.value,
+    name: session.name ?? '',
+    description: session.description ?? '',
+    duration: session.duration ?? null,
+    date: session.date ?? null,
+    status: session.status ?? null,
+    studies: session.studies?.map((s) => s.id) ?? [],
+    context: {
+      ...formData.value.context,
+      temperature: {
+        value: session.context_temperature_value ?? null,
+        unit: session.context_temperature_unit ?? null,
+      },
+      brightness: session.context_brightness ?? null,
+    },
+    equipment: {
+      ...formData.value.equipment,
+      channels: session.equipment_channels ?? null,
+      sound_isolation: session.equipment_sound_isolation ?? null,
+      soundcards: session.equipment_acquisition_hardware_soundcards?.map((h) => h.id) ?? [],
+      microphones: session.equipment_acquisition_hardware_microphones?.map((h) => h.id) ?? [],
+      amplifiers: session.equipment_acquisition_hardware_amplifiers?.map((h) => h.id) ?? [],
+      speakers: session.equipment_acquisition_hardware_speakers?.map((h) => h.id) ?? [],
+      acquisition_software:
+        session.equipment_acquisition_software?.map((soft: SoftwareVersion) => soft.id) ?? [],
+    },
+    laboratory: session.laboratory?.id ?? null,
+    is_multiple: session.is_multiple ?? false,
+  };
+
+  if (session.date) {
+    const d = new Date(session.date);
+    if (!isNaN(d.getTime())) {
+      date.value = d;
+      time.value = d.toTimeString().slice(0, 5);
+      formattedDate.value = `${d.toISOString().slice(0, 10)} ${time.value}`;
+    } else {
+      date.value = null;
+      time.value = null;
+      formattedDate.value = '';
+    }
+  } else {
+    date.value = null;
+    time.value = null;
+    formattedDate.value = '';
+  }
+
+  (['soundcards', 'microphones', 'amplifiers', 'speakers'] as HardwareArrayKeys[]).forEach(
+    (key) => {
+      updateSelectedHardwareIds(key, formData.value.equipment[key]);
+    }
+  );
+
+  acquisitionSoftwareDisplay.value =
+    session.equipment_acquisition_software?.map((soft: SoftwareVersion) => {
+      const softwareName = soft.software?.name || 'Unknown';
+      const versionName = soft.version || '';
+      return {
+        id: soft.id,
+        label: `${softwareName}${versionName ? ' – ' + versionName : ''}`,
+      };
+    }) ?? [];
+
+  updateInitialSnapshot();
+
+  emit('session-selected', {
+    sessionId: session.id,
+    protocolId: session.protocol?.id ?? null,
+  });
+}
+
+function removeSoftware(softwareId: number) {
+  acquisitionSoftwareDisplay.value = acquisitionSoftwareDisplay.value.filter(
+    (soft) => soft.id !== softwareId
+  );
+
+  formData.value.equipment.acquisition_software =
+    formData.value.equipment.acquisition_software.filter((id) => id !== softwareId);
+}
+
+function clearHardware(type: 'soundcards' | 'microphones' | 'amplifiers' | 'speakers') {
+  formData.value.equipment[type] = [];
+  updateSelectedHardwareIds(type, []);
+}
+
+function clearSoftware() {
+  formData.value.equipment.acquisition_software = [];
+  acquisitionSoftwareDisplay.value = [];
+}
+
+////////////////////////////////
+// STUDIES HANDLING
+////////////////////////////////
+
+const selectedStudiesDisplay = computed(() => {
+  return formData.value.studies
+    .map((id) => studiesOptions.value.find((s) => s.id === id))
+    .filter((s): s is { id: number; name: string } => !!s);
+});
+
+const showStudySelectionModal = ref(false);
+
+function openStudySelectionModal() {
+  showStudySelectionModal.value = true;
+}
+
+function removeStudy(id: number) {
+  formData.value.studies = formData.value.studies.filter((sId) => sId !== id);
+}
+
+function clearAllStudies() {
+  formData.value.studies = [];
+}
+
+////////////////////////////////
+// WATCHERS
+////////////////////////////////
+
+watch(selectedSessionId, (newId, oldId) => {
+  if (newId === 'select') {
+    showSessionSelectModal.value = true;
+    selectedSessionId.value = oldId ?? 'new';
+    return;
+  }
+  if (!newId || newId === 'new') {
+    resetForm();
+    emit('session-selected', null);
+    return;
+  }
+  const idNum = Number(newId);
+});
+
+watch(
+  formData,
+  (newVal) => {
+    isSaveEnabled.value = JSON.stringify(newVal) !== initialFormData.value;
+  },
+  { deep: true }
+);
+
+function handleSessionSelection(newId: 'new' | 'select' | number) {
+  if (newId === 'select') {
+    showSessionSelectModal.value = true;
+    selectedSessionId.value = selectedSessionObject.value?.id ?? 'new';
+  } else if (newId === 'new') {
+    resetForm();
+  } else {
+    recordingSessionStore.getSessionById(Number(newId)).then((session) => {
+      if (session) {
+        onSessionSelected(session);
+      }
+    });
+  }
+}
+
+function onUpdateSelectedSoftwareVersions(val: number[]) {
+  formData.value.equipment.acquisition_software = [...val];
+  acquisitionSoftwareDisplay.value = val
+    .map((id) => {
+      const sv = softwareStore.getSoftwareVersionById(id);
+      if (!sv) return null;
+      return {
+        id: sv.id,
+        label: `${sv.software.name}${sv.version ? ' – ' + sv.version : ''}`,
+      };
+    })
+    .filter(Boolean) as { id: number; label: string }[];
+}
+
+////////////////////////////////
+// LIFECYCLE
+////////////////////////////////
+
+/* Component mounted: fetch lists and prefetch first page of sessions for modal */
+onMounted(async () => {
+  if (!auth.loggedIn.value) {
+    router.push('/account/login');
+    return;
+  }
+  await fetchSelectableData();
+  // Prefetch first page for modal convenience (modal also fetches on open)
+  await recordingSessionStore.fetchSessionsPage(1);
+});
+</script>
+
+<template>
+  <v-container>
+    <v-row>
+      <v-col>
+        <p class="text--secondary mb-4">
+          A <strong>Recording Session</strong> represents a set of audio recordings made under the
+          same experimental conditions. It can be <strong>single</strong> or
+          <strong>multiple</strong>
+          . Recording sessions are used to organize and link recorded data, the laboratory, studies,
+          animal subjects, and equipment used, ensuring that all metadata is properly tracked.
+        </p>
+      </v-col>
+    </v-row>
+    <v-alert
+      v-if="isExistingSession"
+      type="info"
+      variant="outlined"
+      border="start"
+      class="mb-6 position-relative"
+    >
+      <template v-if="formData.status === 'published'">
+        A published recording session cannot be edited or deleted.
+      </template>
+      <template v-else>
+        Files could be linked to this recording session. Editing this session will affect those
+        linked resources.
+      </template>
+
+      <v-btn
+        icon
+        size="small"
+        elevation="0"
+        style="
+          position: absolute;
+          top: 4px;
+          right: 4px;
+          background: transparent !important;
+          color: #1976d2 !important;
+        "
+        @click="isExistingSession = false"
+      >
+        <v-icon>mdi-close</v-icon>
+      </v-btn>
+    </v-alert>
+    <v-select
+      v-model="selectedSessionId"
+      :items="selectItems"
+      item-title="name"
+      item-value="id"
+      label="Select Recording Session"
+      outlined
+      dense
+      :value-comparator="(a: string, b: string) => a === b"
+      @change="handleSessionSelection"
+    >
+    </v-select>
+    <v-row align="center" justify="space-between">
+      <!-- Single Recording -->
+      <v-col cols="5" class="mb-6">
+        <div
+          class="status-card blue"
+          :class="{ active: !formData.is_multiple }"
+          @click="formData.is_multiple = false"
+          :style="isPublished ? 'pointer-events: none; opacity: 0.6;' : ''"
+        >
+          <div class="status-text">
+            <strong>Single</strong>
+            <p>
+              A Single experiment where animals are recorded for a given time. The experiment is
+              done at a precise date. Several vocalization files could be recorded during this
+              experiment: a chronological order of those files could be registered.
+            </p>
+          </div>
+        </div>
+      </v-col>
+
+      <!-- Toggle -->
+      <v-col cols="2" class="d-flex justify-center">
+        <v-switch
+          v-model="formData.is_multiple"
+          inset
+          hide-details
+          :color="formData.is_multiple ? '#ff9800' : '#1976d2'"
+          :track-color="formData.is_multiple ? '#ffcc80' : '#90caf9'"
+          class="toggle-switch"
+          :disabled="isPublished"
+        ></v-switch>
+      </v-col>
+
+      <!-- Multiple Recording -->
+      <v-col cols="5" class="mb-6">
+        <div
+          class="status-card orange"
+          :class="{ active: formData.is_multiple }"
+          @click="formData.is_multiple = true"
+          :style="isPublished ? 'pointer-events: none; opacity: 0.6;' : ''"
+        >
+          <div class="status-text">
+            <strong>Multiple</strong>
+            <p>
+              A set of experiment from a single study. All those experiments shared the same
+              experimental conditions and the same animal profiles. Each experiment from this set
+              could provide one or several vocalization files. If you want to keep chronological
+              order of those file, you should use single recording session instead multiple
+              recording session.
+            </p>
+          </div>
+        </div>
+      </v-col>
+    </v-row>
+
+    <v-card class="pa-6" outlined>
+      <v-card-title class="d-flex justify-space-between align-center mb-4">
+        <div class="d-flex align-center" style="gap: 12px">
+          <h3 class="m-0">Recording Session Metadata</h3>
+          <v-chip :color="formData.status === 'published' ? 'green' : 'grey'" dark small>
+            {{ formData.status }}
+          </v-chip>
+        </div>
+
+        <div>
+          <v-btn
+            color="grey"
+            variant="outlined"
+            @click="resetForm"
+            class="mr-2"
+            :disabled="isPublished"
+          >
+            Reset
+          </v-btn>
+          <v-btn color="primary" :disabled="!isSaveEnabled || isPublished" @click="saveSession">
+            Save
+          </v-btn>
+        </div>
+      </v-card-title>
+
+      <v-card-text>
+        <v-form ref="formRef" lazy-validation>
+          <!-- Name -->
+          <v-text-field
+            v-model="formData.name"
+            outlined
+            required
+            :rules="[(v: string) => !!v || 'Name is required']"
+            class="mb-4"
+            :disabled="isPublished"
+          >
+            <template #label>Name <span style="color: red">*</span></template>
+          </v-text-field>
+
+          <!-- Description -->
+          <v-textarea
+            v-model="formData.description"
+            label="Description"
+            outlined
+            class="mb-4"
+            :disabled="isPublished"
+          />
+
+          <!-- Date / Time -->
+          <v-menu
+            v-model="dateMenu"
+            :close-on-content-click="false"
+            transition="scale-transition"
+            offset-y
+          >
+            <template #activator="{ props }">
+              <v-text-field
+                v-model="formattedDate"
+                readonly
+                outlined
+                class="mb-4"
+                :rules="[
+                  (v: string) => formData.is_multiple || !!v || 'Recording Date is required',
+                ]"
+                v-bind="props"
+                :disabled="isPublished"
+              >
+                <template #label>
+                  Recording Date <span style="color: red" v-if="!formData.is_multiple">*</span>
+                </template>
+              </v-text-field>
+            </template>
+
+            <v-card>
+              <v-row no-gutters>
+                <v-col cols="6">
+                  <v-date-picker
+                    v-model="date"
+                    @update:modelValue="updateDate"
+                    show-adjacent-months
+                  />
+                </v-col>
+                <v-col cols="6">
+                  <v-time-picker v-model="time" @update:modelValue="updateTime" format="24hr" />
+                </v-col>
+              </v-row>
+            </v-card>
+          </v-menu>
+
+          <!-- Duration -->
+          <v-text-field
+            v-model="formData.duration"
+            label="Duration (seconds)"
+            type="number"
+            outlined
+            class="mb-1"
+            :disabled="isPublished"
+          />
+
+          <!-- Studies -->
+          <v-row class="mb-4" align="center">
+            <v-col cols="12" md="12" class="pa-0">
+              <v-card outlined class="pa-3 mb-5">
+                <v-card-subtitle class="mb-2">Studies</v-card-subtitle>
+
+                <div
+                  class="chip-list d-flex flex-wrap align-center"
+                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                >
+                  <v-chip
+                    v-for="study in selectedStudiesDisplay"
+                    :key="study.id"
+                    variant="outlined"
+                    closable
+                    @click:close="removeStudy(study.id)"
+                    class="ma-1"
+                  >
+                    {{ study.name }}
+                  </v-chip>
+
+                  <v-chip
+                    v-if="selectedStudiesDisplay.length > 0"
+                    color="primary"
+                    variant="outlined"
+                    class="ma-1"
+                    @click="clearAllStudies"
+                  >
+                    <v-icon start>mdi-close</v-icon>
+                    Clear All
+                  </v-chip>
+                  <v-chip
+                    color="primary"
+                    variant="flat"
+                    class="ma-1"
+                    @click="openStudySelectionModal"
+                  >
+                    <v-icon start>mdi-plus</v-icon>
+                    Select
+                  </v-chip>
+                </div>
+              </v-card>
+            </v-col>
+          </v-row>
+
+          <!-- Laboratory -->
+          <v-row class="mb-4" align="center" no-gutters>
+            <v-col cols="12" md="9">
+              <v-select
+                v-model="formData.laboratory"
+                :items="laboratoriesOptions"
+                item-title="name"
+                item-value="id"
+                label="Laboratory"
+                outlined
+                clearable
+                density="comfortable"
+                :disabled="isPublished"
+              />
+            </v-col>
+            <v-col cols="12" md="3" class="d-flex justify-end align-center mb-4">
+              <v-btn
+                color="primary"
+                variant="flat"
+                class="mr-2"
+                title="Add new laboratory"
+                @click="newLabDialog = true"
+                :disabled="isPublished"
+              >
+                <v-icon start>mdi-plus</v-icon> Add
+              </v-btn>
+              <v-btn
+                color="secondary"
+                variant="flat"
+                title="Edit selected laboratory"
+                @click="openEditLabDialog"
+                :disabled="!formData.laboratory || isPublished"
+              >
+                <v-icon start>mdi-pencil</v-icon> Edit
+              </v-btn>
+            </v-col>
+          </v-row>
+
+          <!-- Context -->
+          <v-card class="pa-4 mb-4" outlined>
+            <v-card-title>Context</v-card-title>
+            <v-card-text>
+              <v-row class="g-4">
+                <v-col cols="6">
+                  <v-text-field
+                    v-model="formData.context.temperature.value"
+                    label="Temperature Value"
+                    outlined
+                    :disabled="isPublished"
+                  />
+                </v-col>
+                <v-col cols="6">
+                  <v-select
+                    v-model="formData.context.temperature.unit"
+                    :items="['°C', '°F']"
+                    label="Temperature Unit"
+                    outlined
+                    :disabled="isPublished"
+                  />
+                </v-col>
+                <v-col cols="12">
+                  <v-text-field
+                    v-model.number="formData.context.brightness"
+                    label="Brightness (Lux)"
+                    type="number"
+                    outlined
+                    :disabled="isPublished"
+                  />
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
+
+          <!-- Equipment -->
+          <v-card class="pa-4 mb-4" outlined>
+            <v-card-title>Equipment</v-card-title>
+            <v-card-text>
+              <v-select
+                v-model="formData.equipment.channels"
+                :items="['mono', 'stereo', 'more than 2']"
+                label="Channels"
+                outlined
+                class="mb-4"
+                :disabled="isPublished"
+              />
+              <v-select
+                v-model="formData.equipment.sound_isolation"
+                :items="['soundproof room', 'soundproof cage', 'no specific sound isolation']"
+                label="Sound Isolation"
+                outlined
+                class="mb-4"
+                :disabled="isPublished"
+              />
+              <!-- soundcards -->
+              <v-card outlined class="pa-3 mb-5">
+                <v-card-subtitle class="mb-2">Soundcards</v-card-subtitle>
+
+                <div
+                  class="chip-list d-flex flex-wrap align-center"
+                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                >
+                  <!-- Chips -->
+                  <v-chip
+                    v-for="item in soundcardsDisplay"
+                    :key="item.id"
+                    variant="outlined"
+                    closable
+                    @click:close="removeHardware('soundcards', item.id)"
+                    class="ma-1"
+                  >
+                    {{ item.label }}
+                  </v-chip>
+
+                  <!-- Clear All -->
+                  <v-chip
+                    v-if="soundcardsDisplay.length > 0"
+                    color="primary"
+                    variant="outlined"
+                    class="ma-1"
+                    @click="clearHardware('soundcards')"
+                  >
+                    <v-icon start>mdi-close</v-icon> Clear All
+                  </v-chip>
+
+                  <!-- Add -->
+                  <v-chip
+                    color="primary"
+                    variant="flat"
+                    class="ma-1"
+                    @click="openHardwareSelectionModal('soundcard', 'soundcards')"
+                  >
+                    <v-icon start>mdi-plus</v-icon> Select
+                  </v-chip>
+                </div>
+              </v-card>
+
+              <!-- microphones -->
+              <v-card outlined class="pa-3 mb-5">
+                <v-card-subtitle class="mb-2">Microphones</v-card-subtitle>
+
+                <div
+                  class="chip-list d-flex flex-wrap align-center"
+                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                >
+                  <v-chip
+                    v-for="item in microphonesDisplay"
+                    :key="item.id"
+                    variant="outlined"
+                    closable
+                    @click:close="removeHardware('microphones', item.id)"
+                    class="ma-1"
+                  >
+                    {{ item.label }}
+                  </v-chip>
+
+                  <v-chip
+                    v-if="microphonesDisplay.length > 0"
+                    color="primary"
+                    variant="outlined"
+                    class="ma-1"
+                    @click="clearHardware('microphones')"
+                  >
+                    <v-icon start>mdi-close</v-icon> Clear All
+                  </v-chip>
+
+                  <v-chip
+                    color="primary"
+                    variant="flat"
+                    class="ma-1"
+                    @click="openHardwareSelectionModal('microphone', 'microphones')"
+                  >
+                    <v-icon start>mdi-plus</v-icon> Select
+                  </v-chip>
+                </div>
+              </v-card>
+
+              <!-- amplifiers -->
+              <v-card outlined class="pa-3 mb-5">
+                <v-card-subtitle class="mb-2">Amplifiers</v-card-subtitle>
+
+                <div
+                  class="chip-list d-flex flex-wrap align-center"
+                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                >
+                  <v-chip
+                    v-for="item in amplifiersDisplay"
+                    :key="item.id"
+                    variant="outlined"
+                    closable
+                    @click:close="removeHardware('amplifiers', item.id)"
+                    class="ma-1"
+                  >
+                    {{ item.label }}
+                  </v-chip>
+
+                  <v-chip
+                    v-if="amplifiersDisplay.length > 0"
+                    color="primary"
+                    variant="outlined"
+                    class="ma-1"
+                    @click="clearHardware('amplifiers')"
+                  >
+                    <v-icon start>mdi-close</v-icon> Clear All
+                  </v-chip>
+
+                  <v-chip
+                    color="primary"
+                    variant="flat"
+                    class="ma-1"
+                    @click="openHardwareSelectionModal('amplifier', 'amplifiers')"
+                  >
+                    <v-icon start>mdi-plus</v-icon> Select
+                  </v-chip>
+                </div>
+              </v-card>
+
+              <!-- speakers -->
+              <v-card outlined class="pa-3 mb-5">
+                <v-card-subtitle class="mb-2">Speakers</v-card-subtitle>
+
+                <div
+                  class="chip-list d-flex flex-wrap align-center"
+                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                >
+                  <v-chip
+                    v-for="item in speakersDisplay"
+                    :key="item.id"
+                    variant="outlined"
+                    closable
+                    @click:close="removeHardware('speakers', item.id)"
+                    class="ma-1"
+                  >
+                    {{ item.label }}
+                  </v-chip>
+
+                  <v-chip
+                    v-if="speakersDisplay.length > 0"
+                    color="primary"
+                    variant="outlined"
+                    class="ma-1"
+                    @click="clearHardware('speakers')"
+                  >
+                    <v-icon start>mdi-close</v-icon> Clear All
+                  </v-chip>
+
+                  <v-chip
+                    color="primary"
+                    variant="flat"
+                    class="ma-1"
+                    @click="openHardwareSelectionModal('speaker', 'speakers')"
+                  >
+                    <v-icon start>mdi-plus</v-icon> Select
+                  </v-chip>
+                </div>
+              </v-card>
+
+              <!-- acquisition software -->
+              <v-card outlined class="pa-3 mb-5">
+                <v-card-subtitle class="mb-2">Acquisition Software Versions</v-card-subtitle>
+
+                <div
+                  class="chip-list d-flex flex-wrap align-center"
+                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                >
+                  <v-chip
+                    v-for="soft in acquisitionSoftwareDisplay"
+                    :key="soft.id"
+                    variant="outlined"
+                    closable
+                    @click:close="removeSoftware(soft.id)"
+                    class="ma-1"
+                  >
+                    {{ soft.label }}
+                  </v-chip>
+
+                  <v-chip
+                    v-if="acquisitionSoftwareDisplay.length > 0"
+                    color="primary"
+                    variant="outlined"
+                    class="ma-1"
+                    @click="clearSoftware"
+                  >
+                    <v-icon start>mdi-close</v-icon> Clear All
+                  </v-chip>
+
+                  <v-chip
+                    color="primary"
+                    variant="flat"
+                    class="ma-1"
+                    @click="showSoftwareSelectionModal = true"
+                  >
+                    <v-icon start>mdi-plus</v-icon> Select
+                  </v-chip>
+                </div>
+              </v-card>
+
+              <StudySelectionModal
+                v-model="showStudySelectionModal"
+                :selectedStudies="formData.studies"
+                @update:selectedStudies="(newIds: number[]) => (formData.studies = newIds)"
+              />
+
+              <HardwareSelectionModal
+                v-model="showHardwareSelectionModal"
+                :hardware-type="hardwareTypeForSelection"
+                :selectedHardwareIds="selectedHardwareList"
+                @update:selectedHardwareIds="
+                  updateSelectedHardwareIds(currentHardwareCategory, $event)
+                "
+              />
+
+              <SoftwareSelectionModal
+                v-model="showSoftwareSelectionModal"
+                :selectedSoftwareVersions="formData.equipment.acquisition_software"
+                @update:selectedSoftwareVersions="onUpdateSelectedSoftwareVersions"
+              />
+            </v-card-text>
+          </v-card>
+        </v-form>
+      </v-card-text>
+    </v-card>
+
+    <!-- Session selection modal (modal handles its own pagination/search using the store) -->
+    <SelectSessionModal v-model="showSessionSelectModal" @selected="onSessionSelected" />
+
+    <StudyModal v-model="newStudyDialog" @saved="fetchSelectableData" />
+
+    <!-- Hardware modals -->
+    <HardwareModal
+      v-model="newHardwareDialog"
+      :hardware-type="hardwareTypeForModal"
+      @saved="fetchSelectableData"
+    />
+
+    <HardwareModal
+      v-model="editHardwareDialog"
+      :hardware-id="editHardwareId"
+      :hardware-type="hardwareTypeForModal"
+      @saved="fetchSelectableData"
+    />
+
+    <!-- Labs -->
+    <LaboratoryModal v-model="newLabDialog" @saved="fetchSelectableData" />
+    <LaboratoryModal v-model="editLabDialog" :edit-id="editLabId" @saved="fetchSelectableData" />
+
+    <!-- Snackbar -->
+    <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000">
+      {{ snackbarMessage }}
+    </v-snackbar>
+  </v-container>
+</template>
+
+<style scoped>
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip-spacing {
+  margin-right: 2px;
+  margin-bottom: 2px;
+}
+/* Status card */
+.status-card {
+  position: relative;
+  background-color: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 10px;
+  text-align: center;
+}
+
+.status-card.blue {
+  background-color: rgba(25, 118, 210, 0.2);
+}
+.status-card.orange {
+  background-color: rgba(255, 152, 0, 0.2);
+}
+
+.status-card.blue.active {
+  background-color: #1976d2;
+  color: white;
+}
+
+.status-card.orange.active {
+  background-color: #ff9800;
+  color: white;
+}
+
+.status-text p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: inherit;
+}
+
+.status-card.active::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 12px solid transparent;
+  border-bottom: 12px solid transparent;
+}
+
+.status-card.blue.active::after {
+  border-left: 12px solid #1976d2;
+  right: -12px;
+}
+
+.status-card.orange.active::after {
+  border-right: 12px solid #ff9800;
+  left: -12px;
+}
+
+.toggle-switch {
+  align-self: center;
+}
+</style>

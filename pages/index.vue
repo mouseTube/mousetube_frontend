@@ -34,7 +34,7 @@ const getNumberOfFiles = () => {
     })
     .catch((error) => {
       //eslint-disable-next-line no-console
-      console.log(JSON.stringify(error));
+      console.error(JSON.stringify(error));
     });
 };
 

@@ -329,20 +329,18 @@ onBeforeUnmount(() => {
                 itemsPerPageOptions: [],
               }"
             >
-              <!-- Exemple : colonne nom avec lien -->
               <template #item.name="{ item }">
                 <span style="white-space: nowrap">{{
                   item.name || item.link.split('/').pop()
                 }}</span>
               </template>
 
-              <!-- Auteur -->
+              <!-- Author -->
               <template #item.author="{ item }">
                 {{ item.recording_session?.protocol?.user?.first_name_user }}
                 {{ item.recording_session?.protocol?.user?.name_user }}
               </template>
 
-              <!-- Lien de téléchargement -->
               <template #item.downloads="{ item }">
                 <v-btn
                   v-if="item.is_valid_link"
@@ -418,7 +416,6 @@ onBeforeUnmount(() => {
                               padding: 4px;
                               border-radius: 10px;
                               object-fit: contain;
-                              /* or: contain, none, scale-down */
                               object-position: center;
                               width: 100%;
                               height: 100%;

@@ -7,7 +7,16 @@ PHENOMIN, CNRS UMR7104, INSERM U964, Université de Strasbourg
 Code under GPL v3.0 licence
 -->
 <script setup>
-import { Users, AudioLines, MonitorCog, Mic, Warehouse, Database, User } from 'lucide-vue-next';
+import {
+  Users,
+  AudioLines,
+  MonitorCog,
+  Mic,
+  Warehouse,
+  Database,
+  User,
+  Plus,
+} from 'lucide-vue-next';
 import { ref } from 'vue';
 import { useDisplay } from 'vuetify';
 import { useAuth } from '@/composables/useAuth';
@@ -26,6 +35,8 @@ const links = [
   { to: '/dataset', label: 'Dataset', icon: Database },
   { to: '/team', label: 'Team', icon: Users },
 ];
+
+const isMenuOpen = ref(false);
 
 const handleLogout = async () => {
   logout();
@@ -58,7 +69,7 @@ const handleLogout = async () => {
         </nuxt-link>
       </v-col>
 
-      <!-- Liens navbar (hors mobile) -->
+      <!-- Navigation links -->
       <v-col cols="auto" class="nav-links d-flex justify-center align-center" v-if="!smAndDown">
         <template v-for="link in links" :key="link.to">
           <nuxt-link :to="link.to" class="nav-item px-2" exact-active-class="active-link">
@@ -73,6 +84,45 @@ const handleLogout = async () => {
       <!-- Login button -->
       <v-col cols="auto" v-if="!smAndDown" class="d-flex align-center flex-nowrap">
         <template v-if="currentUser">
+          <v-menu v-model="isMenuOpen" offset-y>
+            <template #activator="{ props }">
+              <v-btn
+                color="white"
+                variant="outlined"
+                size="small"
+                v-bind="props"
+                class="mr-4 nav-icon audio-hover-icon nav-item"
+              >
+                <Plus
+                  size="20"
+                  class="nav-icon audio-hover-icon"
+                  :class="{ 'rotate-icon': isMenuOpen }"
+                />
+                Add
+              </v-btn>
+            </template>
+
+            <v-list bg-color="black" class="text-white">
+              <v-list-item @click="() => router.push('/vocalization/create')">
+                <template #prepend>
+                  <AudioLines size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
+                </template>
+                <v-list-item-title>Vocalization</v-list-item-title>
+              </v-list-item>
+              <v-list-item @click="() => router.push('/software/create')">
+                <template #prepend>
+                  <MonitorCog size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
+                </template>
+                <v-list-item-title>Software</v-list-item-title>
+              </v-list-item>
+              <v-list-item @click="() => router.push('/hardware/create')">
+                <template #prepend>
+                  <Mic size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
+                </template>
+                <v-list-item-title>Hardware</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
           <nuxt-link
             to="/account/details"
             class="nuxt-link nav-item px-2"
@@ -125,6 +175,57 @@ const handleLogout = async () => {
             <v-list-item-title>{{ link.label }}</v-list-item-title>
           </v-list-item>
         </template>
+        <v-list-group v-if="currentUser">
+          <template #activator="{ props, isOpen }">
+            <v-list-item v-bind="props">
+              <template #prepend>
+                <Plus
+                  size="20"
+                  class="me-3 nav-icon audio-hover-icon"
+                  :class="{ 'rotate-icon': isMenuOpen }"
+                />
+              </template>
+              <v-list-item-title>Add</v-list-item-title>
+            </v-list-item>
+          </template>
+
+          <v-list-item
+            class="nuxt-link nav-item px-2"
+            @click="
+              drawer = false;
+              router.push('/files/create');
+            "
+          >
+            <template #prepend>
+              <AudioLines size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
+            </template>
+            <v-list-item-title>Vocalization</v-list-item-title>
+          </v-list-item>
+
+          <v-list-item
+            @click="
+              drawer = false;
+              router.push('/softwares/create');
+            "
+          >
+            <template #prepend>
+              <MonitorCog size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
+            </template>
+            <v-list-item-title>Software</v-list-item-title>
+          </v-list-item>
+
+          <v-list-item
+            @click="
+              drawer = false;
+              router.push('/hardwares/create');
+            "
+          >
+            <template #prepend>
+              <Mic size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
+            </template>
+            <v-list-item-title>Hardware</v-list-item-title>
+          </v-list-item>
+        </v-list-group>
       </v-list>
 
       <v-spacer />
