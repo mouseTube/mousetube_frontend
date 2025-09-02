@@ -5,6 +5,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useProtocolStore, type Protocol } from '@/stores/protocol';
 import { useRecordingSessionStore } from '@/stores/recordingSession';
+import { type Species, useSpeciesStore } from '@/stores/species';
 import ProtocolSelectModal from '@/components/modals/ProtocolSelectModal.vue';
 
 ////////////////////////////////
@@ -24,6 +25,7 @@ const emit = defineEmits<{
 ////////////////////////////////
 const protocolStore = useProtocolStore();
 const recordingSessionStore = useRecordingSessionStore();
+const speciesStore = useSpeciesStore();
 
 ////////////////////////////////
 // STATE
@@ -37,9 +39,9 @@ const initialFormData = ref('');
 const formData = ref({
   name: '',
   description: '',
-  animals: { sex: '', age: '', housing: '', species: '' },
+  animals: { sex: '', age: '', housing: '', species: 1 },
   context: {
-    'number of animals': null as number | null,
+    number_of_animals: null as number | null,
     duration: '',
     cage: '',
     bedding: '',
@@ -61,19 +63,15 @@ const selectItems = computed(() => {
     { id: 'new', name: 'Create New Protocol' },
     { id: 'select', name: 'Select Existing Protocol' },
   ];
-  // Ajouter uniquement le protocole sélectionné si existant et différent de new/select
-  if (selectedProtocolObject.value) {
+  if (selectedProtocolObject.value && typeof selectedProtocolObject.value.id === 'number') {
     items.push({
       id: selectedProtocolObject.value.id,
       name: selectedProtocolObject.value.name,
     });
   }
+
   return items;
 });
-
-const protocolsLoaded = computed(
-  () => !protocolStore.loading && protocolStore.protocols.results.length > 0
-);
 
 ////////////////////////////////
 // FUNCTIONS
@@ -82,9 +80,9 @@ function resetForm() {
   formData.value = {
     name: '',
     description: '',
-    animals: { sex: '', age: '', housing: '', species: '' },
+    animals: { sex: '', age: '', housing: '', species: 1 },
     context: {
-      'number of animals': null,
+      number_of_animals: null,
       duration: '',
       cage: '',
       bedding: '',
@@ -94,7 +92,7 @@ function resetForm() {
     },
   };
   selectedProtocolObject.value = null;
-  initialFormData.value = JSON.stringify(formData.value);
+  initialFormData.value = snapshotFormData(formData.value);
   selectedProtocolIdRef.value = 'new';
   emit('update:selectedProtocolId', null);
 }
@@ -107,13 +105,11 @@ function mapProtocolToFormData(protocol: Protocol) {
       sex: (protocol as any).animals_sex ?? protocol.animals?.sex ?? '',
       age: (protocol as any).animals_age ?? protocol.animals?.age ?? '',
       housing: (protocol as any).animals_housing ?? protocol.animals?.housing ?? '',
-      species: (protocol as any).animals_species ?? protocol.animals?.species ?? '',
+      species: (protocol as any).animals_species?.id ?? protocol.animals?.species?.id ?? null,
     },
     context: {
-      'number of animals':
-        (protocol as any).context_number_of_animals ??
-        protocol.context?.['number of animals'] ??
-        null,
+      number_of_animals:
+        (protocol as any).context_number_of_animals ?? protocol.context?.number_of_animals ?? null,
       duration: (protocol as any).context_duration ?? protocol.context?.duration ?? '',
       cage: (protocol as any).context_cage ?? protocol.context?.cage ?? '',
       bedding: (protocol as any).context_bedding ?? protocol.context?.bedding ?? '',
@@ -136,7 +132,7 @@ async function loadProtocol(protocolId: number) {
     selectedProtocolObject.value = protocol;
     selectedProtocolIdRef.value = protocol.id;
     formData.value = mapProtocolToFormData(protocol);
-    initialFormData.value = JSON.stringify(formData.value);
+    initialFormData.value = snapshotFormData(formData.value);
   } else {
     resetForm();
   }
@@ -146,7 +142,7 @@ function onProtocolSelected(protocol: Protocol) {
   selectedProtocolObject.value = protocol;
   selectedProtocolIdRef.value = protocol.id;
   formData.value = mapProtocolToFormData(protocol);
-  initialFormData.value = JSON.stringify(formData.value);
+  initialFormData.value = snapshotFormData(formData.value);
   showProtocolSelectModal.value = false;
 }
 
@@ -163,26 +159,38 @@ function handleProtocolSelection(newId: 'new' | 'select' | number) {
 async function onSubmit() {
   try {
     let protocolId: number;
+    const payload = {
+      ...formData.value,
+      animals: {
+        ...formData.value.animals,
+        species: formData.value.animals.species
+          ? speciesStore.getSpeciesById(formData.value.animals.species)
+          : null,
+      },
+    };
 
     if (selectedProtocolIdRef.value !== 'new' && typeof selectedProtocolIdRef.value === 'number') {
-      const updated = await protocolStore.updateProtocol(
-        selectedProtocolIdRef.value,
-        formData.value
-      );
+      const updated = await protocolStore.updateProtocol(selectedProtocolIdRef.value, payload);
       protocolId = updated.id;
+      selectedProtocolObject.value = updated;
+      formData.value = mapProtocolToFormData(updated);
+      initialFormData.value = snapshotFormData(formData.value);
+      console.log('Updated protocol from API:', updated);
       snackbarMessage.value = 'Protocol updated successfully.';
       snackbarColor.value = 'success';
     } else {
-      const created = await protocolStore.createProtocol(formData.value);
+      const created = await protocolStore.createProtocol(payload);
       protocolId = created.id;
+      selectedProtocolObject.value = created;
       selectedProtocolIdRef.value = created.id;
+      formData.value = mapProtocolToFormData(created);
+      initialFormData.value = snapshotFormData(formData.value);
       snackbarMessage.value = 'Protocol created successfully.';
       snackbarColor.value = 'success';
     }
 
     snackbar.value = true;
-    await protocolStore.fetchAllProtocols();
-
+    initialFormData.value = snapshotFormData(formData.value);
     if (props.selectedRecordingSessionId !== null) {
       await recordingSessionStore.updateSessionProtocol(
         props.selectedRecordingSessionId,
@@ -190,13 +198,16 @@ async function onSubmit() {
       );
       snackbarMessage.value += ' Linked to recording session.';
     }
-    initialFormData.value = JSON.stringify(formData.value);
   } catch (err: any) {
     snackbarMessage.value = 'Error saving protocol.';
     snackbarColor.value = 'error';
     snackbar.value = true;
     console.error(err);
   }
+}
+
+function snapshotFormData(data: typeof formData.value) {
+  return JSON.stringify(JSON.parse(JSON.stringify(data)));
 }
 
 ////////////////////////////////
@@ -227,7 +238,7 @@ watch(
 watch(
   formData,
   (newVal) => {
-    isSaveEnabled.value = JSON.stringify(newVal) !== initialFormData.value;
+    isSaveEnabled.value = snapshotFormData(newVal) !== initialFormData.value;
   },
   { deep: true }
 );
@@ -236,6 +247,13 @@ watch(
 // ON MOUNT
 ////////////////////////////////
 onMounted(async () => {
+  await speciesStore.fetchSpecies();
+  if (!props.selectedProtocolId && !selectedProtocolObject.value) {
+    const defaultSpecies = speciesStore.getSpeciesById(1);
+    if (defaultSpecies) {
+      formData.value.animals.species = defaultSpecies.id;
+    }
+  }
   await protocolStore.fetchAllProtocols();
 
   if (props.selectedProtocolId) {
@@ -304,11 +322,14 @@ onMounted(async () => {
               outlined
               class="mb-4"
             />
-            <v-text-field
+            <v-select
               v-model="formData.animals.species"
+              :items="speciesStore.species"
+              item-title="name"
+              item-value="id"
               label="Species"
               outlined
-              class="mb-4"
+              dense
             />
           </v-card-text>
         </v-card>
@@ -318,7 +339,7 @@ onMounted(async () => {
           <v-card-title>Experimental Context</v-card-title>
           <v-card-text>
             <v-text-field
-              v-model="formData.context['number of animals']"
+              v-model="formData.context.number_of_animals"
               label="Number of Animals"
               type="number"
               outlined

@@ -1,23 +1,56 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import axios, { type AxiosResponse } from 'axios'
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl'
+
+export interface Species {
+  id: number
+  name: string
+  created_at?: string | null
+  modified_at?: string | null
+  created_by?: number | null
+}
+
+export interface SpeciesListResponse {
+  count: number
+  next: string | null
+  previous: string | null
+  results: Species[]
+}
 
 export const useSpeciesStore = defineStore('species', {
   state: () => ({
-    species: [] as any[],
+    species: [] as Species[],
     loading: false,
     error: null as string | null,
+    count: 0,
+    next: null as string | null,
+    previous: null as string | null,
   }),
+
   actions: {
     async fetchSpecies() {
       this.loading = true
       this.error = null
       try {
         const apiBaseUrl = useApiBaseUrl()
-        const res = await axios.get(`${apiBaseUrl}/species/`)
-        this.species = res.data
+        let fetchUrl: string | null = `${apiBaseUrl}/species/`
+        const allSpecies: Species[] = []
+
+        while (fetchUrl) {
+          const res: AxiosResponse<SpeciesListResponse> = await axios.get(fetchUrl)
+          const data: SpeciesListResponse = res.data
+          allSpecies.push(...data.results)
+          fetchUrl = data.next
+        }
+
+        this.species = allSpecies
+        this.count = allSpecies.length
+        this.next = null
+        this.previous = null
+        console.log('Fetched species:', this.species)
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch species'
+        this.species = []
       } finally {
         this.loading = false
       }
@@ -26,32 +59,5 @@ export const useSpeciesStore = defineStore('species', {
     getSpeciesById(id: number) {
       return this.species.find(s => s.id === id) || null
     },
-
-    async createSpecies(data: any) {
-      this.error = null
-      try {
-        const apiBaseUrl = useApiBaseUrl()
-        const res = await axios.post(`${apiBaseUrl}/species/`, data)
-        this.species.push(res.data)
-        return res.data
-      } catch (err: any) {
-        this.error = err.message || 'Failed to create species'
-        throw err
-      }
-    },
-
-    async updateSpecies(id: number, data: any) {
-      this.error = null
-      try {
-        const apiBaseUrl = useApiBaseUrl()
-        const res = await axios.put(`${apiBaseUrl}/species/${id}/`, data)
-        const index = this.species.findIndex(s => s.id === id)
-        if (index !== -1) this.species[index] = res.data
-        return res.data
-      } catch (err: any) {
-        this.error = err.message || 'Failed to update species'
-        throw err
-      }
-    },
-  }
+  },
 })

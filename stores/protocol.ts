@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl'
+import type { Species } from './species'
 
 export interface Protocol {
   id: number
@@ -10,10 +11,10 @@ export interface Protocol {
     sex: string
     age: string
     housing: string
-    species: string
+    species: Species | null
   }
   context: {
-    'number of animals': number | null
+    number_of_animals?: number | null
     duration: string
     cage: string
     bedding: string
@@ -37,34 +38,36 @@ export interface ProtocolListResponse {
 }
 
 // --- MAPPING FLAT ↔ NESTED ---
-function flatToNested(flat: any): Protocol {
+export function flatToNested(flat: any): Protocol {
   return {
     id: flat.id,
     name: flat.name,
-    description: flat.description ?? '',
-    animals: ['sex', 'age', 'housing', 'species'].reduce((acc, key) => {
-      acc[key] = flat[`animals_${key}`] ?? ''
+    description: flat.description ?? "",
+    animals: ["sex", "age", "housing", "species"].reduce((acc, key) => {
+      acc[key] = flat[`animals_${key}`] ?? ""
       return acc
     }, {} as any),
     context: [
-      'number_of_animals',
-      'duration',
-      'cage',
-      'bedding',
-      'light_cycle',
-      'temperature_value',
-      'temperature_unit',
-      'brightness',
+      "number_of_animals",
+      "duration",
+      "cage",
+      "bedding",
+      "light_cycle",
+      "temperature_value",
+      "temperature_unit",
+      "brightness",
     ].reduce((acc, key) => {
-      if (key.startsWith('temperature')) {
+      if (key.startsWith("temperature")) {
+        // on regroupe temperature_value + temperature_unit dans context.temperature
         acc.temperature = acc.temperature || {}
-        acc.temperature[key.replace('temperature_', '')] =
-          flat[`context_${key}`] ?? ''
+        acc.temperature[key.replace("temperature_", "")] =
+          flat[`context_${key}`] ?? ""
       } else {
-        acc[key.replace('_', ' ')] = flat[`context_${key}`] ?? ''
+        acc[key] = flat[`context_${key}`] ?? ""
       }
       return acc
     }, {} as any),
+
     created_by: flat.created_by ?? null,
     created_at: flat.created_at ?? null,
     modified_at: flat.modified_at ?? null,
@@ -78,8 +81,12 @@ function nestedToFlat(nested: Protocol | Omit<Protocol, 'id'>) {
     animals_sex: nested.animals?.sex ?? '',
     animals_age: nested.animals?.age ?? '',
     animals_housing: nested.animals?.housing ?? '',
-    animals_species: nested.animals?.species ?? '',
-    context_number_of_animals: nested.context?.['number of animals'] ?? null,
+    animals_species_id: nested.animals.species
+    ? typeof nested.animals.species === 'object'
+      ? nested.animals.species.id
+      : nested.animals.species
+    : null,
+    context_number_of_animals: nested.context?.number_of_animals ?? null,
     context_duration: nested.context?.duration ?? '',
     context_cage: nested.context?.cage ?? '',
     context_bedding: nested.context?.bedding ?? '',
@@ -243,7 +250,7 @@ export const useProtocolStore = defineStore('protocol', {
             housing: original.animals?.housing ?? null,
           },
           context: {
-            'number of animals': original.context?.['number of animals'] ?? null,
+            number_of_animals: original.context?.number_of_animals ?? null,
             duration: original.context?.duration ?? null,
             cage: original.context?.cage ?? null,
             bedding: original.context?.bedding ?? null,

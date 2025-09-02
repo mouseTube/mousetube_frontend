@@ -180,7 +180,7 @@ function close() {
 </script>
 
 <template>
-  <v-dialog :model-value="props.modelValue" max-width="1200px" @click:outside="close">
+  <v-dialog :model-value="props.modelValue" max-width="1300px" @click:outside="close">
     <v-card class="pa-3">
       <v-card-title class="d-flex align-center justify-space-between gap-4">
         <span class="text-h6 font-weight-bold">Protocols</span>
@@ -229,7 +229,7 @@ function close() {
               </td>
               <td>
                 <span v-if="item.animals?.species">
-                  {{ item.animals.species }} ({{ item.animals.sex || '—' }},
+                  {{ item.animals.species.name }} ({{ item.animals.sex || '—' }},
                   {{ item.animals.age || '—' }})
                 </span>
                 <span v-else>—</span>
