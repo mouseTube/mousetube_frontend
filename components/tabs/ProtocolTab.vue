@@ -46,7 +46,7 @@ const formData = ref({
     cage: '',
     bedding: '',
     light_cycle: '',
-    temperature: { value: '' as string | number, unit: '' },
+    temperature: { value: '' as string | number | null, unit: '' },
     brightness: null as number | null,
   },
 });
@@ -175,7 +175,6 @@ async function onSubmit() {
       selectedProtocolObject.value = updated;
       formData.value = mapProtocolToFormData(updated);
       initialFormData.value = snapshotFormData(formData.value);
-      console.log('Updated protocol from API:', updated);
       snackbarMessage.value = 'Protocol updated successfully.';
       snackbarColor.value = 'success';
     } else {
@@ -250,19 +249,26 @@ onMounted(async () => {
   await speciesStore.fetchSpecies();
   if (!props.selectedProtocolId && !selectedProtocolObject.value) {
     const defaultSpecies = speciesStore.getSpeciesById(1);
-    if (defaultSpecies) {
-      formData.value.animals.species = defaultSpecies.id;
-    }
+    if (defaultSpecies) formData.value.animals.species = defaultSpecies.id;
   }
-  await protocolStore.fetchAllProtocols();
-
+  let protocolIdToLoad: number | null = null;
   if (props.selectedProtocolId) {
-    await loadProtocol(props.selectedProtocolId);
+    protocolIdToLoad = props.selectedProtocolId;
   } else if (props.selectedRecordingSessionId) {
     const session = await recordingSessionStore.getSessionById(props.selectedRecordingSessionId);
-    if (session?.protocol) {
-      await loadProtocol(session.protocol.id);
+    protocolIdToLoad = session?.protocol?.id ?? null;
+  }
+  if (protocolIdToLoad) {
+    const protocol = await protocolStore.getProtocolById(protocolIdToLoad);
+    if (protocol) {
+      selectedProtocolObject.value = protocol;
+      selectedProtocolIdRef.value = protocol.id;
+      formData.value = mapProtocolToFormData(protocol);
+      initialFormData.value = snapshotFormData(formData.value);
+    } else {
+      resetForm();
     }
+  } else {
   }
 });
 </script>
@@ -344,6 +350,10 @@ onMounted(async () => {
               type="number"
               outlined
               class="mb-4"
+              @input="
+                (val: string) =>
+                  (formData.context.number_of_animals = val === '' ? null : Number(val))
+              "
             />
             <v-select
               v-model="formData.context.duration"
@@ -380,6 +390,10 @@ onMounted(async () => {
                   label="Temperature Value"
                   type="number"
                   outlined
+                  @input="
+                    (val: string) =>
+                      (formData.context.temperature.value = val === '' ? null : Number(val))
+                  "
                 />
               </v-col>
               <v-col cols="6">
@@ -397,6 +411,9 @@ onMounted(async () => {
               type="number"
               outlined
               class="mb-4"
+              @input="
+                (val: string) => (formData.context.brightness = val === '' ? null : Number(val))
+              "
             />
           </v-card-text>
         </v-card>

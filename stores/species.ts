@@ -47,7 +47,6 @@ export const useSpeciesStore = defineStore('species', {
         this.count = allSpecies.length
         this.next = null
         this.previous = null
-        console.log('Fetched species:', this.species)
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch species'
         this.species = []

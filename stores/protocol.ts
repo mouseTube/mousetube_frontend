@@ -20,7 +20,7 @@ export interface Protocol {
     bedding: string
     light_cycle: string
     temperature: {
-      value: number | string
+      value: number | string | null
       unit: string
     }
     brightness: number | null
@@ -47,27 +47,27 @@ export function flatToNested(flat: any): Protocol {
       acc[key] = flat[`animals_${key}`] ?? ""
       return acc
     }, {} as any),
-    context: [
-      "number_of_animals",
-      "duration",
-      "cage",
-      "bedding",
-      "light_cycle",
-      "temperature_value",
-      "temperature_unit",
-      "brightness",
-    ].reduce((acc, key) => {
-      if (key.startsWith("temperature")) {
-        // on regroupe temperature_value + temperature_unit dans context.temperature
-        acc.temperature = acc.temperature || {}
-        acc.temperature[key.replace("temperature_", "")] =
-          flat[`context_${key}`] ?? ""
-      } else {
-        acc[key] = flat[`context_${key}`] ?? ""
-      }
-      return acc
-    }, {} as any),
-
+    context: {
+      number_of_animals:
+        flat.context_number_of_animals != null
+          ? Number(flat.context_number_of_animals)
+          : null,
+      duration: flat.context_duration ?? "",
+      cage: flat.context_cage ?? "",
+      bedding: flat.context_bedding ?? "",
+      light_cycle: flat.context_light_cycle ?? "",
+      temperature: {
+        value:
+          flat.context_temperature_value != null
+            ? Number(flat.context_temperature_value)
+            : null,
+        unit: flat.context_temperature_unit ?? "",
+      },
+      brightness:
+        flat.context_brightness != null
+          ? Number(flat.context_brightness)
+          : null,
+    },
     created_by: flat.created_by ?? null,
     created_at: flat.created_at ?? null,
     modified_at: flat.modified_at ?? null,
@@ -82,11 +82,14 @@ function nestedToFlat(nested: Protocol | Omit<Protocol, 'id'>) {
     animals_age: nested.animals?.age ?? '',
     animals_housing: nested.animals?.housing ?? '',
     animals_species_id: nested.animals.species
-    ? typeof nested.animals.species === 'object'
-      ? nested.animals.species.id
-      : nested.animals.species
-    : null,
-    context_number_of_animals: nested.context?.number_of_animals ?? null,
+      ? typeof nested.animals.species === 'object'
+        ? nested.animals.species.id
+        : nested.animals.species
+      : null,
+    context_number_of_animals:
+      nested.context?.number_of_animals != null
+        ? Number(nested.context.number_of_animals)
+        : null,
     context_duration: nested.context?.duration ?? '',
     context_cage: nested.context?.cage ?? '',
     context_bedding: nested.context?.bedding ?? '',
@@ -168,8 +171,11 @@ export const useProtocolStore = defineStore('protocol', {
 
       if (!protocol) {
         try {
-          const response = await axios.get<Protocol>(`/api/protocols/${id}/`);
-          protocol = response.data;
+          const apiBaseUrl = useApiBaseUrl()
+          const response = await axios.get<Protocol>(`${apiBaseUrl}/protocol/${id}/`);
+          protocol = flatToNested(response.data);
+          this.protocols.results.push(protocol);
+          this.protocols.count = this.protocols.results.length;
         } catch (error) {
           console.error("Protocol not found", error);
           return null;
