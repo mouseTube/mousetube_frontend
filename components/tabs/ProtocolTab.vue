@@ -350,9 +350,8 @@ onMounted(async () => {
               type="number"
               outlined
               class="mb-4"
-              @input="
-                (val: string) =>
-                  (formData.context.number_of_animals = val === '' ? null : Number(val))
+              @update:modelValue="
+                (val) => (formData.context.number_of_animals = val === '' ? null : Number(val))
               "
             />
             <v-select
@@ -390,9 +389,8 @@ onMounted(async () => {
                   label="Temperature Value"
                   type="number"
                   outlined
-                  @input="
-                    (val: string) =>
-                      (formData.context.temperature.value = val === '' ? null : Number(val))
+                  @update:modelValue="
+                    (val) => (formData.context.temperature.value = val === '' ? null : Number(val))
                   "
                 />
               </v-col>
@@ -411,7 +409,7 @@ onMounted(async () => {
               type="number"
               outlined
               class="mb-4"
-              @input="
+              @update:modelValue="
                 (val: string) => (formData.context.brightness = val === '' ? null : Number(val))
               "
             />
