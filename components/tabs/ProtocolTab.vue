@@ -298,10 +298,25 @@ onMounted(async () => {
       </v-card-title>
 
       <v-card-text>
-        <v-text-field v-model="formData.name" outlined required class="mb-4">
-          <template #label>Protocol Name <span style="color: red">*</span></template>
+        <v-text-field
+          v-model="formData.name"
+          outlined
+          required
+          class="mb-4"
+          :rules="[(v) => !!v || 'Name is required']"
+        >
+          <template #label>Name <span style="color: red">*</span></template>
         </v-text-field>
-        <v-textarea v-model="formData.description" label="Description" outlined class="mb-4" />
+        <v-textarea
+          v-model="formData.description"
+          label="Description"
+          outlined
+          required
+          class="mb-4"
+          :rules="[(v) => !!v || 'Description is required']"
+        >
+          <template #label>Description <span style="color: red">*</span></template>
+        </v-textarea>
 
         <!-- Animal Information -->
         <v-card class="pa-4 mb-4" outlined>
