@@ -4,8 +4,7 @@
 ////////////////////////////////
 import { ref, computed, watch, onMounted } from 'vue';
 import { useProtocolStore, type Protocol } from '@/stores/protocol';
-import { useRecordingSessionStore } from '@/stores/recordingSession';
-import { type Species, useSpeciesStore } from '@/stores/species';
+import { type RecordingSession, useRecordingSessionStore } from '@/stores/recordingSession';
 import ProtocolSelectModal from '@/components/modals/ProtocolSelectModal.vue';
 
 ////////////////////////////////
@@ -25,7 +24,6 @@ const emit = defineEmits<{
 ////////////////////////////////
 const protocolStore = useProtocolStore();
 const recordingSessionStore = useRecordingSessionStore();
-const speciesStore = useSpeciesStore();
 
 ////////////////////////////////
 // STATE
@@ -39,7 +37,7 @@ const initialFormData = ref('');
 const formData = ref({
   name: '',
   description: '',
-  animals: { sex: '', age: '', housing: '', species: 1 },
+  animals: { sex: '', age: '', housing: '' },
   context: {
     number_of_animals: null as number | null,
     duration: '',
@@ -49,11 +47,13 @@ const formData = ref({
     temperature: { value: '' as string | number | null, unit: '' },
     brightness: null as number | null,
   },
+  status: 'draft' as 'draft' | 'awaiting validation' | 'validated' | null,
 });
 
 const snackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('');
+const session = ref<RecordingSession | null>(null);
 
 ////////////////////////////////
 // COMPUTED
@@ -73,6 +73,8 @@ const selectItems = computed(() => {
   return items;
 });
 
+const isValidated = computed(() => formData.value.status === 'validated');
+
 ////////////////////////////////
 // FUNCTIONS
 ////////////////////////////////
@@ -80,7 +82,7 @@ function resetForm() {
   formData.value = {
     name: '',
     description: '',
-    animals: { sex: '', age: '', housing: '', species: 1 },
+    animals: { sex: '', age: '', housing: '' },
     context: {
       number_of_animals: null,
       duration: '',
@@ -90,6 +92,7 @@ function resetForm() {
       temperature: { value: '', unit: '' },
       brightness: null,
     },
+    status: 'draft',
   };
   selectedProtocolObject.value = null;
   initialFormData.value = snapshotFormData(formData.value);
@@ -105,7 +108,6 @@ function mapProtocolToFormData(protocol: Protocol) {
       sex: (protocol as any).animals_sex ?? protocol.animals?.sex ?? '',
       age: (protocol as any).animals_age ?? protocol.animals?.age ?? '',
       housing: (protocol as any).animals_housing ?? protocol.animals?.housing ?? '',
-      species: (protocol as any).animals_species?.id ?? protocol.animals?.species?.id ?? null,
     },
     context: {
       number_of_animals:
@@ -122,6 +124,7 @@ function mapProtocolToFormData(protocol: Protocol) {
       },
       brightness: (protocol as any).context_brightness ?? protocol.context?.brightness ?? null,
     },
+    status: protocol.status ?? 'draft',
   };
 }
 
@@ -163,9 +166,6 @@ async function onSubmit() {
       ...formData.value,
       animals: {
         ...formData.value.animals,
-        species: formData.value.animals.species
-          ? speciesStore.getSpeciesById(formData.value.animals.species)
-          : null,
       },
     };
 
@@ -225,9 +225,10 @@ watch(
   () => props.selectedRecordingSessionId,
   async (newId) => {
     if (newId !== null) {
-      const session = await recordingSessionStore.getSessionById(newId);
-      if (session?.protocol) {
-        await loadProtocol(session.protocol.id);
+      const s = await recordingSessionStore.getSessionById(newId);
+      session.value = s;
+      if (session.value?.protocol) {
+        await loadProtocol(session.value.protocol.id);
       }
     }
   },
@@ -246,17 +247,13 @@ watch(
 // ON MOUNT
 ////////////////////////////////
 onMounted(async () => {
-  await speciesStore.fetchSpecies();
-  if (!props.selectedProtocolId && !selectedProtocolObject.value) {
-    const defaultSpecies = speciesStore.getSpeciesById(1);
-    if (defaultSpecies) formData.value.animals.species = defaultSpecies.id;
-  }
   let protocolIdToLoad: number | null = null;
   if (props.selectedProtocolId) {
     protocolIdToLoad = props.selectedProtocolId;
   } else if (props.selectedRecordingSessionId) {
-    const session = await recordingSessionStore.getSessionById(props.selectedRecordingSessionId);
-    protocolIdToLoad = session?.protocol?.id ?? null;
+    const s = await recordingSessionStore.getSessionById(props.selectedRecordingSessionId);
+    session.value = s;
+    protocolIdToLoad = session.value?.protocol?.id ?? null;
   }
   if (protocolIdToLoad) {
     const protocol = await protocolStore.getProtocolById(protocolIdToLoad);
@@ -285,15 +282,40 @@ onMounted(async () => {
       dense
       :value-comparator="(a, b) => a === b"
       @update:modelValue="handleProtocolSelection"
+      :disabled="isValidated && session?.status === 'published'"
     />
 
     <!-- Form Card -->
     <v-card class="pa-6" outlined>
       <v-card-title class="d-flex justify-space-between align-center mb-4">
-        <h3>Protocol Metadata</h3>
+        <div class="d-flex align-center" style="gap: 12px">
+          <h3 class="m-0">Protocol Metadata</h3>
+          <v-chip
+            :color="
+              formData.status === 'validated'
+                ? 'green'
+                : formData.status === 'awaiting validation'
+                  ? 'blue'
+                  : 'grey'
+            "
+            dark
+            small
+          >
+            {{ formData.status }}
+          </v-chip>
+        </div>
         <div>
-          <v-btn color="grey" variant="outlined" @click="resetForm" class="mr-2">Reset</v-btn>
-          <v-btn color="primary" @click="onSubmit" :disabled="!isSaveEnabled">Save</v-btn>
+          <v-btn
+            color="grey"
+            variant="outlined"
+            @click="resetForm"
+            class="mr-2"
+            :disabled="isValidated"
+            >Reset</v-btn
+          >
+          <v-btn color="primary" @click="onSubmit" :disabled="!isSaveEnabled || isValidated"
+            >Save</v-btn
+          >
         </div>
       </v-card-title>
 
@@ -304,19 +326,10 @@ onMounted(async () => {
           required
           class="mb-4"
           :rules="[(v) => !!v || 'Name is required']"
+          :disabled="isValidated"
         >
           <template #label>Name <span style="color: red">*</span></template>
         </v-text-field>
-        <v-textarea
-          v-model="formData.description"
-          label="Description"
-          outlined
-          required
-          class="mb-4"
-          :rules="[(v) => !!v || 'Description is required']"
-        >
-          <template #label>Description <span style="color: red">*</span></template>
-        </v-textarea>
 
         <!-- Animal Information -->
         <v-card class="pa-4 mb-4" outlined>
@@ -328,30 +341,33 @@ onMounted(async () => {
               label="Sex"
               outlined
               class="mb-4"
-            />
+              :rules="[(v) => !!v || 'Sex is required']"
+              :disabled="isValidated"
+            >
+              <template #label>Sex <span style="color: red">*</span></template>
+            </v-select>
             <v-select
               v-model="formData.animals.age"
               :items="['pup', 'juvenile', 'adult']"
               label="Age"
               outlined
               class="mb-4"
-            />
+              :rules="[(v) => !!v || 'Age is required']"
+              :disabled="isValidated"
+            >
+              <template #label>Age <span style="color: red">*</span></template>
+            </v-select>
             <v-select
               v-model="formData.animals.housing"
               :items="['grouped', 'isolated', 'grouped & isolated']"
               label="Housing"
               outlined
               class="mb-4"
-            />
-            <v-select
-              v-model="formData.animals.species"
-              :items="speciesStore.species"
-              item-title="name"
-              item-value="id"
-              label="Species"
-              outlined
-              dense
-            />
+              :rules="[(v) => !!v || 'Housing is required']"
+              :disabled="isValidated"
+            >
+              <template #label>Housing <span style="color: red">*</span></template>
+            </v-select>
           </v-card-text>
         </v-card>
 
@@ -368,35 +384,55 @@ onMounted(async () => {
               @update:modelValue="
                 (val) => (formData.context.number_of_animals = val === '' ? null : Number(val))
               "
-            />
+              :rules="[(v) => v === null || v > 0 || 'Must be a positive number']"
+              :disabled="isValidated"
+            >
+              <template #label>Number of Animals <span style="color: red">*</span></template>
+            </v-text-field>
             <v-select
               v-model="formData.context.duration"
               :items="['short term (<1h)', 'mid term (<1day)', 'long term (>=1day)']"
               label="Duration"
               outlined
               class="mb-4"
-            />
+              :rules="[(v) => !!v || 'Duration is required']"
+              :disabled="isValidated"
+            >
+              <template #label>Duration <span style="color: red">*</span></template>
+            </v-select>
             <v-select
               v-model="formData.context.cage"
               :items="['unfamiliar test cage', 'familiar test cage', 'home cage']"
               label="Cage Type"
               outlined
               class="mb-4"
-            />
+              :rules="[(v) => !!v || 'Cage Type is required']"
+              :disabled="isValidated"
+            >
+              <template #label>Cage Type <span style="color: red">*</span></template>
+            </v-select>
             <v-select
               v-model="formData.context.bedding"
               :items="['bedding', 'no bedding']"
               label="Bedding"
               outlined
               class="mb-4"
-            />
+              :rules="[(v) => !!v || 'Bedding is required']"
+              :disabled="isValidated"
+            >
+              <template #label>Bedding <span style="color: red">*</span></template>
+            </v-select>
             <v-select
               v-model="formData.context.light_cycle"
               :items="['day', 'night']"
               label="Light Cycle"
               outlined
               class="mb-4"
-            />
+              :rules="[(v) => !!v || 'Light Cycle is required']"
+              :disabled="isValidated"
+            >
+              <template #label>Light Cycle <span style="color: red">*</span></template>
+            </v-select>
             <v-row>
               <v-col cols="6">
                 <v-text-field
@@ -405,8 +441,10 @@ onMounted(async () => {
                   type="number"
                   outlined
                   @update:modelValue="
-                    (val) => (formData.context.temperature.value = val === '' ? null : Number(val))
+                    (val: string) =>
+                      (formData.context.temperature.value = val === '' ? null : Number(val))
                   "
+                  :disabled="isValidated"
                 />
               </v-col>
               <v-col cols="6">
@@ -415,6 +453,7 @@ onMounted(async () => {
                   :items="['°C', '°F']"
                   label="Temperature Unit"
                   outlined
+                  :disabled="isValidated"
                 />
               </v-col>
             </v-row>
@@ -427,9 +466,19 @@ onMounted(async () => {
               @update:modelValue="
                 (val: string) => (formData.context.brightness = val === '' ? null : Number(val))
               "
+              :disabled="isValidated"
             />
           </v-card-text>
         </v-card>
+        <v-textarea
+          v-model="formData.description"
+          label="Note"
+          outlined
+          required
+          class="mb-4"
+          :disabled="isValidated"
+          auto-grow
+        />
       </v-card-text>
     </v-card>
 

@@ -29,13 +29,46 @@ const sortBy = ref<DataTableSortItem[]>([{ key: 'name', order: 'asc' }]);
 const selectedProtocolId = ref<number | null>(props.selectedProtocolId ?? null);
 
 // ----------------------
+// Filtres
+// ----------------------
+const filters = ref({
+  animals_sex: null as string | null,
+  animals_age: null as string | null,
+  animals_housing: null as string | null,
+  context_duration: null as string | null,
+  context_cage: null as string | null,
+  context_bedding: null as string | null,
+  context_light_cycle: null as string | null,
+  status: null as string | null,
+});
+
+// ----------------------
+// Options pour selects
+// ----------------------
+const options = {
+  animals_sex: ['male(s)', 'female(s)', 'male(s) & female(s)'],
+  animals_age: ['pup', 'juvenile', 'adult'],
+  animals_housing: ['grouped', 'isolated', 'grouped & isolated'],
+  context_duration: ['short term (<1h)', 'mid term (<1day)', 'long term (>=1day)'],
+  context_cage: ['unfamiliar test cage', 'familiar test cage', 'home cage'],
+  context_bedding: ['bedding', 'no bedding'],
+  context_light_cycle: ['day', 'night'],
+  status: ['draft', 'waiting validation', 'validated'],
+};
+
+// ----------------------
 // Headers
 // ----------------------
 const headers = [
   { title: 'Protocol Name', key: 'name', sortable: true },
-  { title: 'Description', key: 'description', sortable: false },
-  { title: 'Animals', key: 'animals', sortable: false },
-  { title: 'Duration', key: 'duration', sortable: false },
+  { title: 'Sex', key: 'animals_sex', sortable: false },
+  { title: 'Age', key: 'animals_age', sortable: false },
+  { title: 'Housing', key: 'animals_housing', sortable: false },
+  { title: 'Duration', key: 'context_duration', sortable: false },
+  { title: 'Cage', key: 'context_cage', sortable: false },
+  { title: 'Bedding', key: 'context_bedding', sortable: false },
+  { title: 'Light Cycle', key: 'context_light_cycle', sortable: false },
+  { title: 'Status', key: 'status', sortable: false },
   { title: 'Actions', key: 'actions', sortable: false },
 ];
 
@@ -44,7 +77,6 @@ const headers = [
 // ----------------------
 const fieldMap: Record<string, string> = {
   name: 'name',
-  description: 'description',
 };
 
 // ----------------------
@@ -65,8 +97,9 @@ async function fetchData(pg: number) {
     const field = fieldMap[s.key];
     if (field) ordering = s.order === 'desc' ? `-${field}` : field;
   }
+
   try {
-    await store.fetchProtocolsPage(pg, search.value, ordering);
+    await store.fetchProtocolsPage(pg, search.value, ordering, filters.value);
   } catch (err: any) {
     showError(err.message || 'Failed to fetch protocols');
   }
@@ -87,33 +120,7 @@ function onSortUpdate(newSort: DataTableSortItem[]) {
 function selectProtocol(protocol: Protocol) {
   selectedProtocolId.value = protocol.id;
   emit('select', protocol);
-  emit('update:modelValue', false);
-}
-
-// ----------------------
-// Duplicate
-// ----------------------
-const duplicateDialog = ref(false);
-const duplicateName = ref('');
-const protocolToDuplicate = ref<Protocol | null>(null);
-
-function openDuplicateDialog(protocol: Protocol) {
-  protocolToDuplicate.value = protocol;
-  duplicateName.value = protocol.name + ' copy';
-  duplicateDialog.value = true;
-}
-
-async function confirmDuplicate() {
-  if (!protocolToDuplicate.value) return;
-
-  try {
-    await store.duplicateProtocol(protocolToDuplicate.value.id, duplicateName.value);
-    duplicateDialog.value = false;
-    showSuccess(`Protocol "${duplicateName.value}" duplicated successfully`);
-  } catch (err: any) {
-    console.error('Duplication failed:', err);
-    showError(err.message || 'Duplication failed');
-  }
+  // emit('update:modelValue', false);
 }
 
 // ----------------------
@@ -133,9 +140,7 @@ async function confirmDelete() {
   try {
     await store.deleteProtocol(protocolToDelete.value.id);
     deleteDialog.value = false;
-    if (selectedProtocolId.value === protocolToDelete.value.id) {
-      selectedProtocolId.value = null;
-    }
+    if (selectedProtocolId.value === protocolToDelete.value.id) selectedProtocolId.value = null;
     showSuccess(`Protocol "${protocolToDelete.value.name}" deleted successfully`);
     protocolToDelete.value = null;
   } catch (err: any) {
@@ -167,6 +172,7 @@ function showError(msg: string) {
 // ----------------------
 watch(search, () => debouncedFetch(1));
 watch(page, (val) => fetchData(val));
+watch(filters, () => fetchData(1), { deep: true });
 watch(
   () => props.modelValue,
   (val) => {
@@ -180,7 +186,7 @@ function close() {
 </script>
 
 <template>
-  <v-dialog :model-value="props.modelValue" max-width="1300px" @click:outside="close">
+  <v-dialog :model-value="props.modelValue" max-width="1700px" @click:outside="close">
     <v-card class="pa-3">
       <v-card-title class="d-flex align-center justify-space-between gap-4">
         <span class="text-h6 font-weight-bold">Protocols</span>
@@ -207,42 +213,39 @@ function close() {
           :sort-by.sync="sortBy"
           @update:sort-by="onSortUpdate"
         >
+          <!-- Custom item slot with <tr> for selection -->
           <template #item="{ item }">
             <tr
               :class="{ 'protocol-selected': selectedProtocolId === item.id }"
               @click="selectProtocol(item)"
             >
-              <td>{{ item.name }}</td>
+              <!-- Name with tooltip -->
               <td>
                 <v-tooltip location="top">
                   <template #activator="{ props: tooltipProps }">
-                    <span v-bind="tooltipProps">
-                      {{
-                        item.description?.length > 50
-                          ? item.description.slice(0, 50) + '…'
-                          : item.description || '—'
-                      }}
-                    </span>
+                    <span v-bind="tooltipProps">{{ item.name }}</span>
                   </template>
-                  <span>{{ item.description }}</span>
+                  <span>{{ item.description || '—' }}</span>
                 </v-tooltip>
               </td>
-              <td>
-                <span v-if="item.animals?.species">
-                  {{ item.animals.species.name }} ({{ item.animals.sex || '—' }},
-                  {{ item.animals.age || '—' }})
-                </span>
-                <span v-else>—</span>
-              </td>
+
+              <!-- Animals -->
+              <td>{{ item.animals?.sex || '—' }}</td>
+              <td>{{ item.animals?.age || '—' }}</td>
+              <td>{{ item.animals?.housing || '—' }}</td>
+
+              <!-- Context -->
               <td>{{ item.context?.duration || '—' }}</td>
+              <td>{{ item.context?.cage || '—' }}</td>
+              <td>{{ item.context?.bedding || '—' }}</td>
+              <td>{{ item.context?.light_cycle || '—' }}</td>
+
+              <!-- Status -->
+              <td>{{ item.status || '—' }}</td>
+
+              <!-- Actions -->
               <td>
                 <div class="d-flex gap-2">
-                  <v-btn
-                    icon="mdi-content-copy"
-                    variant="text"
-                    color="primary"
-                    @click.stop="openDuplicateDialog(item)"
-                  />
                   <v-btn
                     v-if="item.created_by === id_user"
                     icon="mdi-delete"
@@ -253,6 +256,111 @@ function close() {
                 </div>
               </td>
             </tr>
+          </template>
+
+          <!-- Header filters -->
+          <template #header.animals_sex>
+            <v-select
+              v-model="filters.animals_sex"
+              :items="options.animals_sex"
+              dense
+              hide-details
+              outlined
+              clearable
+              label="Sex"
+              class="header-select-1"
+            />
+          </template>
+
+          <template #header.animals_age>
+            <v-select
+              v-model="filters.animals_age"
+              :items="options.animals_age"
+              dense
+              hide-details
+              outlined
+              clearable
+              label="Age"
+              class="header-select-1"
+            />
+          </template>
+
+          <template #header.animals_housing>
+            <v-select
+              v-model="filters.animals_housing"
+              :items="options.animals_housing"
+              dense
+              hide-details
+              outlined
+              clearable
+              label="Housing"
+              class="header-select-2"
+            />
+          </template>
+
+          <template #header.context_duration>
+            <v-select
+              v-model="filters.context_duration"
+              :items="options.context_duration"
+              dense
+              hide-details
+              outlined
+              clearable
+              label="Duration"
+              class="header-select-2"
+            />
+          </template>
+
+          <template #header.context_cage>
+            <v-select
+              v-model="filters.context_cage"
+              :items="options.context_cage"
+              dense
+              hide-details
+              outlined
+              clearable
+              label="Cage"
+              class="header-select-2"
+            />
+          </template>
+
+          <template #header.context_bedding>
+            <v-select
+              v-model="filters.context_bedding"
+              :items="options.context_bedding"
+              dense
+              hide-details
+              outlined
+              clearable
+              label="Bedding"
+              class="header-select-2"
+            />
+          </template>
+
+          <template #header.context_light_cycle>
+            <v-select
+              v-model="filters.context_light_cycle"
+              :items="options.context_light_cycle"
+              dense
+              hide-details
+              outlined
+              clearable
+              label="Light Cycle"
+              class="header-select-2"
+            />
+          </template>
+
+          <template #header.status>
+            <v-select
+              v-model="filters.status"
+              :items="options.status"
+              dense
+              hide-details
+              outlined
+              clearable
+              label="Status"
+              class="header-select-2"
+            />
           </template>
         </v-data-table>
 
@@ -272,22 +380,7 @@ function close() {
     </v-card>
   </v-dialog>
 
-  <!-- Duplicate Dialog -->
-  <v-dialog v-model="duplicateDialog" max-width="400px">
-    <v-card>
-      <v-card-title>Duplicate Protocol</v-card-title>
-      <v-card-text>
-        <v-text-field v-model="duplicateName" label="New name" clearable />
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn text @click="duplicateDialog = false">Cancel</v-btn>
-        <v-btn color="primary" @click="confirmDuplicate">Duplicate</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
-
-  <!-- Delete Confirmation Dialog -->
+  <!-- Delete Dialog -->
   <v-dialog v-model="deleteDialog" max-width="400px">
     <v-card>
       <v-card-title class="text-h6">Confirm Deletion</v-card-title>
@@ -303,7 +396,7 @@ function close() {
     </v-card>
   </v-dialog>
 
-  <!-- Success Snackbar -->
+  <!-- Snackbars -->
   <v-snackbar v-model="snackbarSuccess" color="green" timeout="3000">
     {{ successMessage }}
     <template #actions="{ isActive }">
@@ -325,7 +418,26 @@ function close() {
   max-width: 450px;
 }
 
-.protocol-selected {
+.cursor-pointer tr:hover {
   background-color: #e0f7fa;
+}
+
+.protocol-selected {
+  background-color: #b2dfdb !important;
+}
+.v-data-table-header th {
+  overflow: visible !important;
+  height: auto;
+  vertical-align: top;
+}
+.header-select-1 {
+  min-width: 92px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+.header-select-2 {
+  min-width: 127px;
+  margin-top: 4px;
+  margin-bottom: 4px;
 }
 </style>

@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl'
-import type { Species } from './species'
 
 export interface Protocol {
   id: number
@@ -11,7 +10,6 @@ export interface Protocol {
     sex: string
     age: string
     housing: string
-    species: Species | null
   }
   context: {
     number_of_animals?: number | null
@@ -25,6 +23,7 @@ export interface Protocol {
     }
     brightness: number | null
   }
+  status: 'draft' | 'awaiting validation' | 'validated' | null
   created_by?: number | null
   created_at?: string | null
   modified_at?: string | null
@@ -43,7 +42,7 @@ export function flatToNested(flat: any): Protocol {
     id: flat.id,
     name: flat.name,
     description: flat.description ?? "",
-    animals: ["sex", "age", "housing", "species"].reduce((acc, key) => {
+    animals: ["sex", "age", "housing"].reduce((acc, key) => {
       acc[key] = flat[`animals_${key}`] ?? ""
       return acc
     }, {} as any),
@@ -68,6 +67,7 @@ export function flatToNested(flat: any): Protocol {
           ? Number(flat.context_brightness)
           : null,
     },
+    status: flat.status ?? "",
     created_by: flat.created_by ?? null,
     created_at: flat.created_at ?? null,
     modified_at: flat.modified_at ?? null,
@@ -81,11 +81,6 @@ function nestedToFlat(nested: Protocol | Omit<Protocol, 'id'>) {
     animals_sex: nested.animals?.sex ?? '',
     animals_age: nested.animals?.age ?? '',
     animals_housing: nested.animals?.housing ?? '',
-    animals_species_id: nested.animals.species
-      ? typeof nested.animals.species === 'object'
-        ? nested.animals.species.id
-        : nested.animals.species
-      : null,
     context_number_of_animals:
       nested.context?.number_of_animals != null
         ? Number(nested.context.number_of_animals)
@@ -133,16 +128,23 @@ export const useProtocolStore = defineStore('protocol', {
     async fetchProtocolsPage(
       page = 1,
       searchQuery: string | null = null,
-      ordering: string | null = null
+      ordering: string | null = null,
+      filters: Record<string, string | number | null> = {}
     ) {
       this.loading = true
       this.error = null
 
       try {
         const apiBaseUrl = useApiBaseUrl()
-        const params: any = { page }
+        const params: Record<string, string | number> = { page }
         if (searchQuery?.trim()) params.search = searchQuery.trim()
         if (ordering) params.ordering = ordering
+
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== null && value !== '') {
+            params[key] = String(value)
+          }
+        })
 
         const res = await axios.get(`${apiBaseUrl}/protocol/`, {
           params,
@@ -172,7 +174,9 @@ export const useProtocolStore = defineStore('protocol', {
       if (!protocol) {
         try {
           const apiBaseUrl = useApiBaseUrl()
-          const response = await axios.get<Protocol>(`${apiBaseUrl}/protocol/${id}/`);
+          const response = await axios.get<Protocol>(`${apiBaseUrl}/protocol/${id}/`, {
+            headers: this.getAuthHeaders(),
+          })
           protocol = flatToNested(response.data);
           this.protocols.results.push(protocol);
           this.protocols.count = this.protocols.results.length;
@@ -250,7 +254,6 @@ export const useProtocolStore = defineStore('protocol', {
           name: newName,
           description: original.description ?? '',
           animals: {
-            species: original.animals?.species ?? null,
             sex: original.animals?.sex ?? null,
             age: original.animals?.age ?? null,
             housing: original.animals?.housing ?? null,
@@ -267,6 +270,7 @@ export const useProtocolStore = defineStore('protocol', {
             },
             brightness: original.context?.brightness ?? null,
           },
+          status: 'draft',
           created_by: null,
           created_at: null,
           modified_at: null,
