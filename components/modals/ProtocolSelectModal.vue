@@ -4,6 +4,7 @@ import { debounce } from 'lodash';
 import { useProtocolStore, type Protocol } from '@/stores/protocol';
 import type { DataTableSortItem } from 'vuetify';
 import { useAuth } from '@/composables/useAuth';
+import { useFavoriteStore } from '@/stores/favorite';
 
 // ----------------------
 // Props & Emits
@@ -27,9 +28,10 @@ const search = ref('');
 const page = ref(1);
 const sortBy = ref<DataTableSortItem[]>([{ key: 'name', order: 'asc' }]);
 const selectedProtocolId = ref<number | null>(props.selectedProtocolId ?? null);
+const favoriteStore = useFavoriteStore();
 
 // ----------------------
-// Filtres
+// Filters
 // ----------------------
 const filters = ref({
   animals_sex: null as string | null,
@@ -42,9 +44,6 @@ const filters = ref({
   status: null as string | null,
 });
 
-// ----------------------
-// Options pour selects
-// ----------------------
 const options = {
   animals_sex: ['male(s)', 'female(s)', 'male(s) & female(s)'],
   animals_age: ['pup', 'juvenile', 'adult'],
@@ -72,9 +71,6 @@ const headers = [
   { title: 'Actions', key: 'actions', sortable: false },
 ];
 
-// ----------------------
-// Mapping pour tri backend
-// ----------------------
 const fieldMap: Record<string, string> = {
   name: 'name',
 };
@@ -221,12 +217,30 @@ function close() {
             >
               <!-- Name with tooltip -->
               <td>
-                <v-tooltip location="top">
-                  <template #activator="{ props: tooltipProps }">
-                    <span v-bind="tooltipProps">{{ item.name }}</span>
-                  </template>
-                  <span>{{ item.description || '—' }}</span>
-                </v-tooltip>
+                <div class="d-flex align-center gap-2">
+                  <!-- Star icon -->
+                  <v-icon
+                    :color="
+                      favoriteStore.isFavorite('protocol', item.id) ? 'yellow darken-3' : 'grey'
+                    "
+                    @click.stop="favoriteStore.toggleFavorite('protocol', item.id)"
+                    class="cursor-pointer"
+                  >
+                    {{
+                      favoriteStore.isFavorite('protocol', item.id)
+                        ? 'mdi-star'
+                        : 'mdi-star-outline'
+                    }}
+                  </v-icon>
+
+                  <!-- Name with tooltip -->
+                  <v-tooltip location="top">
+                    <template #activator="{ props: tooltipProps }">
+                      <span v-bind="tooltipProps">{{ item.name }}</span>
+                    </template>
+                    <span>{{ item.description || '—' }}</span>
+                  </v-tooltip>
+                </div>
               </td>
 
               <!-- Animals -->
@@ -241,7 +255,21 @@ function close() {
               <td>{{ item.context?.light_cycle || '—' }}</td>
 
               <!-- Status -->
-              <td>{{ item.status || '—' }}</td>
+              <td>
+                <v-chip
+                  :color="
+                    item.status === 'validated'
+                      ? 'green'
+                      : item.status === 'awaiting validation'
+                        ? 'blue'
+                        : 'grey'
+                  "
+                  dark
+                  small
+                >
+                  {{ item.status || '—' }}
+                </v-chip>
+              </td>
 
               <!-- Actions -->
               <td>
