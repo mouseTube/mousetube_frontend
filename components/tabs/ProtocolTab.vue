@@ -8,7 +8,7 @@ import { type RecordingSession, useRecordingSessionStore } from '@/stores/record
 import ProtocolSelectModal from '@/components/modals/ProtocolSelectModal.vue';
 
 ////////////////////////////////
-// PROPS
+// PROPS & EMITS
 ////////////////////////////////
 const props = defineProps<{
   selectedProtocolId: number | null;
@@ -17,6 +17,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:selectedProtocolId', value: number | null): void;
+  (e: 'protocol-selected', value: Protocol | null): void;
 }>();
 
 ////////////////////////////////
@@ -28,8 +29,9 @@ const recordingSessionStore = useRecordingSessionStore();
 ////////////////////////////////
 // STATE
 ////////////////////////////////
-const selectedProtocolIdRef = ref<'new' | 'select' | number>(props.selectedProtocolId ?? 'new');
+const selectedProtocolIdRef = ref<'new' | number>(props.selectedProtocolId ?? 'new');
 const selectedProtocolObject = ref<Protocol | null>(null);
+
 const showProtocolSelectModal = ref(false);
 const isSaveEnabled = ref(false);
 const initialFormData = ref('');
@@ -69,7 +71,6 @@ const selectItems = computed(() => {
       name: selectedProtocolObject.value.name,
     });
   }
-
   return items;
 });
 
@@ -78,6 +79,10 @@ const isValidated = computed(() => formData.value.status === 'validated');
 ////////////////////////////////
 // FUNCTIONS
 ////////////////////////////////
+function snapshotFormData(data: typeof formData.value) {
+  return JSON.stringify(JSON.parse(JSON.stringify(data)));
+}
+
 function resetForm() {
   formData.value = {
     name: '',
@@ -98,6 +103,7 @@ function resetForm() {
   initialFormData.value = snapshotFormData(formData.value);
   selectedProtocolIdRef.value = 'new';
   emit('update:selectedProtocolId', null);
+  emit('protocol-selected', null);
 }
 
 function mapProtocolToFormData(protocol: Protocol) {
@@ -130,12 +136,12 @@ function mapProtocolToFormData(protocol: Protocol) {
 
 async function loadProtocol(protocolId: number) {
   const protocol = await protocolStore.getProtocolById(protocolId);
-
   if (protocol) {
     selectedProtocolObject.value = protocol;
     selectedProtocolIdRef.value = protocol.id;
     formData.value = mapProtocolToFormData(protocol);
     initialFormData.value = snapshotFormData(formData.value);
+    emit('protocol-selected', protocol);
   } else {
     resetForm();
   }
@@ -147,12 +153,15 @@ function onProtocolSelected(protocol: Protocol) {
   formData.value = mapProtocolToFormData(protocol);
   initialFormData.value = snapshotFormData(formData.value);
   showProtocolSelectModal.value = false;
+  emit('protocol-selected', protocol);
 }
 
 function handleProtocolSelection(newId: 'new' | 'select' | number) {
   if (newId === 'new') {
     resetForm();
   } else if (newId === 'select') {
+    // Réinitialise la valeur affichée à l'actuel protocole ou 'new'
+    selectedProtocolIdRef.value = selectedProtocolObject.value?.id ?? 'new';
     showProtocolSelectModal.value = true;
   } else {
     loadProtocol(Number(newId));
@@ -162,14 +171,9 @@ function handleProtocolSelection(newId: 'new' | 'select' | number) {
 async function onSubmit() {
   try {
     let protocolId: number;
-    const payload = {
-      ...formData.value,
-      animals: {
-        ...formData.value.animals,
-      },
-    };
+    const payload = { ...formData.value, animals: { ...formData.value.animals } };
 
-    if (selectedProtocolIdRef.value !== 'new' && typeof selectedProtocolIdRef.value === 'number') {
+    if (typeof selectedProtocolIdRef.value === 'number') {
       const updated = await protocolStore.updateProtocol(selectedProtocolIdRef.value, payload);
       protocolId = updated.id;
       selectedProtocolObject.value = updated;
@@ -189,7 +193,7 @@ async function onSubmit() {
     }
 
     snackbar.value = true;
-    initialFormData.value = snapshotFormData(formData.value);
+
     if (props.selectedRecordingSessionId !== null) {
       await recordingSessionStore.updateSessionProtocol(
         props.selectedRecordingSessionId,
@@ -203,10 +207,6 @@ async function onSubmit() {
     snackbar.value = true;
     console.error(err);
   }
-}
-
-function snapshotFormData(data: typeof formData.value) {
-  return JSON.stringify(JSON.parse(JSON.stringify(data)));
 }
 
 ////////////////////////////////
@@ -227,9 +227,7 @@ watch(
     if (newId !== null) {
       const s = await recordingSessionStore.getSessionById(newId);
       session.value = s;
-      if (session.value?.protocol) {
-        await loadProtocol(session.value.protocol.id);
-      }
+      if (s?.protocol?.id) await loadProtocol(s.protocol.id);
     }
   },
   { immediate: true }
@@ -247,31 +245,19 @@ watch(
 // ON MOUNT
 ////////////////////////////////
 onMounted(async () => {
-  let protocolIdToLoad: number | null = null;
   if (props.selectedProtocolId) {
-    protocolIdToLoad = props.selectedProtocolId;
+    await loadProtocol(props.selectedProtocolId);
   } else if (props.selectedRecordingSessionId) {
     const s = await recordingSessionStore.getSessionById(props.selectedRecordingSessionId);
     session.value = s;
-    protocolIdToLoad = session.value?.protocol?.id ?? null;
-  }
-  if (protocolIdToLoad) {
-    const protocol = await protocolStore.getProtocolById(protocolIdToLoad);
-    if (protocol) {
-      selectedProtocolObject.value = protocol;
-      selectedProtocolIdRef.value = protocol.id;
-      formData.value = mapProtocolToFormData(protocol);
-      initialFormData.value = snapshotFormData(formData.value);
-    } else {
-      resetForm();
-    }
-  } else {
+    if (s?.protocol?.id) await loadProtocol(s.protocol.id);
   }
 });
 </script>
 
 <template>
   <v-container>
+    <!-- Protocol Selection -->
     <v-select
       v-model="selectedProtocolIdRef"
       :items="selectItems"
@@ -283,7 +269,17 @@ onMounted(async () => {
       :value-comparator="(a, b) => a === b"
       @update:modelValue="handleProtocolSelection"
       :disabled="isValidated && session?.status === 'published'"
-    />
+    >
+      <template #selection="{ item, index }">
+        <!-- Affiche toujours le protocole sélectionné ou "Create New" -->
+        <span>
+          {{
+            selectedProtocolObject?.name ||
+            (selectedProtocolIdRef === 'new' ? 'Create New Protocol' : '')
+          }}
+        </span>
+      </template>
+    </v-select>
 
     <!-- Form Card -->
     <v-card class="pa-6" outlined>

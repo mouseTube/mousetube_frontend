@@ -125,11 +125,21 @@ export const useProtocolStore = defineStore('protocol', {
       return token.value ? { Authorization: `Bearer ${token.value}` } : {}
     },
 
+    addOrUpdateProtocol(protocol: Protocol) {
+      const index = this.protocols.results.findIndex(p => p.id === protocol.id)
+      if (index !== -1) {
+        this.protocols.results[index] = protocol
+      } else {
+        this.protocols.results.push(protocol)
+      }
+      this.protocols.count = this.protocols.results.length
+    },
+
     async fetchProtocolsPage(
       page = 1,
       searchQuery: string | null = null,
-      ordering: string | null = null,
-      filters: Record<string, string | number | null> = {}
+      filters: Record<string, string | number | null> = {},
+      ordering: string | null = null
     ) {
       this.loading = true
       this.error = null
@@ -138,7 +148,7 @@ export const useProtocolStore = defineStore('protocol', {
         const apiBaseUrl = useApiBaseUrl()
         const params: Record<string, string | number> = { page }
         if (searchQuery?.trim()) params.search = searchQuery.trim()
-        if (ordering) params.ordering = ordering
+        params.ordering = ordering || "-is_favorite_int,name"
 
         Object.entries(filters).forEach(([key, value]) => {
           if (value !== null && value !== '') {
@@ -152,14 +162,15 @@ export const useProtocolStore = defineStore('protocol', {
         })
         const protocols = res.data.results.map(flatToNested)
 
-        this.protocols = {
-          count: res.data.count,
-          next: res.data.next,
-          previous: res.data.previous,
-          results: protocols,
+        if (page === 1) {
+          this.protocols.results = protocols
+        } else {
+          this.protocols.results = [...this.protocols.results, ...protocols]
         }
+        this.removeDuplicates()
+        this.protocols.count = this.protocols.results.length
         this.currentPage = page
-        this.totalPages = Math.ceil(res.data.count / this.pageSize)
+        this.totalPages = Math.ceil(this.protocols.count / this.pageSize)
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch protocols'
         this.protocols = { count: 0, next: null, previous: null, results: [] }
@@ -169,7 +180,7 @@ export const useProtocolStore = defineStore('protocol', {
     },
 
     async getProtocolById(id: number): Promise<Protocol | null> {
-      let protocol = this.protocols.results.find(p => p.id === id) || null;
+      let protocol = this.protocols.results.find(p => p.id === id) || null
 
       if (!protocol) {
         try {
@@ -177,16 +188,15 @@ export const useProtocolStore = defineStore('protocol', {
           const response = await axios.get<Protocol>(`${apiBaseUrl}/protocol/${id}/`, {
             headers: this.getAuthHeaders(),
           })
-          protocol = flatToNested(response.data);
-          this.protocols.results.push(protocol);
-          this.protocols.count = this.protocols.results.length;
+          protocol = flatToNested(response.data)
+          this.addOrUpdateProtocol(protocol)
         } catch (error) {
-          console.error("Protocol not found", error);
-          return null;
+          console.error("Protocol not found", error)
+          return null
         }
       }
 
-      return protocol;
+      return protocol
     },
 
     async createProtocol(data: Omit<Protocol, 'id'>) {
@@ -198,8 +208,7 @@ export const useProtocolStore = defineStore('protocol', {
           headers: this.getAuthHeaders(),
         })
         const newProtocol = flatToNested(res.data)
-        this.protocols.results.push(newProtocol)
-        this.protocols.count += 1
+        this.addOrUpdateProtocol(newProtocol)
         return newProtocol
       } catch (err: any) {
         this.error = err.message || 'Failed to create protocol'
@@ -212,14 +221,11 @@ export const useProtocolStore = defineStore('protocol', {
       try {
         const apiBaseUrl = useApiBaseUrl()
         const flatData = nestedToFlat(data as Protocol)
-        const res = await axios.put(
-          `${apiBaseUrl}/protocol/${id}/`,
-          flatData,
-          { headers: this.getAuthHeaders() }
-        )
+        const res = await axios.put(`${apiBaseUrl}/protocol/${id}/`, flatData, {
+          headers: this.getAuthHeaders(),
+        })
         const updatedProtocol = flatToNested(res.data)
-        const index = this.protocols.results.findIndex(p => p.id === id)
-        if (index !== -1) this.protocols.results[index] = updatedProtocol
+        this.addOrUpdateProtocol(updatedProtocol)
         return updatedProtocol
       } catch (err: any) {
         this.error = err.message || 'Failed to update protocol'
@@ -234,10 +240,8 @@ export const useProtocolStore = defineStore('protocol', {
         await axios.delete(`${apiBaseUrl}/protocol/${id}/`, {
           headers: this.getAuthHeaders(),
         })
-
-        // Mise à jour locale
         this.protocols.results = this.protocols.results.filter(p => p.id !== id)
-        this.protocols.count = Math.max(0, this.protocols.count - 1)
+        this.protocols.count = this.protocols.results.length
       } catch (err: any) {
         this.error = err.message || 'Failed to delete protocol'
         throw err
@@ -247,9 +251,9 @@ export const useProtocolStore = defineStore('protocol', {
     async duplicateProtocol(originalId: number, newName: string) {
       this.error = null
       try {
-        // On retrouve le protocole original dans le cache
         const original = await this.getProtocolById(originalId)
         if (!original) throw new Error('Original protocol not found')
+
         const payload: Omit<Protocol, 'id'> = {
           name: newName,
           description: original.description ?? '',
@@ -276,7 +280,6 @@ export const useProtocolStore = defineStore('protocol', {
           modified_at: null,
         }
 
-        // On passe par createProtocol
         return await this.createProtocol(payload)
       } catch (err: any) {
         this.error = err.message || 'Failed to duplicate protocol'
@@ -295,21 +298,28 @@ export const useProtocolStore = defineStore('protocol', {
         while (url) {
           const res = await axios.get(url, { headers: this.getAuthHeaders() })
           const pageResults = res.data.results.map(flatToNested)
-          allResults = allResults.concat(pageResults)
+          allResults = [...allResults, ...pageResults]
           url = res.data.next
         }
 
-        this.protocols = {
-          count: allResults.length,
-          next: null,
-          previous: null,
-          results: allResults,
-        }
+        this.protocols.results = allResults
+        this.removeDuplicates()
+        this.protocols.count = this.protocols.results.length
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch protocols'
       } finally {
         this.loading = false
       }
+    },
+
+    removeDuplicates() {
+      const seen = new Set<number>()
+      this.protocols.results = this.protocols.results.filter(p => {
+        if (seen.has(p.id)) return false
+        seen.add(p.id)
+        return true
+      })
+      this.protocols.count = this.protocols.results.length
     },
   },
 })

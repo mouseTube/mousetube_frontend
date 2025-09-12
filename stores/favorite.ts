@@ -93,6 +93,10 @@ export const useFavoriteStore = defineStore('favorite', {
       return this.favorites.some(f => f.content_type === content_type && f.object_id === object_id)
     },
 
+    isEmpty() {
+      return this.favorites.length === 0;
+    },
+
     async toggleFavorite(content_type: Favorite['content_type'], object_id: number) {
       const favId = this.getFavoriteId(content_type, object_id)
 

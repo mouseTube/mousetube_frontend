@@ -26,7 +26,6 @@ const { id_user } = useAuth();
 const store = useProtocolStore();
 const search = ref('');
 const page = ref(1);
-const sortBy = ref<DataTableSortItem[]>([{ key: 'name', order: 'asc' }]);
 const selectedProtocolId = ref<number | null>(props.selectedProtocolId ?? null);
 const favoriteStore = useFavoriteStore();
 
@@ -59,7 +58,7 @@ const options = {
 // Headers
 // ----------------------
 const headers = [
-  { title: 'Protocol Name', key: 'name', sortable: true },
+  { title: 'Protocol Name', key: 'name', sortable: false },
   { title: 'Sex', key: 'animals_sex', sortable: false },
   { title: 'Age', key: 'animals_age', sortable: false },
   { title: 'Housing', key: 'animals_housing', sortable: false },
@@ -87,15 +86,8 @@ const totalPages = computed(() => store.totalPages || 1);
 // ----------------------
 const debouncedFetch = debounce((pg: number) => fetchData(pg), 300);
 async function fetchData(pg: number) {
-  let ordering = '';
-  if (sortBy.value.length > 0) {
-    const s = sortBy.value[0];
-    const field = fieldMap[s.key];
-    if (field) ordering = s.order === 'desc' ? `-${field}` : field;
-  }
-
   try {
-    await store.fetchProtocolsPage(pg, search.value, ordering, filters.value);
+    await store.fetchProtocolsPage(pg, search.value, filters.value, selectedOrdering.value);
   } catch (err: any) {
     showError(err.message || 'Failed to fetch protocols');
   }
@@ -105,8 +97,28 @@ async function fetchData(pg: number) {
 // ----------------------
 // Sort
 // ----------------------
-function onSortUpdate(newSort: DataTableSortItem[]) {
-  sortBy.value = newSort;
+// function onSortUpdate(newSort: DataTableSortItem[]) {
+//   fetchData(1);
+// }
+const sortOptions = [
+  { label: 'Favorites & Name', value: '-is_favorite_int,name' },
+  { label: 'Name asc', value: 'name' },
+  { label: 'Name desc', value: '-name' },
+  { label: 'Creation date asc', value: 'created_at' },
+  { label: 'Creation date desc', value: '-created_at' },
+];
+
+const selectedOrdering = ref('-is_favorite_int,name');
+const favoritesSortOrder = ref<'asc' | 'desc'>('asc');
+
+function toggleFavoritesOrdering() {
+  favoritesSortOrder.value = favoritesSortOrder.value === 'asc' ? 'desc' : 'asc';
+  selectedOrdering.value = `${favoritesSortOrder.value === 'asc' ? '-' : ''}is_favorite_int,name`;
+  fetchData(1);
+}
+
+function selectOrdering(value: string) {
+  selectedOrdering.value = value;
   fetchData(1);
 }
 
@@ -171,8 +183,18 @@ watch(page, (val) => fetchData(val));
 watch(filters, () => fetchData(1), { deep: true });
 watch(
   () => props.modelValue,
-  (val) => {
-    if (val) fetchData(1);
+  async (val) => {
+    if (val) {
+      fetchData(1);
+
+      if (favoriteStore.isEmpty()) {
+        try {
+          await favoriteStore.fetchAllFavorites();
+        } catch (err: any) {
+          showError(err.message || 'Failed to fetch favorites');
+        }
+      }
+    }
   }
 );
 
@@ -184,8 +206,11 @@ function close() {
 <template>
   <v-dialog :model-value="props.modelValue" max-width="1700px" @click:outside="close">
     <v-card class="pa-3">
-      <v-card-title class="d-flex align-center justify-space-between gap-4">
+      <v-card-title class="d-flex align-center gap-2">
         <span class="text-h6 font-weight-bold">Protocols</span>
+
+        <v-spacer />
+        <!-- Search Field -->
         <v-text-field
           v-model="search"
           placeholder="Search protocol"
@@ -195,6 +220,36 @@ function close() {
           hide-details
           class="search-field"
         />
+        <div class="d-flex ml-4">
+          <v-btn
+            color="primary"
+            @click="toggleFavoritesOrdering"
+            :title="`Sort favorites ${favoritesSortOrder === 'asc' ? 'ascending' : 'descending'}`"
+            class="split-btn-left match-search-height"
+          >
+            <v-icon>{{
+              favoritesSortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'
+            }}</v-icon>
+          </v-btn>
+
+          <!-- Dropdown accolé -->
+          <v-menu offset-y>
+            <template #activator="{ props }">
+              <v-btn v-bind="props" color="primary" class="split-btn-right match-search-height">
+                <v-icon>mdi-chevron-down</v-icon>
+              </v-btn>
+            </template>
+            <v-list>
+              <v-list-item
+                v-for="option in sortOptions"
+                :key="option.value"
+                @click="selectOrdering(option.value)"
+              >
+                <v-list-item-title>{{ option.label }}</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
+        </div>
       </v-card-title>
 
       <v-card-text>
@@ -206,15 +261,13 @@ function close() {
           hover
           hide-default-footer
           item-key="id"
-          :sort-by.sync="sortBy"
-          @update:sort-by="onSortUpdate"
+          :sort-by="[]"
         >
-          <!-- Custom item slot with <tr> for selection -->
+          <!-- Custom item slot with <tr> for selection 
+            :class="{ 'protocol-selected': selectedProtocolId === item.id }"
+            -->
           <template #item="{ item }">
-            <tr
-              :class="{ 'protocol-selected': selectedProtocolId === item.id }"
-              @click="selectProtocol(item)"
-            >
+            <tr @click="selectProtocol(item)">
               <!-- Name with tooltip -->
               <td>
                 <div class="d-flex align-center gap-2">
@@ -224,7 +277,7 @@ function close() {
                       favoriteStore.isFavorite('protocol', item.id) ? 'yellow darken-3' : 'grey'
                     "
                     @click.stop="favoriteStore.toggleFavorite('protocol', item.id)"
-                    class="cursor-pointer"
+                    class="cursor-pointer mr-2"
                   >
                     {{
                       favoriteStore.isFavorite('protocol', item.id)
@@ -295,6 +348,8 @@ function close() {
               hide-details
               outlined
               clearable
+              density="compact"
+              flat
               label="Sex"
               class="header-select-1"
             />
@@ -308,6 +363,8 @@ function close() {
               hide-details
               outlined
               clearable
+              density="compact"
+              flat
               label="Age"
               class="header-select-1"
             />
@@ -321,6 +378,8 @@ function close() {
               hide-details
               outlined
               clearable
+              density="compact"
+              flat
               label="Housing"
               class="header-select-2"
             />
@@ -334,6 +393,8 @@ function close() {
               hide-details
               outlined
               clearable
+              density="compact"
+              flat
               label="Duration"
               class="header-select-2"
             />
@@ -347,6 +408,8 @@ function close() {
               hide-details
               outlined
               clearable
+              density="compact"
+              flat
               label="Cage"
               class="header-select-2"
             />
@@ -360,6 +423,8 @@ function close() {
               hide-details
               outlined
               clearable
+              density="compact"
+              flat
               label="Bedding"
               class="header-select-2"
             />
@@ -373,6 +438,8 @@ function close() {
               hide-details
               outlined
               clearable
+              density="compact"
+              flat
               label="Light Cycle"
               class="header-select-2"
             />
@@ -386,6 +453,8 @@ function close() {
               hide-details
               outlined
               clearable
+              density="compact"
+              flat
               label="Status"
               class="header-select-2"
             />
@@ -450,9 +519,9 @@ function close() {
   background-color: #e0f7fa;
 }
 
-.protocol-selected {
-  background-color: #b2dfdb !important;
-}
+/* .protocol-selected {
+  background-color: #fffafa !important;
+} */
 .v-data-table-header th {
   overflow: visible !important;
   height: auto;
@@ -462,10 +531,48 @@ function close() {
   min-width: 92px;
   margin-top: 4px;
   margin-bottom: 4px;
+  height: 40px;
 }
 .header-select-2 {
   min-width: 127px;
   margin-top: 4px;
   margin-bottom: 4px;
+  height: 40px;
+}
+.header-select-1 .v-field,
+.header-select-2 .v-field {
+  min-height: 40px;
+}
+
+.header-select-1 .v-field__control,
+.header-select-2 .v-field__control {
+  padding-top: 0;
+  padding-bottom: 0;
+  min-height: 40px;
+}
+
+.header-select-1 .v-field__input,
+.header-select-2 .v-field__input {
+  height: 40px;
+  line-height: 40px;
+}
+.split-btn-left {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.split-btn-right {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.match-search-height {
+  height: 40px;
+  min-width: 36px;
+  padding: 0 12px;
+  line-height: 40px;
 }
 </style>
