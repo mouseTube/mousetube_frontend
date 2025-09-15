@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { useStorage } from '@vueuse/core'
 import axios from 'axios'
+import { useFavoriteStore } from '@/stores/favorite';
 
 export const currentUser = ref<string | null>(null)
 export const id_user = ref<number | null>(null)
@@ -10,6 +11,7 @@ export const refresh = useStorage<string | null>('refresh_token', null, localSto
 export function useAuth() {
   const apiBaseUrl = useApiBaseUrl();
   const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''))
+  const favoriteStore = useFavoriteStore()
 
   const init = async () => {
     if (token.value) {
@@ -33,6 +35,7 @@ export function useAuth() {
       token.value = res.data.access;
       if (res.data.refresh) refresh.value = res.data.refresh;
       currentUser.value = username;
+      await favoriteStore.fetchAllFavorites();
       return true;
     } catch (error: any) {
       const msg =
@@ -62,6 +65,9 @@ export function useAuth() {
 
       currentUser.value = res.data.username;
       id_user.value = res.data.id;
+
+      await favoriteStore.fetchAllFavorites()
+      
       return true;
     } catch (error: any) {
       logout();

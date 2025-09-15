@@ -518,8 +518,6 @@ onBeforeUnmount(() => {
                               {{ file.recording_session.protocol.animals_age || 'N/A' }}<br />
                               <v-label class="mr-2">Animals housing: </v-label>
                               {{ file.recording_session.protocol.animals_housing || 'N/A' }}<br />
-                              <v-label class="mr-2">Animals species: </v-label>
-                              {{ file.recording_session.protocol.animals_species || 'N/A' }}<br />
                               <v-label class="mr-2">Number of animals: </v-label>
                               {{ file.recording_session.protocol.context_number_of_animals || 'N/A'
                               }}<br />
