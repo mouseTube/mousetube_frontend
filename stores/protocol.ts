@@ -17,11 +17,6 @@ export interface Protocol {
     cage: string
     bedding: string
     light_cycle: string
-    temperature: {
-      value: number | string | null
-      unit: string
-    }
-    brightness: number | null
   }
   status: 'draft' | 'awaiting validation' | 'validated' | null
   created_by?: number | null
@@ -55,17 +50,6 @@ export function flatToNested(flat: any): Protocol {
       cage: flat.context_cage ?? "",
       bedding: flat.context_bedding ?? "",
       light_cycle: flat.context_light_cycle ?? "",
-      temperature: {
-        value:
-          flat.context_temperature_value != null
-            ? Number(flat.context_temperature_value)
-            : null,
-        unit: flat.context_temperature_unit ?? "",
-      },
-      brightness:
-        flat.context_brightness != null
-          ? Number(flat.context_brightness)
-          : null,
     },
     status: flat.status ?? "",
     created_by: flat.created_by ?? null,
@@ -89,15 +73,6 @@ function nestedToFlat(nested: Protocol | Omit<Protocol, 'id'>) {
     context_cage: nested.context?.cage ?? '',
     context_bedding: nested.context?.bedding ?? '',
     context_light_cycle: nested.context?.light_cycle ?? '',
-    context_temperature_value:
-      nested.context?.temperature?.value != null
-        ? Number(nested.context.temperature.value)
-        : null,
-    context_temperature_unit: nested.context?.temperature?.unit ?? '',
-    context_brightness:
-      nested.context?.brightness != null
-        ? Number(nested.context.brightness)
-        : null,
     created_by: nested.created_by ?? null,
     created_at: nested.created_at ?? null,
     modified_at: nested.modified_at ?? null,
@@ -268,11 +243,6 @@ export const useProtocolStore = defineStore('protocol', {
             cage: original.context?.cage ?? null,
             bedding: original.context?.bedding ?? null,
             light_cycle: original.context?.light_cycle ?? null,
-            temperature: {
-              value: original.context?.temperature?.value ?? null,
-              unit: original.context?.temperature?.unit ?? null,
-            },
-            brightness: original.context?.brightness ?? null,
           },
           status: 'draft',
           created_by: null,

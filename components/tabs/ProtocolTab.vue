@@ -46,8 +46,6 @@ const formData = ref({
     cage: '',
     bedding: '',
     light_cycle: '',
-    temperature: { value: '' as string | number | null, unit: '' },
-    brightness: null as number | null,
   },
   status: 'draft' as 'draft' | 'awaiting validation' | 'validated' | null,
 });
@@ -94,8 +92,6 @@ function resetForm() {
       cage: '',
       bedding: '',
       light_cycle: '',
-      temperature: { value: '', unit: '' },
-      brightness: null,
     },
     status: 'draft',
   };
@@ -122,13 +118,6 @@ function mapProtocolToFormData(protocol: Protocol) {
       cage: (protocol as any).context_cage ?? protocol.context?.cage ?? '',
       bedding: (protocol as any).context_bedding ?? protocol.context?.bedding ?? '',
       light_cycle: (protocol as any).context_light_cycle ?? protocol.context?.light_cycle ?? '',
-      temperature: {
-        value:
-          (protocol as any).context_temperature_value ?? protocol.context?.temperature?.value ?? '',
-        unit:
-          (protocol as any).context_temperature_unit ?? protocol.context?.temperature?.unit ?? '',
-      },
-      brightness: (protocol as any).context_brightness ?? protocol.context?.brightness ?? null,
     },
     status: protocol.status ?? 'draft',
   };
@@ -160,7 +149,6 @@ function handleProtocolSelection(newId: 'new' | 'select' | number) {
   if (newId === 'new') {
     resetForm();
   } else if (newId === 'select') {
-    // Réinitialise la valeur affichée à l'actuel protocole ou 'new'
     selectedProtocolIdRef.value = selectedProtocolObject.value?.id ?? 'new';
     showProtocolSelectModal.value = true;
   } else {
@@ -266,12 +254,11 @@ onMounted(async () => {
       label="Select Protocol"
       outlined
       dense
-      :value-comparator="(a, b) => a === b"
+      :value-comparator="(a: any, b: any) => a === b"
       @update:modelValue="handleProtocolSelection"
       :disabled="isValidated && session?.status === 'published'"
     >
       <template #selection="{ item, index }">
-        <!-- Affiche toujours le protocole sélectionné ou "Create New" -->
         <span>
           {{
             selectedProtocolObject?.name ||
@@ -321,7 +308,7 @@ onMounted(async () => {
           outlined
           required
           class="mb-4"
-          :rules="[(v) => !!v || 'Name is required']"
+          :rules="[(v: any) => !!v || 'Name is required']"
           :disabled="isValidated"
         >
           <template #label>Name <span style="color: red">*</span></template>
@@ -337,7 +324,7 @@ onMounted(async () => {
               label="Sex"
               outlined
               class="mb-4"
-              :rules="[(v) => !!v || 'Sex is required']"
+              :rules="[(v: any) => !!v || 'Sex is required']"
               :disabled="isValidated"
             >
               <template #label>Sex <span style="color: red">*</span></template>
@@ -348,7 +335,7 @@ onMounted(async () => {
               label="Age"
               outlined
               class="mb-4"
-              :rules="[(v) => !!v || 'Age is required']"
+              :rules="[(v: any) => !!v || 'Age is required']"
               :disabled="isValidated"
             >
               <template #label>Age <span style="color: red">*</span></template>
@@ -359,7 +346,7 @@ onMounted(async () => {
               label="Housing"
               outlined
               class="mb-4"
-              :rules="[(v) => !!v || 'Housing is required']"
+              :rules="[(v: any) => !!v || 'Housing is required']"
               :disabled="isValidated"
             >
               <template #label>Housing <span style="color: red">*</span></template>
@@ -378,9 +365,10 @@ onMounted(async () => {
               outlined
               class="mb-4"
               @update:modelValue="
-                (val) => (formData.context.number_of_animals = val === '' ? null : Number(val))
+                (val: string) =>
+                  (formData.context.number_of_animals = val === '' ? null : Number(val))
               "
-              :rules="[(v) => v === null || v > 0 || 'Must be a positive number']"
+              :rules="[(v: number | null) => v === null || v > 0 || 'Must be a positive number']"
               :disabled="isValidated"
             >
               <template #label>Number of Animals <span style="color: red">*</span></template>
@@ -391,7 +379,7 @@ onMounted(async () => {
               label="Duration"
               outlined
               class="mb-4"
-              :rules="[(v) => !!v || 'Duration is required']"
+              :rules="[(v: any) => !!v || 'Duration is required']"
               :disabled="isValidated"
             >
               <template #label>Duration <span style="color: red">*</span></template>
@@ -402,7 +390,7 @@ onMounted(async () => {
               label="Cage Type"
               outlined
               class="mb-4"
-              :rules="[(v) => !!v || 'Cage Type is required']"
+              :rules="[(v: any) => !!v || 'Cage Type is required']"
               :disabled="isValidated"
             >
               <template #label>Cage Type <span style="color: red">*</span></template>
@@ -413,57 +401,22 @@ onMounted(async () => {
               label="Bedding"
               outlined
               class="mb-4"
-              :rules="[(v) => !!v || 'Bedding is required']"
+              :rules="[(v: any) => !!v || 'Bedding is required']"
               :disabled="isValidated"
             >
               <template #label>Bedding <span style="color: red">*</span></template>
             </v-select>
             <v-select
               v-model="formData.context.light_cycle"
-              :items="['day', 'night']"
+              :items="['day', 'night', 'both']"
               label="Light Cycle"
               outlined
               class="mb-4"
-              :rules="[(v) => !!v || 'Light Cycle is required']"
+              :rules="[(v: any) => !!v || 'Light Cycle is required']"
               :disabled="isValidated"
             >
               <template #label>Light Cycle <span style="color: red">*</span></template>
             </v-select>
-            <v-row>
-              <v-col cols="6">
-                <v-text-field
-                  v-model="formData.context.temperature.value"
-                  label="Temperature Value"
-                  type="number"
-                  outlined
-                  @update:modelValue="
-                    (val: string) =>
-                      (formData.context.temperature.value = val === '' ? null : Number(val))
-                  "
-                  :disabled="isValidated"
-                />
-              </v-col>
-              <v-col cols="6">
-                <v-select
-                  v-model="formData.context.temperature.unit"
-                  :items="['°C', '°F']"
-                  label="Temperature Unit"
-                  outlined
-                  :disabled="isValidated"
-                />
-              </v-col>
-            </v-row>
-            <v-text-field
-              v-model="formData.context.brightness"
-              label="Brightness (Lux)"
-              type="number"
-              outlined
-              class="mb-4"
-              @update:modelValue="
-                (val: string) => (formData.context.brightness = val === '' ? null : Number(val))
-              "
-              :disabled="isValidated"
-            />
           </v-card-text>
         </v-card>
         <v-textarea

@@ -232,7 +232,6 @@ function close() {
             }}</v-icon>
           </v-btn>
 
-          <!-- Dropdown accolé -->
           <v-menu offset-y>
             <template #activator="{ props }">
               <v-btn v-bind="props" color="primary" class="split-btn-right match-search-height">
