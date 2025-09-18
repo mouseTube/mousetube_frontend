@@ -2,6 +2,17 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl'
+import { type Species } from '~/stores/species'
+
+export interface Strain {
+  id: number
+  name: string
+  background?: string | null
+  species?: Species | null
+  bibliography?: string | null
+  created_at?: string | null
+  modified_at?: string | null
+}
 
 export const useStrainStore = defineStore('strain', {
   state: () => ({

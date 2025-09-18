@@ -1,12 +1,13 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
+import { type Strain } from '~/stores/strain';
 
 export interface AnimalProfile {
   id: number;
   name: string;
   description: string;
-  strain: string;
+  strain: Strain | null;
   sex: string;
   genotype: string;
   treatment: string;

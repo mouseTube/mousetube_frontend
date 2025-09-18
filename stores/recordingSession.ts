@@ -309,6 +309,25 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         console.error('Failed to delete session:', err.message);
         throw err;
       }
+    },
+    async updateSessionAnimalProfiles(sessionId: number, profileIds: number[]) {
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        const payload = { animal_profile_ids: profileIds }; // juste le champ à mettre à jour
+        const res = await axios.patch(
+          `${apiBaseUrl}/recording-session/${sessionId}/`,
+          payload,
+          { headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() } }
+        );
+
+        // mettre à jour localement
+        const index = this.sessions.findIndex((s) => s.id === sessionId);
+        if (index !== -1) this.sessions[index] = res.data;
+        return res.data;
+      } catch (err) {
+        console.error('Failed to update animal profiles:', err);
+        throw err;
+      }
     }
   },
 })

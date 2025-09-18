@@ -152,6 +152,7 @@ async function confirmDelete() {
     showSuccess(`Protocol "${protocolToDelete.value.name}" deleted successfully`);
     protocolToDelete.value = null;
   } catch (err: any) {
+    //eslint-disable-next-line no-console
     console.error('Failed to delete protocol:', err);
     showError(err.message || 'Failed to delete protocol');
   }

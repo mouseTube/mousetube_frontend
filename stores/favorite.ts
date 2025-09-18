@@ -4,7 +4,7 @@ import { useApiBaseUrl } from '~/composables/useApiBaseUrl'
 
 export interface Favorite {
   id: number
-  content_type: 'protocol' | 'software' | 'hardware'
+  content_type: 'protocol' | 'software' | 'hardware' | 'animalprofile'
   object_id: number
   created_at: string | null
 }
@@ -53,7 +53,7 @@ export const useFavoriteStore = defineStore('favorite', {
       this.error = null
       try {
         if (this.isFavorite(content_type, object_id)) return null
-
+        console.log('Adding favorite:', { content_type, object_id })
         const apiBaseUrl = useApiBaseUrl()
         const res = await axios.post(
           `${apiBaseUrl}/favorite/`,
