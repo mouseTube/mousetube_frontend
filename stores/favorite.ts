@@ -53,7 +53,6 @@ export const useFavoriteStore = defineStore('favorite', {
       this.error = null
       try {
         if (this.isFavorite(content_type, object_id)) return null
-        console.log('Adding favorite:', { content_type, object_id })
         const apiBaseUrl = useApiBaseUrl()
         const res = await axios.post(
           `${apiBaseUrl}/favorite/`,

@@ -136,14 +136,9 @@ export const useProtocolStore = defineStore('protocol', {
           headers: this.getAuthHeaders(),
         })
         const protocols = res.data.results.map(flatToNested)
-
-        if (page === 1) {
-          this.protocols.results = protocols
-        } else {
-          this.protocols.results = [...this.protocols.results, ...protocols]
-        }
+        this.protocols.results = protocols
         this.removeDuplicates()
-        this.protocols.count = this.protocols.results.length
+        this.protocols.count = res.data.count
         this.currentPage = page
         this.totalPages = Math.ceil(this.protocols.count / this.pageSize)
       } catch (err: any) {

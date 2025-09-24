@@ -1,132 +1,179 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue';
-import { useSpeciesStore } from '@/stores/species';
-import { useStrainStore } from '@/stores/strain';
+import { ref, watch, onMounted } from 'vue';
+import { useAnimalProfileStore } from '~/stores/animalProfile';
+import { useStrainStore, type Strain } from '~/stores/strain';
+import CreateStrainModal from '@/components/modals/CreateStrainModal.vue';
+import type { AnimalProfile } from '~/stores/animalProfile';
 
-const props = defineProps<{ show: boolean }>();
-const emit = defineEmits(['update:show', 'created']);
+const props = defineProps<{
+  modelValue: boolean;
+  profileToEdit?: AnimalProfile | null;
+}>();
+const emit = defineEmits(['update:modelValue', 'created', 'updated']);
 
-// Stores
-const speciesStore = useSpeciesStore();
+const animalProfileStore = useAnimalProfileStore();
 const strainStore = useStrainStore();
 
-// Local dialog state
-const localShow = ref(props.show);
-
-// Form data
-const formData = ref({
+const formData = ref<Partial<AnimalProfile>>({
   name: '',
-  background: '',
-  bibliography: '',
-  species: null as number | null,
+  description: '',
+  strain: null,
+  sex: '',
+  genotype: '',
+  treatment: '',
+  status: 'draft',
 });
 
-// Species options pour le v-select
-const speciesOptions = ref<{ label: string; value: number }[]>([]);
-const speciesLoading = ref(true);
-
-// Fetch species depuis le store
-async function fetchSpecies() {
-  try {
-    speciesLoading.value = true;
-    await speciesStore.fetchSpecies();
-    speciesOptions.value =
-      speciesStore.species.map((s) => ({
-        label: s.name,
-        value: s.id,
-      })) || [];
-  } catch (err) {
-    console.error('Error fetching species:', err);
-    speciesOptions.value = [];
-  } finally {
-    speciesLoading.value = false;
-  }
+function resetForm() {
+  formData.value = {
+    name: '',
+    description: '',
+    strain: null,
+    sex: '',
+    genotype: '',
+    treatment: '',
+    status: 'draft',
+  };
 }
 
-// Submit → crée un strain via le store strain
-async function submit() {
-  try {
-    if (!formData.value.species) {
-      alert('Please select a species.');
-      return;
-    }
+const strainOptions = ref<Strain[]>([]);
+const showCreateStrainModal = ref(false);
 
-    const newStrain = await strainStore.createStrain({
-      ...formData.value,
-      species: formData.value.species,
-    });
-
-    emit('created', newStrain);
-    localShow.value = false;
-  } catch (err) {
-    console.error('Error creating strain:', err);
-    alert('Error creating strain.');
+async function fetchStrains() {
+  if (strainStore.strains.length === 0) {
+    await strainStore.fetchStrains();
   }
+  strainOptions.value = strainStore.strains;
 }
 
-// Watchers pour synchroniser prop et état local
+onMounted(fetchStrains);
+
 watch(
-  () => props.show,
-  (val) => {
-    localShow.value = val;
-  }
+  () => props.profileToEdit,
+  async (profile) => {
+    if (profile) {
+      await fetchStrains();
+      formData.value = {
+        name: profile.name ?? '',
+        description: profile.description ?? '',
+        strain: profile.strain ?? null,
+        sex: profile.sex ?? '',
+        genotype: profile.genotype ?? '',
+        treatment: profile.treatment ?? '',
+        status: profile.status ?? 'draft',
+      };
+    } else {
+      resetForm();
+    }
+  },
+  { immediate: true }
 );
 
-watch(localShow, async (val) => {
-  emit('update:show', val);
-  if (!val) {
-    await nextTick();
-    formData.value = { name: '', background: '', bibliography: '', species: null };
+async function handleSubmit() {
+  try {
+    if (props.profileToEdit) {
+      const updated = await animalProfileStore.updateAnimalProfile(
+        props.profileToEdit.id,
+        formData.value
+      );
+      emit('updated', updated);
+    } else {
+      const created = await animalProfileStore.createAnimalProfile({
+        ...formData.value,
+        name: formData.value.name ?? '',
+        description: formData.value.description ?? '',
+        sex: formData.value.sex ?? '',
+        genotype: formData.value.genotype ?? '',
+        treatment: formData.value.treatment ?? '',
+        status: formData.value.status ?? 'draft',
+        strain: formData.value.strain ?? null,
+      });
+      emit('created', created);
+    }
+    emit('update:modelValue', false);
+    resetForm();
+  } catch (e) {
+    console.error(e);
+    alert('Error saving animal profile.');
   }
-});
+}
 
-onMounted(() => {
-  fetchSpecies();
-});
+function handleStrainCreated(newStrain: Strain) {
+  strainOptions.value.push(newStrain);
+  formData.value.strain = newStrain;
+  showCreateStrainModal.value = false;
+}
 </script>
 
 <template>
-  <v-dialog v-model="localShow" max-width="600px">
+  <v-dialog
+    :model-value="modelValue"
+    @update:model-value="emit('update:modelValue', $event)"
+    max-width="600"
+  >
     <v-card>
-      <v-card-title>Create New Strain</v-card-title>
-
+      <v-card-title>{{
+        props.profileToEdit ? 'Edit Animal Profile' : 'Create Animal Profile'
+      }}</v-card-title>
       <v-card-text>
-        <template v-if="speciesLoading">
-          <v-progress-circular indeterminate color="primary" class="mx-auto my-6" />
-        </template>
+        <v-text-field v-model="formData.name" outlined required class="mb-4">
+          <template #label>Name <span style="color: red">*</span></template>
+        </v-text-field>
 
-        <template v-else>
-          <v-text-field
-            v-model="formData.name"
-            label="Strain Name"
-            outlined
-            required
-            class="mb-4"
-          />
-          <v-text-field
-            v-model="formData.background"
-            label="Genetic Background"
-            outlined
-            required
-            class="mb-4"
-          />
-          <v-textarea v-model="formData.bibliography" label="Bibliography" outlined class="mb-4" />
-          <v-select
-            v-model="formData.species"
-            :items="speciesOptions"
-            item-title="label"
-            item-value="value"
-            label="Species"
-            outlined
-            required
-            class="mb-4"
-          />
-        </template>
+        <v-textarea v-model="formData.description" outlined class="mb-4">
+          <template #label>Description</template>
+        </v-textarea>
+
+        <v-select
+          v-model="formData.strain"
+          :items="strainOptions"
+          item-title="name"
+          return-object
+          label="Strain"
+          outlined
+          required
+          class="mb-4"
+        >
+          <template #append>
+            <v-btn icon @click="showCreateStrainModal = true">
+              <v-icon>mdi-plus</v-icon>
+            </v-btn>
+          </template>
+        </v-select>
+
+        <v-select
+          v-model="formData.sex"
+          :items="['male', 'female']"
+          label="Sex"
+          outlined
+          required
+          class="mb-4"
+        >
+          <template #label>Sex <span style="color: red">*</span></template>
+        </v-select>
+
+        <v-text-field v-model="formData.genotype" outlined required class="mb-4">
+          <template #label>Genotype <span style="color: red">*</span></template>
+        </v-text-field>
+
+        <v-text-field v-model="formData.treatment" outlined class="mb-4">
+          <template #label>Treatment</template>
+        </v-text-field>
       </v-card-text>
 
-      <v-card-actions v-if="!speciesLoading">
-        <v-btn color="primary" @click="submit">Create</v-btn>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn text @click="emit('update:modelValue', false)">Close</v-btn>
+        <v-btn color="primary" @click="handleSubmit">
+          {{ props.profileToEdit ? 'Update' : 'Create' }}
+        </v-btn>
       </v-card-actions>
     </v-card>
+
+    <CreateStrainModal
+      :show="showCreateStrainModal"
+      @update:show="showCreateStrainModal = $event"
+      @created="handleStrainCreated"
+    />
   </v-dialog>
 </template>

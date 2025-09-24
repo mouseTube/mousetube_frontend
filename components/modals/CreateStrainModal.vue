@@ -18,28 +18,31 @@ const formData = ref({
   name: '',
   background: '',
   bibliography: '',
-  species: null as number | null, // stocke l'id
+  species: null as number | null,
 });
 
 // Species options pour le v-select
 const speciesOptions = ref<{ label: string; value: number }[]>([]);
+const speciesLoading = ref(true);
 
-// Fetch species depuis le store species
+// Fetch species depuis le store
 async function fetchSpecies() {
   try {
-    await speciesStore.fetchSpecies(); // ne retourne rien, on lit juste speciesStore.species
+    speciesLoading.value = true;
+    await speciesStore.fetchSpecies();
     speciesOptions.value =
       speciesStore.species.map((s) => ({
         label: s.name,
         value: s.id,
-      })) ?? [];
+      })) || [];
   } catch (err) {
     console.error('Error fetching species:', err);
     speciesOptions.value = [];
+  } finally {
+    speciesLoading.value = false;
   }
 }
 
-// Submit → crée un strain via le store strain
 async function submit() {
   try {
     if (!formData.value.species) {
@@ -49,7 +52,7 @@ async function submit() {
 
     const newStrain = await strainStore.createStrain({
       ...formData.value,
-      species: formData.value.species, // on envoie l'id
+      species: formData.value.species,
     });
 
     emit('created', newStrain);
@@ -82,42 +85,46 @@ onMounted(() => {
 </script>
 
 <template>
-  <!-- Ne monter le dialog que si nécessaire pour éviter les erreurs de transition -->
-  <v-dialog v-if="localShow" v-model="localShow" max-width="600px" persistent>
+  <v-dialog v-model="localShow" max-width="600px">
     <v-card>
       <v-card-title>Create New Strain</v-card-title>
 
       <v-card-text>
-        <!-- Strain Name -->
-        <v-text-field v-model="formData.name" label="Strain Name" outlined required class="mb-4" />
+        <template v-if="speciesLoading">
+          <v-progress-circular indeterminate color="primary" class="mx-auto my-6" />
+        </template>
 
-        <!-- Genetic Background -->
-        <v-text-field
-          v-model="formData.background"
-          label="Genetic Background"
-          outlined
-          required
-          class="mb-4"
-        />
-
-        <!-- Bibliography -->
-        <v-textarea v-model="formData.bibliography" label="Bibliography" outlined class="mb-4" />
-
-        <!-- Species -->
-        <v-select
-          v-model="formData.species"
-          :items="speciesOptions ?? []"
-          item-title="label"
-          item-value="value"
-          label="Species"
-          outlined
-          required
-          class="mb-4"
-        />
+        <template v-else>
+          <v-text-field
+            v-model="formData.name"
+            label="Strain Name"
+            outlined
+            required
+            class="mb-4"
+          />
+          <v-text-field
+            v-model="formData.background"
+            label="Genetic Background"
+            outlined
+            required
+            class="mb-4"
+          />
+          <v-textarea v-model="formData.bibliography" label="Bibliography" outlined class="mb-4" />
+          <v-select
+            v-model="formData.species"
+            :items="speciesOptions"
+            item-title="label"
+            item-value="value"
+            label="Species"
+            outlined
+            required
+            class="mb-4"
+          />
+        </template>
       </v-card-text>
 
-      <v-card-actions>
-        <v-btn text @click="localShow = false">Cancel</v-btn>
+      <v-card-actions v-if="!speciesLoading">
+        <v-btn text @click="localShow = false">Close</v-btn>
         <v-btn color="primary" @click="submit">Create</v-btn>
       </v-card-actions>
     </v-card>

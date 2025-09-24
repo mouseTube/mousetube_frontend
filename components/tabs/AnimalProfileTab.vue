@@ -14,8 +14,7 @@ const animalProfileStore = useAnimalProfileStore();
 const showSelectionModal = ref(false);
 const snackbar = ref(false);
 const snackbarText = ref('');
-
-// Profils sélectionnés (objets complets)
+const snackbarColor = ref('');
 const selectedAnimalProfiles = ref<any[]>([]);
 const allAnimalProfiles = ref<
   {
@@ -27,26 +26,20 @@ const allAnimalProfiles = ref<
     genotype: string;
     treatment: string;
   }[]
->([]); // Tous les profils d'animaux
+>([]);
 
-// Charger tous les profils d'animaux
 async function loadAllAnimalProfiles() {
   await animalProfileStore.fetchAnimalProfiles();
   allAnimalProfiles.value = animalProfileStore.animalProfiles;
 }
 
-// Charger les profils liés à la session
 async function loadAnimalProfilesFromSession(sessionId: number) {
   const session = await recordingSessionStore.getSessionById(sessionId);
   if (!session) return;
-  console.log('Loaded session:', session);
 
-  // On stocke directement les objets complets
   selectedAnimalProfiles.value = session.animal_profiles || [];
-  console.log('Selected animal profiles:', selectedAnimalProfiles.value);
 }
 
-// Supprimer un profil
 function removeAnimalProfile(id: number) {
   selectedAnimalProfiles.value = selectedAnimalProfiles.value.filter((p) => p.id !== id);
 }
@@ -56,7 +49,6 @@ function clearAnimalProfiles() {
   selectedAnimalProfiles.value = [];
 }
 
-// Sauvegarder
 async function updateAnimalProfiles() {
   if (props.selectedRecordingSessionId === null) return;
 
@@ -69,44 +61,32 @@ async function updateAnimalProfiles() {
 
     snackbarText.value = 'Animal profiles updated successfully.';
     snackbar.value = true;
+    snackbarColor.value = 'success';
   } catch (err) {
     snackbarText.value = 'Failed to update animal profiles.';
     snackbar.value = true;
+    snackbarColor.value = 'error';
   }
 }
 
-// Quand la modale met à jour la sélection
 function onUpdateSelectedAnimalProfiles(ids: number[]) {
-  console.log('[Parent] onUpdateSelectedAnimalProfiles - Received IDs:', ids);
-
-  // Récupérer les objets complets pour les profils sélectionnés
   selectedAnimalProfiles.value = ids.map((id) => {
     const profile = allAnimalProfiles.value.find((profile) => profile.id === id);
-    console.log('[Parent] Found profile for ID:', id, profile);
     return profile || { id, name: 'Unknown' };
   });
-
-  console.log('[Parent] Updated selectedAnimalProfiles:', selectedAnimalProfiles.value);
 }
 
-// Watch pour charger les données
 watch(
   () => props.selectedRecordingSessionId,
   async (newId) => {
     if (newId !== null) {
-      await loadAllAnimalProfiles(); // Charger tous les profils
-      await loadAnimalProfilesFromSession(newId); // Charger les profils liés à la session
+      await loadAllAnimalProfiles();
+      await loadAnimalProfilesFromSession(newId);
     } else {
       selectedAnimalProfiles.value = [];
     }
   },
   { immediate: true }
-);
-
-console.log('[Parent] All animal profiles:', allAnimalProfiles.value);
-console.log(
-  '[Parent] Selected animal profiles:',
-  selectedAnimalProfiles.value.map((p) => p.id)
 );
 </script>
 
@@ -148,15 +128,13 @@ console.log(
       </v-card-text>
     </v-card>
 
-    <!-- On passe directement la liste d’objets -->
     <AnimalProfileSelectionModal
       v-model="showSelectionModal"
-      :allAnimalProfiles="allAnimalProfiles"
       :selectedAnimalProfiles="selectedAnimalProfiles.map((profile) => profile.id)"
       @update:selectedAnimalProfiles="onUpdateSelectedAnimalProfiles"
     />
 
-    <v-snackbar v-model="snackbar" :timeout="3000" location="top right">
+    <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000" location="top right">
       {{ snackbarText }}
       <template #actions>
         <v-btn icon @click="snackbar = false">

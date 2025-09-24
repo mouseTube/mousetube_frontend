@@ -236,7 +236,7 @@ onMounted(() => {
 <template>
   <!-- Main Dialog -->
   <v-dialog :model-value="modelValue" max-width="1200px" @click:outside="close">
-    <v-card class="pa-3">
+    <v-card class="pa-3" min-height="850px" overflow-y="auto">
       <v-card-title class="d-flex align-center justify-space-between gap-4">
         <span class="text-h6 font-weight-bold">Recording Sessions</span>
         <div class="d-flex align-center gap-3 flex-wrap">
@@ -341,7 +341,7 @@ onMounted(() => {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="close">Cancel</v-btn>
+        <v-btn text @click="close">Close</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

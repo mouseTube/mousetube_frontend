@@ -2,19 +2,13 @@
 import { ref, computed, watch } from 'vue';
 import { useAnimalProfileStore } from '@/stores/animalProfile';
 import { useFavoriteStore } from '@/stores/favorite';
+import { useSpeciesStore } from '@/stores/species';
+import { useStrainStore } from '@/stores/strain';
 import CreateAnimalProfileModal from '@/components/modals/CreateAnimalProfileModal.vue';
 
 const props = defineProps<{
   modelValue: boolean;
-  selectedAnimalProfiles: number[]; // IDs
-  allAnimalProfiles: {
-    id: number;
-    name: string;
-    strain?: { name: string; [key: string]: any } | null;
-    sex?: string;
-    genotype?: string;
-    treatment?: string;
-  }[];
+  selectedAnimalProfiles: number[];
 }>();
 
 const emit = defineEmits<{
@@ -24,35 +18,64 @@ const emit = defineEmits<{
 
 const animalProfileStore = useAnimalProfileStore();
 const favoriteStore = useFavoriteStore();
-const showCreateModal = ref(false);
+const speciesStore = useSpeciesStore();
+const strainStore = useStrainStore();
 
-// ----------------------------
-// Dialog
-// ----------------------------
+const showCreateModal = ref(false);
+const profileToEdit = ref<any>(null);
+
 const localDialog = computed({
   get: () => props.modelValue,
   set: (val: boolean) => emit('update:modelValue', val),
 });
 
-// ----------------------------
-// Profils
-// ----------------------------
-const profiles = computed(() => props.allAnimalProfiles);
+const profiles = computed(() => animalProfileStore.animalProfiles);
 
 // ----------------------------
-// Sélection locale (IDs)
+// Filters
+// ----------------------------
+const searchQuery = ref('');
+const selectedSpecies = ref<number | null>(null);
+const selectedStrain = ref<number | null>(null);
+const selectedSex = ref<string | null>(null);
+const selectedStatus = ref<string | null>(null);
+
+const filteredProfiles = computed(() => {
+  return profiles.value.filter((p) => {
+    const matchSearch =
+      debouncedSearchQuery.value === '' ||
+      p.name.toLowerCase().includes(debouncedSearchQuery.value.toLowerCase());
+
+    const matchSpecies = !selectedSpecies.value || p.strain?.species?.id === selectedSpecies.value;
+    const matchStrain = !selectedStrain.value || p.strain?.id === selectedStrain.value;
+    const matchSex = !selectedSex.value || p.sex === selectedSex.value;
+    const matchStatus = !selectedStatus.value || p.status === selectedStatus.value;
+
+    return matchSearch && matchSpecies && matchStrain && matchSex && matchStatus;
+  });
+});
+
 const localSelectedIds = ref([...props.selectedAnimalProfiles]);
 
+// --- searchQuery ---
+const debouncedSearchQuery = ref(searchQuery.value);
+
+let debounceTimeout: number | null = null;
+
+watch(searchQuery, (newVal) => {
+  if (debounceTimeout) clearTimeout(debounceTimeout);
+  debounceTimeout = window.setTimeout(() => {
+    debouncedSearchQuery.value = newVal;
+  }, 300);
+});
+
+// ----------------------------
+// Watchers
+// ----------------------------
+// Sync props and local state
 watch(
   () => props.selectedAnimalProfiles,
-  async (newVal) => {
-    if (favoriteStore.isEmpty()) {
-      try {
-        await favoriteStore.fetchAllFavorites();
-      } catch (err: any) {
-        showError(err.message || 'Failed to fetch favorites');
-      }
-    }
+  (newVal) => {
     const same =
       newVal.length === localSelectedIds.value.length &&
       newVal.every((id) => localSelectedIds.value.includes(id));
@@ -65,11 +88,56 @@ watch(localSelectedIds, (newVal) => {
   const same =
     newVal.length === props.selectedAnimalProfiles.length &&
     newVal.every((id) => props.selectedAnimalProfiles.includes(id));
-  if (!same) {
-    console.log('[Modal] Selected IDs updated:', newVal);
-    emit('update:selectedAnimalProfiles', [...newVal]);
+  if (!same) emit('update:selectedAnimalProfiles', [...newVal]);
+});
+
+watch([searchQuery, selectedSpecies, selectedStrain, selectedSex, selectedStatus], () => {
+  currentPage.value = 1;
+});
+// ----------------------------
+// Load profiles if empty
+// ----------------------------
+onMounted(async () => {
+  if (animalProfileStore.isEmpty()) {
+    try {
+      await animalProfileStore.fetchAnimalProfiles();
+    } catch (err: any) {
+      showSnackbar(err.message || 'Failed to fetch animal profiles', 'error');
+    }
+  }
+  // Load favorites, species and strains if empty
+  if (favoriteStore.isEmpty()) {
+    try {
+      await favoriteStore.fetchAllFavorites();
+    } catch (err: any) {
+      showSnackbar(err.message || 'Failed to fetch favorites', 'error');
+    }
+  }
+  if (speciesStore.isEmpty()) {
+    try {
+      await speciesStore.fetchSpecies();
+    } catch (err: any) {
+      showSnackbar(err.message || 'Failed to fetch species', 'error');
+    }
+  }
+  if (strainStore.isEmpty()) {
+    await strainStore
+      .fetchStrains()
+      .catch((err: any) => showSnackbar(err.message || 'Failed to fetch strains', 'error'));
   }
 });
+
+// -------------------------
+//Snackbar
+const snackbar = ref(false);
+const snackbarColor = ref('success');
+const snackbarText = ref('');
+
+function showSnackbar(message: string, color: 'success' | 'error') {
+  snackbarText.value = message;
+  snackbarColor.value = color;
+  snackbar.value = true;
+}
 
 // ----------------------------
 // Favoris
@@ -80,125 +148,348 @@ function toggleFavorite(id: number) {
   favoriteStore.toggleFavorite('animalprofile', id);
 }
 
-// ----------------------------
-// Création profil
-function handleCreated(newProfile: { id: number; name: string }) {
-  const fullProfile = {
-    id: newProfile.id,
-    name: newProfile.name,
-    description: '',
-    strain: null,
-    sex: '',
-    genotype: '',
-    treatment: '',
-  };
-  animalProfileStore.animalProfiles.push(fullProfile);
-
-  if (!localSelectedIds.value.includes(newProfile.id)) {
-    localSelectedIds.value.push(newProfile.id);
+function handleCreatedOrUpdated(profile: any) {
+  const index = animalProfileStore.animalProfiles.findIndex((p) => p.id === profile.id);
+  if (index !== -1) {
+    animalProfileStore.animalProfiles[index] = profile;
+    showSnackbar('Profile updated successfully!', 'success');
+  } else {
+    animalProfileStore.animalProfiles.push(profile);
+    if (!localSelectedIds.value.includes(profile.id)) localSelectedIds.value.push(profile.id);
+    showSnackbar('Profile created successfully!', 'success');
   }
+  profileToEdit.value = null;
 }
 
 // ----------------------------
 // Pagination
 const currentPage = ref(1);
 const itemsPerPage = 10;
-const totalPages = computed(() => Math.ceil(profiles.value.length / itemsPerPage));
+const totalPages = computed(() => Math.ceil(filteredProfiles.value.length / itemsPerPage));
+
 const paginatedProfiles = computed(() =>
-  profiles.value.slice((currentPage.value - 1) * itemsPerPage, currentPage.value * itemsPerPage)
+  filteredProfiles.value.slice(
+    (currentPage.value - 1) * itemsPerPage,
+    currentPage.value * itemsPerPage
+  )
 );
 
-// ----------------------------
-// Toggle sélection d’un profil
 function toggleProfile(id: number) {
-  const index = localSelectedIds.value.indexOf(id);
-  if (index === -1) {
-    localSelectedIds.value.push(id);
+  if (!localSelectedIds.value.includes(id)) {
+    localSelectedIds.value = [...localSelectedIds.value, id];
   } else {
-    localSelectedIds.value.splice(index, 1);
+    localSelectedIds.value = localSelectedIds.value.filter((i) => i !== id);
   }
-  console.log('[Modal] Toggled profile ID:', id);
 }
+
+const showConfirmDelete = ref(false);
+const profilePendingDelete = ref<any>(null);
+
+function handleDelete(profile: any) {
+  if (profile.status !== 'draft') return;
+  profilePendingDelete.value = profile;
+  showConfirmDelete.value = true;
+}
+
+async function confirmDelete() {
+  if (!profilePendingDelete.value) return;
+  try {
+    await animalProfileStore.deleteAnimalProfile(profilePendingDelete.value.id);
+    localSelectedIds.value = localSelectedIds.value.filter(
+      (id) => id !== profilePendingDelete.value.id
+    );
+    showSnackbar('Profile deleted successfully!', 'success');
+  } catch (err: any) {
+    console.error('Failed to delete profile:', err);
+    showSnackbar(err.message || 'Failed to delete profile', 'error');
+  } finally {
+    showConfirmDelete.value = false;
+    profilePendingDelete.value = null;
+  }
+}
+
+function handleEdit(profile: any) {
+  if (profile.status !== 'draft') return;
+  profileToEdit.value = profile;
+  showCreateModal.value = true;
+}
+
+const maxNameLength = 32;
+
+const isTruncated = (name: string) => {
+  return name.length > maxNameLength;
+};
 </script>
 
 <template>
-  <v-dialog v-model="localDialog" max-width="1300">
-    <v-card>
+  <v-dialog v-model="localDialog" max-width="1600px">
+    <v-card class="pa-3" min-height="850px" overflow-y="auto">
       <v-card-title class="d-flex justify-space-between align-center">
-        <span>Animal Profiles</span>
-        <v-btn color="primary" @click="showCreateModal = true">
-          <v-icon start>mdi-plus</v-icon> Create
-        </v-btn>
+        <span class="text-h6 font-weight-bold">Animal Profiles</span>
+        <div class="d-flex align-center" style="gap: 12px">
+          <v-select
+            v-model="selectedSpecies"
+            :items="speciesStore.species"
+            item-title="name"
+            item-value="id"
+            density="comfortable"
+            clearable
+            label="Species"
+            style="min-width: 150px; max-width: 250px"
+            class="match-search-height"
+          />
+          <v-text-field
+            v-model="searchQuery"
+            clearable
+            label="Search"
+            prepend-inner-icon="mdi-magnify"
+            density="comfortable"
+            style="min-width: 250px; max-width: 300px"
+            class="match-search-height"
+          />
+        </div>
       </v-card-title>
 
-      <v-card-text>
+      <v-card-text class="scrollable-content">
         <!-- Header -->
-        <v-row class="font-weight-bold mb-2">
-          <v-col cols="4">Name</v-col>
-          <v-col cols="2">Strain</v-col>
-          <v-col cols="1">Sex</v-col>
-          <v-col cols="2">Genotype</v-col>
-          <v-col cols="2">Treatment</v-col>
+        <v-row class="font-weight-bold">
+          <v-col cols="3" class="d-flex justify-center">Name</v-col>
+          <v-col cols="2" class="d-flex justify-center"
+            ><v-select
+              v-model="selectedStrain"
+              :items="strainStore.strains"
+              item-title="name"
+              item-value="id"
+              clearable
+              density="comfortable"
+              label="Strain"
+              class="match-search-height select-column"
+          /></v-col>
+          <v-col cols="1" class="d-flex justify-center"
+            ><v-select
+              v-model="selectedSex"
+              :items="['male', 'female']"
+              clearable
+              density="comfortable"
+              label="Sex"
+              style="min-width: 160px"
+          /></v-col>
+          <v-col cols="2" class="d-flex justify-center">Genotype</v-col>
+          <v-col cols="2" class="d-flex justify-center">Treatment</v-col>
+          <v-col cols="1" class="d-flex justify-center"
+            ><v-select
+              v-model="selectedStatus"
+              :items="['draft', 'waiting for validation', 'validated']"
+              clearable
+              density="comfortable"
+              label="Status"
+              class="select-column"
+          /></v-col>
+          <v-col cols="1" class="d-flex justify-center">Actions</v-col>
         </v-row>
 
-        <!-- Liste avec checkbox + favoris -->
+        <!-- Liste -->
         <v-list dense>
-          <v-list-item
-            v-for="profile in paginatedProfiles"
-            :key="profile.id"
-            class="align-center"
-            @click="toggleProfile(profile.id)"
-          >
-            <v-row class="align-center" style="width: 100%">
-              <v-col cols="4" class="d-flex align-center">
-                <!-- Checkbox -->
-                <v-checkbox
-                  v-model="localSelectedIds"
-                  :value="profile.id"
-                  hide-details
-                  density="compact"
-                  @click.stop
-                />
+          <template v-for="profile in paginatedProfiles" :key="profile.id">
+            <v-divider />
+            <v-list-item class="align-center fixed-row" @click="toggleProfile(profile.id)">
+              <v-row class="align-center" style="width: 100%" no-gutters>
+                <v-col cols="3" class="d-flex align-center">
+                  <v-checkbox
+                    v-model="localSelectedIds"
+                    :value="profile.id"
+                    hide-details
+                    density="compact"
+                    @click.stop
+                    class="me-1"
+                  />
+                  <v-btn
+                    icon
+                    variant="text"
+                    size="small"
+                    class="me-1"
+                    @click.stop="toggleFavorite(profile.id)"
+                  >
+                    <v-icon :color="isFavorite(profile.id) ? 'yellow' : 'grey'">
+                      {{ isFavorite(profile.id) ? 'mdi-star' : 'mdi-star-outline' }}
+                    </v-icon>
+                  </v-btn>
+                  <span class="truncate-name">
+                    {{ profile.name }}
+                  </span>
+                  <v-tooltip v-if="isTruncated(profile.name)" activator="parent" location="top">
+                    {{ profile.name }}
+                  </v-tooltip>
+                </v-col>
 
-                <!-- Favori -->
-                <v-btn
-                  icon
-                  variant="text"
-                  size="small"
-                  class="ml-1"
-                  @click.stop="toggleFavorite(profile.id)"
-                >
-                  <v-icon :color="isFavorite(profile.id) ? 'yellow' : 'grey'">
-                    {{ isFavorite(profile.id) ? 'mdi-star' : 'mdi-star-outline' }}
-                  </v-icon>
-                </v-btn>
+                <!-- Strain -->
+                <v-col cols="2" class="d-flex justify-center align-center">
+                  {{ profile.strain?.name || '-' }}
+                </v-col>
 
-                <!-- Nom -->
-                <span class="ml-2">{{ profile.name }}</span>
-              </v-col>
+                <!-- Sex -->
+                <v-col cols="1" class="d-flex justify-center align-center">
+                  {{ profile.sex || '-' }}
+                </v-col>
 
-              <v-col cols="2">{{ profile.strain?.name || '-' }}</v-col>
-              <v-col cols="1">{{ profile.sex || '-' }}</v-col>
-              <v-col cols="2">{{ profile.genotype || '-' }}</v-col>
-              <v-col cols="2">{{ profile.treatment || '-' }}</v-col>
-            </v-row>
-          </v-list-item>
+                <!-- Genotype -->
+                <v-col cols="2" class="d-flex justify-center align-center">
+                  {{ profile.genotype || '-' }}
+                </v-col>
+
+                <!-- Treatment -->
+                <v-col cols="2" class="d-flex justify-center align-center">
+                  {{ profile.treatment || '-' }}
+                </v-col>
+
+                <!-- Status -->
+                <v-col cols="1" class="d-flex justify-center align-center">
+                  <v-chip
+                    size="small"
+                    :color="
+                      profile.status === 'draft'
+                        ? 'grey'
+                        : profile.status === 'validated'
+                          ? 'green'
+                          : 'blue'
+                    "
+                    text-color="white"
+                  >
+                    {{ profile.status }}
+                  </v-chip>
+                </v-col>
+
+                <!-- Actions -->
+                <v-col cols="1" class="d-flex justify-center align-center">
+                  <template v-if="profile.status === 'draft'">
+                    <v-btn
+                      icon
+                      size="small"
+                      variant="text"
+                      color="red"
+                      @click.stop="handleEdit(profile)"
+                      class="me-1"
+                    >
+                      <v-icon>mdi-pencil</v-icon>
+                    </v-btn>
+                    <v-btn
+                      icon
+                      size="small"
+                      variant="text"
+                      color="red"
+                      @click.stop="handleDelete(profile)"
+                    >
+                      <v-icon>mdi-delete</v-icon>
+                    </v-btn>
+                  </template>
+                </v-col>
+              </v-row>
+            </v-list-item>
+          </template>
         </v-list>
 
         <!-- Pagination -->
-        <v-row class="mt-2" align="center" justify="center">
-          <v-btn text :disabled="currentPage === 1" @click="currentPage--"> Prev </v-btn>
-          <span class="mx-3">{{ currentPage }} / {{ totalPages }}</span>
-          <v-btn text :disabled="currentPage === totalPages" @click="currentPage++"> Next </v-btn>
-        </v-row>
+        <v-pagination
+          v-model="currentPage"
+          :length="totalPages"
+          :total-visible="7"
+          class="mt-2"
+          color="primary"
+        />
       </v-card-text>
 
-      <v-card-actions>
-        <v-spacer />
-        <v-btn text @click="localDialog = false">Close</v-btn>
+      <!-- Boutons bas -->
+      <v-card-actions class="justify-space-between">
+        <v-btn
+          color="primary"
+          variant="flat"
+          @click="
+            profileToEdit = null;
+            showCreateModal = true;
+          "
+        >
+          <v-icon start>mdi-plus</v-icon>
+          Create
+        </v-btn>
+
+        <div>
+          <v-btn color="primary" variant="flat" @click="localDialog = false"> Close </v-btn>
+        </div>
       </v-card-actions>
     </v-card>
 
-    <CreateAnimalProfileModal v-model:show="showCreateModal" @created="handleCreated" />
+    <CreateAnimalProfileModal
+      v-model="showCreateModal"
+      :profileToEdit="profileToEdit"
+      @created="handleCreatedOrUpdated"
+      @updated="handleCreatedOrUpdated"
+    />
+
+    <v-dialog v-model="showConfirmDelete" max-width="400">
+      <v-card>
+        <v-card-title>Confirm Deletion</v-card-title>
+        <v-card-text>
+          Are you sure you want to delete <b>{{ profilePendingDelete?.name }}</b> ?
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn text @click="showConfirmDelete = false">Cancel</v-btn>
+          <v-btn color="red" text @click="confirmDelete">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-dialog>
+  <!-- Snackbar -->
+  <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000">
+    {{ snackbarText }}
+  </v-snackbar>
 </template>
+
+<style scoped>
+.fixed-dialog {
+  min-height: 850px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.fixed-row {
+  min-height: 50px;
+}
+
+.pagination-row {
+  min-height: 50px;
+}
+
+.truncate-name {
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+}
+.match-search-height .v-field {
+  min-height: 40px !important;
+  height: 40px !important;
+}
+.v-select .v-field__input {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-column {
+  max-width: 160px;
+  min-width: 140px;
+  width: 100%;
+}
+.fixed-row > .v-row {
+  margin: 0;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+</style>
