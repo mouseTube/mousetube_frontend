@@ -10,6 +10,8 @@ export interface Strain {
   background?: string | null
   species?: Species | null
   bibliography?: string | null
+  status?: string | null
+  created_by?: number | null
   created_at?: string | null
   modified_at?: string | null
 }

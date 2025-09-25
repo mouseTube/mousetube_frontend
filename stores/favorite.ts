@@ -4,7 +4,7 @@ import { useApiBaseUrl } from '~/composables/useApiBaseUrl'
 
 export interface Favorite {
   id: number
-  content_type: 'protocol' | 'software' | 'hardware' | 'animalprofile'
+  content_type: 'protocol' | 'software' | 'hardware' | 'animalprofile' | 'strain' | 'species'
   object_id: number
   created_at: string | null
 }

@@ -4,6 +4,7 @@ import { useAnimalProfileStore } from '~/stores/animalProfile';
 import { useStrainStore, type Strain } from '~/stores/strain';
 import CreateStrainModal from '@/components/modals/CreateStrainModal.vue';
 import type { AnimalProfile } from '~/stores/animalProfile';
+import SelectStrainModal from '@/components/modals/StrainSelectionModal.vue';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -13,6 +14,7 @@ const emit = defineEmits(['update:modelValue', 'created', 'updated']);
 
 const animalProfileStore = useAnimalProfileStore();
 const strainStore = useStrainStore();
+const showStrainSelectModal = ref(false);
 
 const formData = ref<Partial<AnimalProfile>>({
   name: '',
@@ -67,6 +69,14 @@ watch(
     }
   },
   { immediate: true }
+);
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (open && !props.profileToEdit) {
+      resetForm();
+    }
+  }
 );
 
 async function handleSubmit() {
@@ -124,22 +134,19 @@ function handleStrainCreated(newStrain: Strain) {
           <template #label>Description</template>
         </v-textarea>
 
-        <v-select
-          v-model="formData.strain"
-          :items="strainOptions"
-          item-title="name"
-          return-object
+        <v-text-field
+          :model-value="formData.strain ? formData.strain.name : ''"
           label="Strain"
           outlined
           required
+          readonly
           class="mb-4"
+          @click="showStrainSelectModal = true"
         >
           <template #append>
-            <v-btn icon @click="showCreateStrainModal = true">
-              <v-icon>mdi-plus</v-icon>
-            </v-btn>
+            <v-btn text @click.stop="showStrainSelectModal = true"> Select </v-btn>
           </template>
-        </v-select>
+        </v-text-field>
 
         <v-select
           v-model="formData.sex"
@@ -174,6 +181,39 @@ function handleStrainCreated(newStrain: Strain) {
       :show="showCreateStrainModal"
       @update:show="showCreateStrainModal = $event"
       @created="handleStrainCreated"
+    />
+    <SelectStrainModal
+      :show="showStrainSelectModal"
+      @update:show="showStrainSelectModal = $event"
+      @selected="
+        (
+          strain:
+            | {
+                id: number;
+                name: string;
+                background?: string | null | undefined;
+                species?:
+                  | {
+                      id: number;
+                      name: string;
+                      created_at?: string | null | undefined;
+                      modified_at?: string | null | undefined;
+                      created_by?: number | null | undefined;
+                    }
+                  | null
+                  | undefined;
+                bibliography?: string | null | undefined;
+                created_at?: string | null | undefined;
+                created_by?: number | null | undefined;
+                modified_at?: string | null | undefined;
+              }
+            | null
+            | undefined
+        ) => {
+          formData.strain = strain;
+          showStrainSelectModal = false;
+        }
+      "
     />
   </v-dialog>
 </template>
