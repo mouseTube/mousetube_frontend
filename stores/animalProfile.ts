@@ -62,6 +62,40 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
       }
     },
 
+    async fetchAnimalProfilesPage(
+      page = 1,
+      filters: Record<string, any> = {}
+    ): Promise<{ results: AnimalProfile[]; count: number; next: string | null; previous: string | null }> {
+      this.loading = true;
+      this.error = null;
+
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+
+        const params = { page, ...filters };
+
+        const res: import("axios").AxiosResponse<{
+          results: AnimalProfile[];
+          count: number;
+          next: string | null;
+          previous: string | null;
+        }> = await axios.get(`${apiBaseUrl}/animalprofile/`, {
+          params,
+          headers: this.getAuthHeaders(),
+        });
+
+        this.animalProfiles = res.data.results;
+
+        return res.data;
+      } catch (err: any) {
+        this.error = err.message || "Failed to fetch animal profiles page";
+        throw err;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+
     getAnimalProfileById(id: number): AnimalProfile | null {
       return this.animalProfiles.find(a => a.id === id) || null;
     },

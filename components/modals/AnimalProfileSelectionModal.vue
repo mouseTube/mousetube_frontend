@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { type AnimalProfile, useAnimalProfileStore } from '@/stores/animalProfile';
 import { useFavoriteStore } from '@/stores/favorite';
 import { useSpeciesStore } from '@/stores/species';
@@ -29,8 +29,6 @@ const localDialog = computed({
   set: (val: boolean) => emit('update:modelValue', val),
 });
 
-const profiles = computed(() => animalProfileStore.animalProfiles);
-
 // ----------------------------
 // Filters
 // ----------------------------
@@ -40,26 +38,8 @@ const selectedStrain = ref<number | null>(null);
 const selectedSex = ref<string | null>(null);
 const selectedStatus = ref<string | null>(null);
 
-const filteredProfiles = computed(() => {
-  return profiles.value.filter((p) => {
-    const matchSearch =
-      debouncedSearchQuery.value === '' ||
-      p.name.toLowerCase().includes(debouncedSearchQuery.value.toLowerCase());
-
-    const matchSpecies = !selectedSpecies.value || p.strain?.species?.id === selectedSpecies.value;
-    const matchStrain = !selectedStrain.value || p.strain?.id === selectedStrain.value;
-    const matchSex = !selectedSex.value || p.sex === selectedSex.value;
-    const matchStatus = !selectedStatus.value || p.status === selectedStatus.value;
-
-    return matchSearch && matchSpecies && matchStrain && matchSex && matchStatus;
-  });
-});
-
-// --- searchQuery ---
 const debouncedSearchQuery = ref(searchQuery.value);
-
 let debounceTimeout: number | null = null;
-
 watch(searchQuery, (newVal) => {
   if (debounceTimeout) clearTimeout(debounceTimeout);
   debounceTimeout = window.setTimeout(() => {
@@ -67,21 +47,45 @@ watch(searchQuery, (newVal) => {
   }, 300);
 });
 
-watch([searchQuery, selectedSpecies, selectedStrain, selectedSex, selectedStatus], () => {
-  currentPage.value = 1;
-});
 // ----------------------------
-// Load profiles if empty
+// Pagination + Profiles
 // ----------------------------
-onMounted(async () => {
-  if (animalProfileStore.isEmpty()) {
-    try {
-      await animalProfileStore.fetchAnimalProfiles();
-    } catch (err: any) {
-      showSnackbar(err.message || 'Failed to fetch animal profiles', 'error');
-    }
+const currentPage = ref(1);
+const itemsPerPage = 10;
+const totalCount = ref(0);
+const paginatedProfiles = ref<AnimalProfile[]>([]);
+
+async function loadProfiles() {
+  try {
+    const filters: Record<string, any> = {};
+    if (debouncedSearchQuery.value) filters.search = debouncedSearchQuery.value;
+    if (selectedSpecies.value) filters.species = selectedSpecies.value;
+    if (selectedStrain.value) filters.strain = selectedStrain.value;
+    if (selectedSex.value) filters.sex = selectedSex.value;
+    if (selectedStatus.value) filters.status = selectedStatus.value;
+
+    const data = await animalProfileStore.fetchAnimalProfilesPage(currentPage.value, filters);
+    paginatedProfiles.value = data.results;
+    totalCount.value = data.count;
+  } catch (err: any) {
+    showSnackbar(err.message || 'Failed to fetch animal profiles', 'error');
   }
-  // Load favorites, species and strains if empty
+}
+
+const totalPages = computed(() => Math.ceil(totalCount.value / itemsPerPage));
+
+watch([debouncedSearchQuery, selectedSpecies, selectedStrain, selectedSex, selectedStatus], () => {
+  currentPage.value = 1;
+  loadProfiles();
+});
+
+watch(currentPage, () => {
+  loadProfiles();
+});
+
+onMounted(async () => {
+  await loadProfiles();
+
   if (favoriteStore.isEmpty()) {
     try {
       await favoriteStore.fetchAllFavorites();
@@ -104,7 +108,7 @@ onMounted(async () => {
 });
 
 // -------------------------
-//Snackbar
+// Snackbar
 const snackbar = ref(false);
 const snackbarColor = ref('success');
 const snackbarText = ref('');
@@ -124,36 +128,23 @@ function toggleFavorite(id: number) {
   favoriteStore.toggleFavorite('animalprofile', id);
 }
 
+// ----------------------------
+// CRUD
 function handleCreatedOrUpdated(profile: any) {
-  const index = animalProfileStore.animalProfiles.findIndex((p) => p.id === profile.id);
+  const index = paginatedProfiles.value.findIndex((p) => p.id === profile.id);
 
   if (index !== -1) {
-    animalProfileStore.animalProfiles[index] = profile;
+    paginatedProfiles.value[index] = profile;
     showSnackbar('Profile updated successfully!', 'success');
   } else {
-    animalProfileStore.animalProfiles.push(profile);
+    paginatedProfiles.value.unshift(profile);
     if (!props.selectedAnimalProfiles.some((p) => p.id === profile.id)) {
       emit('update:selectedAnimalProfiles', [...props.selectedAnimalProfiles, profile]);
     }
-
     showSnackbar('Profile created successfully!', 'success');
   }
-
   profileToEdit.value = null;
 }
-
-// ----------------------------
-// Pagination
-const currentPage = ref(1);
-const itemsPerPage = 10;
-const totalPages = computed(() => Math.ceil(filteredProfiles.value.length / itemsPerPage));
-
-const paginatedProfiles = computed(() =>
-  filteredProfiles.value.slice(
-    (currentPage.value - 1) * itemsPerPage,
-    currentPage.value * itemsPerPage
-  )
-);
 
 function isSelected(profile: AnimalProfile) {
   return props.selectedAnimalProfiles.some((p) => p.id === profile.id);
@@ -187,6 +178,7 @@ async function confirmDelete() {
       props.selectedAnimalProfiles.filter((p) => p.id !== profilePendingDelete.value.id)
     );
     showSnackbar('Profile deleted successfully!', 'success');
+    await loadProfiles();
   } catch (err: any) {
     // eslint-disable-next-line no-console
     console.error('Failed to delete profile:', err);
@@ -204,10 +196,7 @@ function handleEdit(profile: any) {
 }
 
 const maxNameLength = 32;
-
-const isTruncated = (name: string) => {
-  return name.length > maxNameLength;
-};
+const isTruncated = (name: string) => name.length > maxNameLength;
 </script>
 
 <template>
@@ -309,27 +298,22 @@ const isTruncated = (name: string) => {
                   </v-tooltip>
                 </v-col>
 
-                <!-- Strain -->
                 <v-col cols="2" class="d-flex justify-center align-center">
                   {{ profile.strain?.name || '-' }}
                 </v-col>
 
-                <!-- Sex -->
                 <v-col cols="1" class="d-flex justify-center align-center">
                   {{ profile.sex || '-' }}
                 </v-col>
 
-                <!-- Genotype -->
                 <v-col cols="2" class="d-flex justify-center align-center">
                   {{ profile.genotype || '-' }}
                 </v-col>
 
-                <!-- Treatment -->
                 <v-col cols="2" class="d-flex justify-center align-center">
                   {{ profile.treatment || '-' }}
                 </v-col>
 
-                <!-- Status -->
                 <v-col cols="1" class="d-flex justify-center align-center">
                   <v-chip
                     size="small"
@@ -346,7 +330,6 @@ const isTruncated = (name: string) => {
                   </v-chip>
                 </v-col>
 
-                <!-- Actions -->
                 <v-col cols="1" class="d-flex justify-center align-center">
                   <template v-if="profile.status === 'draft'">
                     <v-btn
@@ -424,6 +407,7 @@ const isTruncated = (name: string) => {
       </v-card>
     </v-dialog>
   </v-dialog>
+
   <!-- Snackbar -->
   <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000">
     {{ snackbarText }}
@@ -437,20 +421,13 @@ const isTruncated = (name: string) => {
   display: flex;
   flex-direction: column;
 }
-
 .scrollable-content {
   flex: 1;
   overflow-y: auto;
 }
-
 .fixed-row {
   min-height: 50px;
 }
-
-.pagination-row {
-  min-height: 50px;
-}
-
 .truncate-name {
   max-width: 300px;
   white-space: nowrap;
