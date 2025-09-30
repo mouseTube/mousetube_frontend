@@ -4,12 +4,12 @@ import axios from 'axios'
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl'
 import { token } from '@/composables/useAuth'
 import type { SoftwareVersion } from '@/stores/software'
+import type { AnimalProfile } from '@/stores/animalProfile'
 
 export interface Study { id: number; name: string; description?: string | null; start_date?: string | null; end_date?: string | null; created_at?: string | null; modified_at?: string | null }
 export interface Protocol { id: number; name: string }
 export interface Hardware { id: number; name: string; type: string }
 export interface Laboratory { id: number; name: string; institution?: string | null; unit?: string | null; address?: string | null; country?: string | null; contact?: string | null }
-export interface AnimalProfile { id: number; name: string }
 
 export interface RecordingSession {
   id: number

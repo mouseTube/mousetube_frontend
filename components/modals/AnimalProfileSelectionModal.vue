@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { useAnimalProfileStore } from '@/stores/animalProfile';
+import { type AnimalProfile, useAnimalProfileStore } from '@/stores/animalProfile';
 import { useFavoriteStore } from '@/stores/favorite';
 import { useSpeciesStore } from '@/stores/species';
 import { useStrainStore } from '@/stores/strain';
@@ -8,12 +8,12 @@ import CreateAnimalProfileModal from '@/components/modals/CreateAnimalProfileMod
 
 const props = defineProps<{
   modelValue: boolean;
-  selectedAnimalProfiles: number[];
+  selectedAnimalProfiles: AnimalProfile[];
 }>();
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
-  (e: 'update:selectedAnimalProfiles', value: number[]): void;
+  (e: 'update:selectedAnimalProfiles', value: AnimalProfile[]): void;
 }>();
 
 const animalProfileStore = useAnimalProfileStore();
@@ -55,8 +55,6 @@ const filteredProfiles = computed(() => {
   });
 });
 
-const localSelectedIds = ref([...props.selectedAnimalProfiles]);
-
 // --- searchQuery ---
 const debouncedSearchQuery = ref(searchQuery.value);
 
@@ -67,28 +65,6 @@ watch(searchQuery, (newVal) => {
   debounceTimeout = window.setTimeout(() => {
     debouncedSearchQuery.value = newVal;
   }, 300);
-});
-
-// ----------------------------
-// Watchers
-// ----------------------------
-// Sync props and local state
-watch(
-  () => props.selectedAnimalProfiles,
-  (newVal) => {
-    const same =
-      newVal.length === localSelectedIds.value.length &&
-      newVal.every((id) => localSelectedIds.value.includes(id));
-    if (!same) localSelectedIds.value = [...newVal];
-  },
-  { immediate: true }
-);
-
-watch(localSelectedIds, (newVal) => {
-  const same =
-    newVal.length === props.selectedAnimalProfiles.length &&
-    newVal.every((id) => props.selectedAnimalProfiles.includes(id));
-  if (!same) emit('update:selectedAnimalProfiles', [...newVal]);
 });
 
 watch([searchQuery, selectedSpecies, selectedStrain, selectedSex, selectedStatus], () => {
@@ -150,14 +126,19 @@ function toggleFavorite(id: number) {
 
 function handleCreatedOrUpdated(profile: any) {
   const index = animalProfileStore.animalProfiles.findIndex((p) => p.id === profile.id);
+
   if (index !== -1) {
     animalProfileStore.animalProfiles[index] = profile;
     showSnackbar('Profile updated successfully!', 'success');
   } else {
     animalProfileStore.animalProfiles.push(profile);
-    if (!localSelectedIds.value.includes(profile.id)) localSelectedIds.value.push(profile.id);
+    if (!props.selectedAnimalProfiles.some((p) => p.id === profile.id)) {
+      emit('update:selectedAnimalProfiles', [...props.selectedAnimalProfiles, profile]);
+    }
+
     showSnackbar('Profile created successfully!', 'success');
   }
+
   profileToEdit.value = null;
 }
 
@@ -174,12 +155,18 @@ const paginatedProfiles = computed(() =>
   )
 );
 
-function toggleProfile(id: number) {
-  if (!localSelectedIds.value.includes(id)) {
-    localSelectedIds.value = [...localSelectedIds.value, id];
+function isSelected(profile: AnimalProfile) {
+  return props.selectedAnimalProfiles.some((p) => p.id === profile.id);
+}
+
+function toggleProfile(profile: AnimalProfile) {
+  let newSelection: AnimalProfile[];
+  if (!isSelected(profile)) {
+    newSelection = [...props.selectedAnimalProfiles, profile];
   } else {
-    localSelectedIds.value = localSelectedIds.value.filter((i) => i !== id);
+    newSelection = props.selectedAnimalProfiles.filter((p) => p.id !== profile.id);
   }
+  emit('update:selectedAnimalProfiles', newSelection);
 }
 
 const showConfirmDelete = ref(false);
@@ -195,11 +182,13 @@ async function confirmDelete() {
   if (!profilePendingDelete.value) return;
   try {
     await animalProfileStore.deleteAnimalProfile(profilePendingDelete.value.id);
-    localSelectedIds.value = localSelectedIds.value.filter(
-      (id) => id !== profilePendingDelete.value.id
+    emit(
+      'update:selectedAnimalProfiles',
+      props.selectedAnimalProfiles.filter((p) => p.id !== profilePendingDelete.value.id)
     );
     showSnackbar('Profile deleted successfully!', 'success');
   } catch (err: any) {
+    // eslint-disable-next-line no-console
     console.error('Failed to delete profile:', err);
     showSnackbar(err.message || 'Failed to delete profile', 'error');
   } finally {
@@ -292,15 +281,15 @@ const isTruncated = (name: string) => {
         <v-list dense>
           <template v-for="profile in paginatedProfiles" :key="profile.id">
             <v-divider />
-            <v-list-item class="align-center fixed-row" @click="toggleProfile(profile.id)">
+            <v-list-item class="align-center fixed-row" @click="toggleProfile(profile)">
               <v-row class="align-center" style="width: 100%" no-gutters>
+                <!-- Name + Checkbox + Favorite -->
                 <v-col cols="3" class="d-flex align-center">
                   <v-checkbox
-                    v-model="localSelectedIds"
-                    :value="profile.id"
+                    :model-value="isSelected(profile)"
                     hide-details
                     density="compact"
-                    @click.stop
+                    @click.stop="toggleProfile(profile)"
                     class="me-1"
                   />
                   <v-btn
@@ -314,9 +303,7 @@ const isTruncated = (name: string) => {
                       {{ isFavorite(profile.id) ? 'mdi-star' : 'mdi-star-outline' }}
                     </v-icon>
                   </v-btn>
-                  <span class="truncate-name">
-                    {{ profile.name }}
-                  </span>
+                  <span class="truncate-name">{{ profile.name }}</span>
                   <v-tooltip v-if="isTruncated(profile.name)" activator="parent" location="top">
                     {{ profile.name }}
                   </v-tooltip>
@@ -397,8 +384,6 @@ const isTruncated = (name: string) => {
           color="primary"
         />
       </v-card-text>
-
-      <!-- Boutons bas -->
       <v-card-actions class="justify-space-between">
         <v-btn
           color="primary"

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { type RecordingSessionPayload, useRecordingSessionStore } from '@/stores/recordingSession';
-import { useAnimalProfileStore } from '@/stores/animalProfile';
+import { type AnimalProfile } from '@/stores/animalProfile';
 import AnimalProfileSelectionModal from '@/components/modals/AnimalProfileSelectionModal.vue';
 
 const props = defineProps<{
@@ -9,29 +9,12 @@ const props = defineProps<{
 }>();
 
 const recordingSessionStore = useRecordingSessionStore();
-const animalProfileStore = useAnimalProfileStore();
 
 const showSelectionModal = ref(false);
 const snackbar = ref(false);
 const snackbarText = ref('');
 const snackbarColor = ref('');
-const selectedAnimalProfiles = ref<any[]>([]);
-const allAnimalProfiles = ref<
-  {
-    id: number;
-    name: string;
-    description: string;
-    strain?: { name: string; [key: string]: any } | null;
-    sex: string;
-    genotype: string;
-    treatment: string;
-  }[]
->([]);
-
-async function loadAllAnimalProfiles() {
-  await animalProfileStore.fetchAnimalProfiles();
-  allAnimalProfiles.value = animalProfileStore.animalProfiles;
-}
+const selectedAnimalProfiles = ref<AnimalProfile[]>([]);
 
 async function loadAnimalProfilesFromSession(sessionId: number) {
   const session = await recordingSessionStore.getSessionById(sessionId);
@@ -69,18 +52,22 @@ async function updateAnimalProfiles() {
   }
 }
 
-function onUpdateSelectedAnimalProfiles(ids: number[]) {
-  selectedAnimalProfiles.value = ids.map((id) => {
-    const profile = allAnimalProfiles.value.find((profile) => profile.id === id);
-    return profile || { id, name: 'Unknown' };
+function onUpdateSelectedAnimalProfiles(profiles: AnimalProfile[]) {
+  const current = [...selectedAnimalProfiles.value];
+
+  profiles.forEach((profile) => {
+    if (!current.some((p) => p.id === profile.id)) {
+      current.push(profile);
+    }
   });
+
+  selectedAnimalProfiles.value = current;
 }
 
 watch(
   () => props.selectedRecordingSessionId,
   async (newId) => {
     if (newId !== null) {
-      await loadAllAnimalProfiles();
       await loadAnimalProfilesFromSession(newId);
     } else {
       selectedAnimalProfiles.value = [];
@@ -130,7 +117,7 @@ watch(
 
     <AnimalProfileSelectionModal
       v-model="showSelectionModal"
-      :selectedAnimalProfiles="selectedAnimalProfiles.map((profile) => profile.id)"
+      :selectedAnimalProfiles="selectedAnimalProfiles"
       @update:selectedAnimalProfiles="onUpdateSelectedAnimalProfiles"
     />
 
