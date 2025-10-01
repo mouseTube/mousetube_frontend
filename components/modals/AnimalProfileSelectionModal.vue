@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
+import { debounce } from 'lodash';
 import { type AnimalProfile, useAnimalProfileStore } from '@/stores/animalProfile';
 import { useFavoriteStore } from '@/stores/favorite';
 import { useSpeciesStore } from '@/stores/species';
-import { useStrainStore } from '@/stores/strain';
+import { type Strain, useStrainStore } from '@/stores/strain';
 import CreateAnimalProfileModal from '@/components/modals/CreateAnimalProfileModal.vue';
 
 const props = defineProps<{
@@ -16,6 +17,7 @@ const emit = defineEmits<{
   (e: 'update:selectedAnimalProfiles', value: AnimalProfile[]): void;
 }>();
 
+// Stores
 const animalProfileStore = useAnimalProfileStore();
 const favoriteStore = useFavoriteStore();
 const speciesStore = useSpeciesStore();
@@ -100,17 +102,13 @@ onMounted(async () => {
       showSnackbar(err.message || 'Failed to fetch species', 'error');
     }
   }
-  if (strainStore.isEmpty()) {
-    await strainStore
-      .fetchStrains()
-      .catch((err: any) => showSnackbar(err.message || 'Failed to fetch strains', 'error'));
-  }
+  loadStrains();
 });
 
 // -------------------------
 // Snackbar
 const snackbar = ref(false);
-const snackbarColor = ref('success');
+const snackbarColor = ref<'success' | 'error'>('success');
 const snackbarText = ref('');
 
 function showSnackbar(message: string, color: 'success' | 'error') {
@@ -180,7 +178,6 @@ async function confirmDelete() {
     showSnackbar('Profile deleted successfully!', 'success');
     await loadProfiles();
   } catch (err: any) {
-    // eslint-disable-next-line no-console
     console.error('Failed to delete profile:', err);
     showSnackbar(err.message || 'Failed to delete profile', 'error');
   } finally {
@@ -197,11 +194,59 @@ function handleEdit(profile: any) {
 
 const maxNameLength = 32;
 const isTruncated = (name: string) => name.length > maxNameLength;
+
+// ----------------------------
+// Infinite scroll Strains
+// ----------------------------
+const strains = ref<Strain[]>([]);
+const searchInput = ref('');
+const page = ref(1);
+const strainsPerPage = 10;
+const strainsTotal = ref(0);
+const strainsLoading = ref(false);
+
+async function loadStrains(reset = false) {
+  if (strainsLoading.value) return;
+  strainsLoading.value = true;
+
+  if (reset) {
+    page.value = 1;
+    strains.value = [];
+  }
+
+  try {
+    const res = await strainStore.fetchStrainsByPage({
+      page: page.value,
+      page_size: strainsPerPage,
+      search: searchInput.value || undefined,
+    });
+
+    strains.value = reset ? res.results : [...strains.value, ...res.results];
+    strainsTotal.value = res.count;
+  } catch (err) {
+    console.error(err);
+  } finally {
+    strainsLoading.value = false;
+  }
+}
+
+const onSearch = debounce((val: string) => {
+  searchInput.value = val;
+  loadStrains(true);
+}, 300);
+
+function loadMoreStrains() {
+  if (strainsLoading.value) return;
+  if (strains.value.length < strainsTotal.value) {
+    page.value += 1;
+    loadStrains();
+  }
+}
 </script>
 
 <template>
   <v-dialog v-model="localDialog" max-width="1600px">
-    <v-card class="pa-3" min-height="850px" overflow-y="auto">
+    <v-card class="pa-3" style="max-height: 80vh; overflow-y: auto">
       <v-card-title class="d-flex justify-space-between align-center">
         <span class="text-h6 font-weight-bold">Animal Profiles</span>
         <div class="d-flex align-center" style="gap: 12px">
@@ -232,37 +277,59 @@ const isTruncated = (name: string) => name.length > maxNameLength;
         <!-- Header -->
         <v-row class="font-weight-bold">
           <v-col cols="3" class="d-flex justify-center">Name</v-col>
-          <v-col cols="2" class="d-flex justify-center"
-            ><v-select
+          <v-col cols="2" class="d-flex justify-center">
+            <v-select
               v-model="selectedStrain"
-              :items="strainStore.strains"
+              :items="strains"
               item-title="name"
               item-value="id"
               clearable
               density="comfortable"
               label="Strain"
               class="match-search-height select-column"
-          /></v-col>
-          <v-col cols="1" class="d-flex justify-center"
-            ><v-select
+              :loading="strainsLoading"
+              hide-selected
+              autocomplete
+              @update:search-input="onSearch"
+            >
+              <template v-slot:append-item>
+                <div
+                  v-if="strains.length > 0"
+                  v-intersect="loadMoreStrains"
+                  class="text-center pa-2"
+                >
+                  <v-progress-circular
+                    v-if="strainsLoading"
+                    indeterminate
+                    size="20"
+                    color="primary"
+                  />
+                </div>
+              </template>
+            </v-select>
+          </v-col>
+          <v-col cols="1" class="d-flex justify-center">
+            <v-select
               v-model="selectedSex"
               :items="['male', 'female']"
               clearable
               density="comfortable"
               label="Sex"
               style="min-width: 160px"
-          /></v-col>
+            />
+          </v-col>
           <v-col cols="2" class="d-flex justify-center">Genotype</v-col>
           <v-col cols="2" class="d-flex justify-center">Treatment</v-col>
-          <v-col cols="1" class="d-flex justify-center"
-            ><v-select
+          <v-col cols="1" class="d-flex justify-center">
+            <v-select
               v-model="selectedStatus"
-              :items="['draft', 'waiting for validation', 'validated']"
+              :items="['draft', 'waiting_validation', 'validated']"
               clearable
               density="comfortable"
               label="Status"
               class="select-column"
-          /></v-col>
+            />
+          </v-col>
           <v-col cols="1" class="d-flex justify-center">Actions</v-col>
         </v-row>
 
@@ -453,5 +520,17 @@ const isTruncated = (name: string) => name.length > maxNameLength;
   margin: 0;
   padding-top: 2px;
   padding-bottom: 2px;
+}
+.scrollable-content {
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+}
+
+.v-card-actions {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  z-index: 1;
+  padding: 12px;
 }
 </style>

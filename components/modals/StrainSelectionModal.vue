@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, watch, onMounted, computed } from 'vue';
+import { debounce } from 'lodash';
 import { useStrainStore, type Strain } from '@/stores/strain';
 import { useFavoriteStore } from '@/stores/favorite';
 import CreateStrainModal from '@/components/modals/CreateStrainModal.vue';
@@ -14,6 +15,10 @@ const strains = ref<Strain[]>([]);
 const page = ref(1);
 const itemsPerPage = 10;
 const search = ref('');
+
+const count = ref(0);
+const next = ref<string | null>(null);
+const previous = ref<string | null>(null);
 
 const truncateLengths: Record<string, number> = {
   name: 20,
@@ -38,39 +43,43 @@ const tableHeaders = [
 
 const showCreateModal = ref(false);
 const editingStrain = ref<Strain | null>(null);
-
 const showDeleteDialog = ref(false);
 const strainToDelete = ref<Strain | null>(null);
 
-onMounted(async () => {
-  if (strainStore.strains.length === 0) {
-    await strainStore.fetchStrains();
-  }
-  strains.value = [...strainStore.strains];
+const totalPages = computed(() => Math.ceil(count.value / itemsPerPage));
 
+const fetchStrains = debounce(async () => {
+  try {
+    const res = await strainStore.fetchStrainsByPage({
+      page: page.value,
+      page_size: itemsPerPage,
+      search: search.value || undefined,
+    });
+    strains.value = res.results;
+    count.value = res.count;
+    next.value = res.next;
+    previous.value = res.previous;
+  } catch (err) {
+    console.error(err);
+  }
+}, 300);
+
+watch(
+  [page, search],
+  () => {
+    if (page.value !== 1 && search.value) {
+      page.value = 1;
+      return;
+    }
+    fetchStrains();
+  },
+  { immediate: true }
+);
+
+onMounted(async () => {
   if (favoriteStore.isEmpty()) {
     await favoriteStore.fetchAllFavorites();
   }
-});
-
-const filteredStrains = computed(() => {
-  if (!search.value) return strains.value;
-
-  const term = search.value.toLowerCase();
-  return strains.value.filter((s) =>
-    tableHeaders.some((header) => {
-      if (header.value === 'actions') return false;
-      const keys = header.value.split('.');
-      let val: any = s;
-      for (const key of keys) {
-        val = val?.[key];
-        if (val == null) break;
-      }
-      return String(val ?? '')
-        .toLowerCase()
-        .includes(term);
-    })
-  );
 });
 
 function isEditable(item: Strain) {
@@ -92,30 +101,29 @@ function confirmDeleteStrain(item: Strain) {
   showDeleteDialog.value = true;
 }
 
-function deleteStrain() {
+async function deleteStrain() {
   if (!strainToDelete.value) return;
   const id = strainToDelete.value.id;
 
-  strainStore.deleteStrain(id);
+  await strainStore.deleteStrain(id);
   strains.value = strains.value.filter((s) => s.id !== id);
-  strainStore.strains = strainStore.strains.filter((s) => s.id !== id);
 
   showDeleteDialog.value = false;
   strainToDelete.value = null;
+
+  if (strains.value.length === 0 && page.value > 1) {
+    page.value -= 1;
+    await fetchStrains();
+  }
 }
 
 function onCreatedOrEdited(updated: Strain) {
-  if (editingStrain.value) {
-    const index = strains.value.findIndex((s) => s.id === updated.id);
-    if (index !== -1) strains.value[index] = updated;
-
-    const storeIndex = strainStore.strains.findIndex((s) => s.id === updated.id);
-    if (storeIndex !== -1) strainStore.strains[storeIndex] = updated;
+  const index = strains.value.findIndex((s) => s.id === updated.id);
+  if (index !== -1) {
+    strains.value[index] = updated;
   } else {
     strains.value.unshift(updated);
-    strainStore.strains.unshift(updated);
   }
-
   showCreateModal.value = false;
   editingStrain.value = null;
 }
@@ -128,7 +136,8 @@ function selectStrain(item: Strain) {
 
 <template>
   <v-dialog v-model="props.show" max-width="1600px" @click:outside="emit('update:show', false)">
-    <v-card class="pa-3" min-height="750px" overflow-y="auto">
+    <v-card class="pa-3" style="max-height: 80vh; overflow-y: auto">
+      <!-- Title + Search -->
       <v-card-title class="d-flex align-center justify-space-between">
         <span class="text-h6 font-weight-bold">Strains</span>
         <v-text-field
@@ -141,11 +150,13 @@ function selectStrain(item: Strain) {
       </v-card-title>
 
       <v-card-text>
+        <!-- Data Table -->
         <v-data-table
-          :items="filteredStrains"
-          :items-per-page="itemsPerPage"
-          :page.sync="page"
+          :items="strains"
           :headers="tableHeaders"
+          hide-default-footer
+          disable-pagination
+          disable-sort
           hover
           class="cursor-pointer"
           @click:row="(_: any, { item }: { item: Strain }) => selectStrain(item)"
@@ -245,6 +256,11 @@ function selectStrain(item: Strain) {
             </v-btn>
           </template>
         </v-data-table>
+
+        <!-- Pagination -->
+        <div class="d-flex justify-center mt-2">
+          <v-pagination v-model="page" :length="totalPages" :total-visible="7" color="primary" />
+        </div>
       </v-card-text>
 
       <v-card-actions class="justify-space-between">
@@ -278,3 +294,18 @@ function selectStrain(item: Strain) {
     </v-card>
   </v-dialog>
 </template>
+
+<style scoped>
+.scrollable-content {
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+}
+
+.v-card-actions {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  z-index: 1;
+  padding: 12px;
+}
+</style>

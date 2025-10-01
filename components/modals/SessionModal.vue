@@ -63,7 +63,6 @@ const headers = [
   { title: 'Actions', key: 'actions', sortable: false },
 ];
 
-// Mapping pour tri backend
 const fieldMap: Record<string, string> = {
   name: 'name',
   protocol: 'protocol__name',
@@ -236,7 +235,7 @@ onMounted(() => {
 <template>
   <!-- Main Dialog -->
   <v-dialog :model-value="modelValue" max-width="1200px" @click:outside="close">
-    <v-card class="pa-3" min-height="850px" overflow-y="auto">
+    <v-card class="pa-3" style="max-height: 80vh; overflow-y: auto">
       <v-card-title class="d-flex align-center justify-space-between gap-4">
         <span class="text-h6 font-weight-bold">Recording Sessions</span>
         <div class="d-flex align-center gap-3 flex-wrap">
@@ -419,12 +418,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-::v-deep(.v-data-table__tr.v-data-table__tr--clickable:hover) {
-  background-color: #f5f5f5 !important;
-  cursor: pointer !important;
-  transform: scale(1.01) !important;
-}
-
 .search-field {
   min-width: 350px;
   max-width: 450px;
@@ -433,5 +426,17 @@ onMounted(() => {
 .disabled-btn {
   opacity: 0.5;
   pointer-events: auto !important;
+}
+.scrollable-content {
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+}
+
+.v-card-actions {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  z-index: 1;
+  padding: 12px;
 }
 </style>
