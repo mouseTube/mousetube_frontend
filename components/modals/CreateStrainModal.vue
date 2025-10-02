@@ -37,6 +37,7 @@ async function fetchSpecies() {
     await speciesStore.fetchSpecies();
     speciesOptions.value = speciesStore.species.map((s) => ({ label: s.name, value: s.id })) || [];
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error('Error fetching species:', err);
     speciesOptions.value = [];
   } finally {
@@ -101,6 +102,7 @@ async function submit() {
     emit('created', result);
     localShow.value = false;
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error(err);
     alert('Error saving strain.');
   }

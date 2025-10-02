@@ -103,6 +103,7 @@ async function handleSubmit() {
     emit('update:modelValue', false);
     resetForm();
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error(e);
     alert('Error saving animal profile.');
   }

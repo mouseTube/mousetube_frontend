@@ -178,6 +178,7 @@ async function confirmDelete() {
     showSnackbar('Profile deleted successfully!', 'success');
     await loadProfiles();
   } catch (err: any) {
+    // eslint-disable-next-line no-console
     console.error('Failed to delete profile:', err);
     showSnackbar(err.message || 'Failed to delete profile', 'error');
   } finally {
@@ -224,6 +225,7 @@ async function loadStrains(reset = false) {
     strains.value = reset ? res.results : [...strains.value, ...res.results];
     strainsTotal.value = res.count;
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error(err);
   } finally {
     strainsLoading.value = false;
@@ -278,7 +280,7 @@ function loadMoreStrains() {
         <v-row class="font-weight-bold">
           <v-col cols="3" class="d-flex justify-center">Name</v-col>
           <v-col cols="2" class="d-flex justify-center">
-            <v-select
+            <v-autocomplete
               v-model="selectedStrain"
               :items="strains"
               item-title="name"
@@ -286,11 +288,12 @@ function loadMoreStrains() {
               clearable
               density="comfortable"
               label="Strain"
-              class="match-search-height select-column"
               :loading="strainsLoading"
               hide-selected
-              autocomplete
+              :return-object="false"
+              :auto-select-first="false"
               @update:search-input="onSearch"
+              style="min-width: 140px; max-width: 180px"
             >
               <template v-slot:append-item>
                 <div
@@ -306,7 +309,7 @@ function loadMoreStrains() {
                   />
                 </div>
               </template>
-            </v-select>
+            </v-autocomplete>
           </v-col>
           <v-col cols="1" class="d-flex justify-center">
             <v-select
@@ -315,7 +318,7 @@ function loadMoreStrains() {
               clearable
               density="comfortable"
               label="Sex"
-              style="min-width: 160px"
+              style="min-width: 120px; max-width: 150px"
             />
           </v-col>
           <v-col cols="2" class="d-flex justify-center">Genotype</v-col>

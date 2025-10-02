@@ -60,6 +60,7 @@ const fetchStrains = debounce(async () => {
     next.value = res.next;
     previous.value = res.previous;
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error(err);
   }
 }, 300);
