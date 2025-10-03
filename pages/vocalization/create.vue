@@ -151,6 +151,9 @@ function onSessionSelected(payload) {
                 ? { selectedProtocolId, selectedRecordingSessionId }
                 : {}),
               ...(item.name === 'file' ? { recordingSessionId: selectedRecordingSessionId } : {}),
+              ...(item.name === 'animalProfile'
+                ? { selectedRecordingSessionId, selectedProtocolId }
+                : {}),
             }"
           />
         </v-window-item>

@@ -91,7 +91,6 @@ async function fetchData(pg: number) {
   } catch (err: any) {
     showError(err.message || 'Failed to fetch protocols');
   }
-  page.value = pg;
 }
 
 // ----------------------
@@ -152,6 +151,7 @@ async function confirmDelete() {
     showSuccess(`Protocol "${protocolToDelete.value.name}" deleted successfully`);
     protocolToDelete.value = null;
   } catch (err: any) {
+    //eslint-disable-next-line no-console
     console.error('Failed to delete protocol:', err);
     showError(err.message || 'Failed to delete protocol');
   }
@@ -205,7 +205,7 @@ function close() {
 
 <template>
   <v-dialog :model-value="props.modelValue" max-width="1700px" @click:outside="close">
-    <v-card class="pa-3">
+    <v-card class="pa-3" style="max-height: 80vh; overflow-y: auto">
       <v-card-title class="d-flex align-center gap-2">
         <span class="text-h6 font-weight-bold">Protocols</span>
 
@@ -573,5 +573,17 @@ function close() {
   min-width: 36px;
   padding: 0 12px;
   line-height: 40px;
+}
+.scrollable-content {
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+}
+
+.v-card-actions {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  z-index: 1;
+  padding: 12px;
 }
 </style>

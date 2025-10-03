@@ -1,90 +1,127 @@
 <script setup lang="ts">
-////////////////////////////////
-// IMPORT
-////////////////////////////////
+import { ref, watch } from 'vue';
+import { type RecordingSessionPayload, useRecordingSessionStore } from '@/stores/recordingSession';
+import { type AnimalProfile } from '@/stores/animalProfile';
+import AnimalProfileSelectionModal from '@/components/modals/AnimalProfileSelectionModal.vue';
 
-import { ref, onMounted } from 'vue';
-import { useAnimalProfileStore } from '@/stores/animalProfile';
-import CreateAnimalProfileModal from '@/components/modals/CreateAnimalProfileModal.vue';
+const props = defineProps<{
+  selectedRecordingSessionId: number | null;
+}>();
 
-////////////////////////////////
-// DATA
-////////////////////////////////
+const recordingSessionStore = useRecordingSessionStore();
 
-const animalProfileStore = useAnimalProfileStore();
-const animalProfileOptions = ref<{ id: number; name: string }[]>([]);
-const formData = ref({
-  animal_profiles: [] as number[],
-});
-
-const showCreateModal = ref(false);
+const showSelectionModal = ref(false);
 const snackbar = ref(false);
 const snackbarText = ref('');
+const snackbarColor = ref('');
+const selectedAnimalProfiles = ref<AnimalProfile[]>([]);
 
-async function fetchAnimalProfiles() {
-  animalProfileOptions.value = await animalProfileStore.fetchAnimalProfiles();
+async function loadAnimalProfilesFromSession(sessionId: number) {
+  const session = await recordingSessionStore.getSessionById(sessionId);
+  if (!session) return;
+
+  selectedAnimalProfiles.value = session.animal_profiles || [];
 }
 
-////////////////////////////////
-// METHODS
-////////////////////////////////
+function removeAnimalProfile(id: number) {
+  selectedAnimalProfiles.value = selectedAnimalProfiles.value.filter((p) => p.id !== id);
+}
 
-function handleCreated(newAnimalProfile: { id: number; name: string }) {
-  animalProfileOptions.value.push({
-    id: newAnimalProfile.id,
-    name: newAnimalProfile.name,
+// Clear all
+function clearAnimalProfiles() {
+  selectedAnimalProfiles.value = [];
+}
+
+async function updateAnimalProfiles() {
+  if (props.selectedRecordingSessionId === null) return;
+
+  try {
+    const sessionId = props.selectedRecordingSessionId;
+    await recordingSessionStore.updateSessionAnimalProfiles(
+      sessionId,
+      selectedAnimalProfiles.value.map((p) => p.id)
+    );
+
+    snackbarText.value = 'Animal profiles updated successfully.';
+    snackbar.value = true;
+    snackbarColor.value = 'success';
+  } catch (err) {
+    snackbarText.value = 'Failed to update animal profiles.';
+    snackbar.value = true;
+    snackbarColor.value = 'error';
+  }
+}
+
+function onUpdateSelectedAnimalProfiles(profiles: AnimalProfile[]) {
+  const current = [...selectedAnimalProfiles.value];
+
+  profiles.forEach((profile) => {
+    if (!current.some((p) => p.id === profile.id)) {
+      current.push(profile);
+    }
   });
-  formData.value.animal_profiles.push(newAnimalProfile.id);
-  snackbarText.value = 'Animal profile created successfully.';
-  snackbar.value = true;
+
+  selectedAnimalProfiles.value = current;
 }
 
-function handleSubmit() {
-  snackbarText.value = 'Animal profiles saved.';
-  snackbar.value = true;
-}
-
-////////////////////////////////
-// ON MOUNT
-////////////////////////////////
-
-onMounted(fetchAnimalProfiles);
+watch(
+  () => props.selectedRecordingSessionId,
+  async (newId) => {
+    if (newId !== null) {
+      await loadAnimalProfilesFromSession(newId);
+    } else {
+      selectedAnimalProfiles.value = [];
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
   <v-container>
-    <v-card class="pa-6" outlined>
+    <v-card outlined class="pa-6 mb-5">
       <v-card-title class="d-flex justify-space-between align-center mb-4">
         <h3>Animal Profiles</h3>
-        <div>
-          <v-btn color="primary" @click="handleSubmit">Save</v-btn>
-        </div>
+        <v-btn color="primary" @click="updateAnimalProfiles">Save</v-btn>
       </v-card-title>
 
       <v-card-text>
-        <v-select
-          v-model="formData.animal_profiles"
-          :items="animalProfileOptions"
-          item-title="name"
-          item-value="id"
-          label="Animal Profiles"
-          multiple
-          chips
-          clearable
-          outlined
-        />
+        <div class="chip-list d-flex flex-wrap align-center">
+          <v-chip
+            v-for="profile in selectedAnimalProfiles"
+            :key="profile.id"
+            variant="outlined"
+            closable
+            class="ma-1"
+            @click:close="removeAnimalProfile(profile.id)"
+          >
+            {{ profile.name }}
+          </v-chip>
+
+          <v-chip
+            v-if="selectedAnimalProfiles.length > 0"
+            color="primary"
+            variant="outlined"
+            class="ma-1"
+            @click="clearAnimalProfiles"
+          >
+            <v-icon start>mdi-close</v-icon> Clear All
+          </v-chip>
+
+          <v-chip color="primary" variant="flat" class="ma-1" @click="showSelectionModal = true">
+            <v-icon start>mdi-plus</v-icon> Select
+          </v-chip>
+        </div>
       </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn color="primary" @click="showCreateModal = true">Create New Profile</v-btn>
-      </v-card-actions>
     </v-card>
 
-    <!-- Modal creation -->
-    <CreateAnimalProfileModal v-model="showCreateModal" @created="handleCreated" />
+    <AnimalProfileSelectionModal
+      v-model="showSelectionModal"
+      :selectedAnimalProfiles="selectedAnimalProfiles"
+      @update:selectedAnimalProfiles="onUpdateSelectedAnimalProfiles"
+    />
 
-    <!-- Snackbar feedback -->
-    <v-snackbar v-model="snackbar" :timeout="3000" location="top right">
+    <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000" location="top right">
       {{ snackbarText }}
       <template #actions>
         <v-btn icon @click="snackbar = false">

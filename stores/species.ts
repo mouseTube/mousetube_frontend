@@ -58,5 +58,9 @@ export const useSpeciesStore = defineStore('species', {
     getSpeciesById(id: number) {
       return this.species.find(s => s.id === id) || null
     },
+
+    isEmpty() {
+      return this.species.length === 0;
+    },
   },
 })
