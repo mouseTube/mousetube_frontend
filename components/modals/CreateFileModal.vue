@@ -1,116 +1,67 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue';
-import axios from 'axios';
-import { useFileStore } from '~/stores/file';
-import { useSubjectStore } from '~/stores/subject';
+import { ref, computed } from 'vue';
+import axios, { type AxiosProgressEvent } from 'axios';
+import { type File as StoreFile, useFileStore } from '~/stores/file';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
-import CreateSubjectModal from '~/components/modals/CreateSubjectModal.vue';
 
 const props = defineProps<{
-  modelValue: any;
+  modelValue: StoreFile | null;
   recordingSessionId?: number | null;
 }>();
-
 const emit = defineEmits(['update:modelValue', 'saved']);
 
 const fileStore = useFileStore();
-const subjectStore = useSubjectStore();
-const apiBaseUrl = useApiBaseUrl();
 
-const showCreateSubject = ref(false);
+interface FormDataType {
+  name: string;
+  date: string | null;
+  duration: number | null;
+  format: string | null;
+  sampling_rate: number | null;
+  bit_depth: number | null;
+  notes: string;
+  size: number | null;
+  doi: string;
+  number: number | null;
+  file: globalThis.File | null;
+  uploadedUrl: string | null;
+}
 
-const subjectOptions = ref<{ label: string; value: number }[]>([]);
-
-const formData = ref({
+const formData = ref<FormDataType>({
   name: '',
-  date: '',
+  date: null,
   duration: null,
-  format: '',
+  format: null,
   sampling_rate: null,
   bit_depth: null,
   notes: '',
   size: null,
   doi: '',
   number: null,
-  subjects: [] as number[],
-  file: null as File | null,
-  uploadedUrl: '' as string | null,
+  file: null,
+  uploadedUrl: null,
 });
+const uploading = ref(false);
 
-function fetchSubjects() {
-  subjectStore.fetchSubjects().then(() => {
-    subjectOptions.value = subjectStore.subjects.map((s) => ({
-      label: s.name,
-      value: s.id,
-    }));
-  });
-}
-
-watch(
-  () => props.modelValue,
-  (newVal) => {
-    if (newVal) {
-      formData.value = {
-        name: newVal.name || '',
-        date: newVal.date || '',
-        duration: newVal.duration || null,
-        format: newVal.format || '',
-        sampling_rate: newVal.sampling_rate || null,
-        bit_depth: newVal.bit_depth || null,
-        notes: newVal.notes || '',
-        size: newVal.size || null,
-        doi: newVal.doi || '',
-        number: newVal.number || null,
-        subjects: (newVal.subjects || []).map((s: any) => s.id),
-        file: null,
-        uploadedUrl: newVal.link || null,
-      };
-    } else {
-      formData.value = {
-        name: '',
-        date: '',
-        duration: null,
-        format: '',
-        sampling_rate: null,
-        bit_depth: null,
-        notes: '',
-        size: null,
-        doi: '',
-        number: null,
-        subjects: [],
-        file: null,
-        uploadedUrl: null,
-      };
-    }
-  },
-  { immediate: true }
-);
-
-onMounted(fetchSubjects);
-
-// Upload the file, then associate the URL in formData.uploadedUrl
 async function uploadFile() {
   if (!formData.value.file) return;
-
-  const uploadData = new FormData();
-  uploadData.append('file', formData.value.file);
+  uploading.value = true;
 
   try {
-    const response = await axios.post(`${apiBaseUrl}/file-upload/`, uploadData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    formData.value.uploadedUrl = response.data.file_url || response.data.url || null;
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Upload failed:', error);
+    const task = await fileStore.uploadFile(formData.value.file);
+    // le backend renvoie un task_id ou un message
+    console.log('Tâche asynchrone lancée :', task);
+    formData.value.uploadedUrl = null; // plus d’URL directe
+  } catch (err) {
+    console.error('Erreur upload:', err);
+  } finally {
+    uploading.value = false;
   }
 }
 
-// Save the file data
 async function handleSubmit() {
   try {
     const { file, uploadedUrl, ...rest } = formData.value;
-
     const payload = {
       ...rest,
       recording_session: props.recordingSessionId ?? null,
@@ -121,13 +72,14 @@ async function handleSubmit() {
     if (props.modelValue && props.modelValue.id) {
       saved = await fileStore.updateFile(props.modelValue.id, payload);
     } else {
-      saved = await fileStore.createFile(payload);
+      // Statut initial pending
+      saved = await fileStore.createFile({ ...payload, status: 'pending' });
+      fileStore.addFile(saved); // <-- ajoute le fichier à la liste immédiatement
     }
 
     emit('update:modelValue', null);
     emit('saved', saved);
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error(err);
   }
 }
@@ -142,9 +94,13 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
     </v-card-title>
 
     <v-card-text>
+      <!-- Métadonnées -->
+      <h3 class="mb-3">File Metadata</h3>
+
       <v-text-field v-model="formData.name" outlined required class="mb-3">
         <template #label> File Name <span style="color: red">*</span> </template>
       </v-text-field>
+
       <v-text-field
         v-model="formData.date"
         label="Recording Date"
@@ -152,6 +108,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         outlined
         class="mb-3"
       />
+
       <v-text-field
         v-model="formData.duration"
         label="Duration (seconds)"
@@ -159,6 +116,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         outlined
         class="mb-3"
       />
+
       <v-select
         v-model="formData.format"
         :items="['WAV', 'MP3', 'FLAC', 'OGG', 'AIFF', 'AVI', 'MP4', 'MOV', 'MKV']"
@@ -166,6 +124,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         outlined
         class="mb-3"
       />
+
       <v-text-field
         v-model="formData.sampling_rate"
         label="Sampling Rate (Hz)"
@@ -173,6 +132,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         outlined
         class="mb-3"
       />
+
       <v-select
         v-model="formData.bit_depth"
         :items="[8, 16, 24, 32]"
@@ -180,7 +140,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         outlined
         class="mb-3"
       />
-      <v-textarea v-model="formData.notes" label="Notes" outlined class="mb-3" />
+
       <v-text-field
         v-model="formData.size"
         label="File Size (bytes)"
@@ -188,7 +148,9 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         outlined
         class="mb-3"
       />
+
       <v-text-field v-model="formData.doi" label="DOI" type="url" outlined class="mb-3" />
+
       <v-text-field
         v-model="formData.number"
         label="Vocalization Number"
@@ -197,27 +159,14 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         class="mb-3"
       />
 
-      <!-- Subject selector -->
-      <v-select
-        v-model="formData.subjects"
-        :items="subjectOptions"
-        item-title="label"
-        item-value="value"
-        label="Subjects"
-        multiple
-        chips
-        outlined
-        class="mb-3"
-      />
+      <v-textarea v-model="formData.notes" label="Notes" outlined class="mb-3" />
 
-      <v-btn color="primary" @click="showCreateSubject = true" class="mb-3">
-        <v-icon start>mdi-plus</v-icon> Add Subject
-      </v-btn>
+      <!-- Upload -->
+      <h3 class="mt-6 mb-3">Upload File</h3>
 
-      <!-- Upload file -->
       <v-file-input
         v-model="formData.file"
-        label="Upload File"
+        label="Select Audio/Video File"
         prepend-icon="mdi-upload"
         show-size
         accept="audio/*,video/*"
@@ -225,10 +174,17 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         class="mb-3"
       />
 
-      <v-btn :disabled="!formData.file" color="primary" block class="mb-3" @click="uploadFile">
-        Upload File
+      <v-btn
+        :disabled="!formData.file || uploading"
+        color="primary"
+        block
+        class="mb-3"
+        @click="uploadFile"
+      >
+        {{ uploading ? 'Uploading...' : 'Upload & Add to a Repository' }}
       </v-btn>
 
+      <!-- Aperçu -->
       <div v-if="formData.uploadedUrl" class="mb-3">
         <v-alert type="success" class="mb-2">File uploaded successfully!</v-alert>
         <audio v-if="isAudio" controls :src="formData.uploadedUrl" class="w-full" />
@@ -240,7 +196,10 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
       <v-spacer />
       <v-btn color="primary" @click="handleSubmit">Save</v-btn>
     </v-card-actions>
-
-    <CreateSubjectModal v-model="showCreateSubject" @created="fetchSubjects()" />
   </v-card>
+  <v-alert v-if="uploading" type="info" class="mb-2"> Upload in progress — please wait. </v-alert>
+
+  <v-alert v-else-if="formData.uploadedUrl === null" type="success" class="mb-2">
+    File sent to server — processing asynchronously.
+  </v-alert>
 </template>

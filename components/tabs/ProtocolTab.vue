@@ -33,7 +33,6 @@ const selectedProtocolIdRef = ref<'new' | number>(props.selectedProtocolId ?? 'n
 const selectedProtocolObject = ref<Protocol | null>(null);
 
 const showProtocolSelectModal = ref(false);
-const isSaveEnabled = ref(false);
 const initialFormData = ref('');
 
 const formData = ref({
@@ -74,6 +73,15 @@ const selectItems = computed(() => {
 
 const isValidated = computed(() => formData.value.status === 'validated');
 
+const isSaveEnabled = computed(() => {
+  const formChanged = snapshotFormData(formData.value) !== initialFormData.value;
+  const protocolSelectedButNotLinked =
+    selectedProtocolObject.value &&
+    props.selectedRecordingSessionId !== null &&
+    session.value?.protocol?.id !== selectedProtocolObject.value.id;
+
+  return formChanged || protocolSelectedButNotLinked;
+});
 ////////////////////////////////
 // FUNCTIONS
 ////////////////////////////////
@@ -161,27 +169,38 @@ async function onSubmit() {
     let protocolId: number;
     const payload = { ...formData.value, animals: { ...formData.value.animals } };
 
+    let resultProtocol: Protocol;
+
     if (typeof selectedProtocolIdRef.value === 'number') {
+      // Mise à jour d'un protocole existant
       const updated = await protocolStore.updateProtocol(selectedProtocolIdRef.value, payload);
       protocolId = updated.id;
-      selectedProtocolObject.value = updated;
-      formData.value = mapProtocolToFormData(updated);
-      initialFormData.value = snapshotFormData(formData.value);
+      resultProtocol = updated;
       snackbarMessage.value = 'Protocol updated successfully.';
       snackbarColor.value = 'success';
     } else {
+      // Création d'un nouveau protocole
       const created = await protocolStore.createProtocol(payload);
       protocolId = created.id;
-      selectedProtocolObject.value = created;
-      selectedProtocolIdRef.value = created.id;
-      formData.value = mapProtocolToFormData(created);
-      initialFormData.value = snapshotFormData(formData.value);
+      resultProtocol = created;
       snackbarMessage.value = 'Protocol created successfully.';
       snackbarColor.value = 'success';
     }
 
-    snackbar.value = true;
+    // Mettre à jour la ref locale et émettre vers le parent
+    selectedProtocolObject.value = resultProtocol;
+    selectedProtocolIdRef.value = protocolId;
+    formData.value = mapProtocolToFormData(resultProtocol);
+    initialFormData.value = snapshotFormData(formData.value);
 
+    // Émission vers le parent pour débloquer l'onglet Animal Profile
+    emit('update:selectedProtocolId', protocolId);
+    emit('protocol-selected', resultProtocol);
+
+    // Forcer le recalcul du bouton Save (grisé)
+    await nextTick();
+
+    // Lier le protocole à la session si nécessaire
     if (props.selectedRecordingSessionId !== null) {
       await recordingSessionStore.updateSessionProtocol(
         props.selectedRecordingSessionId,
@@ -189,11 +208,12 @@ async function onSubmit() {
       );
       snackbarMessage.value += ' Linked to recording session.';
     }
+
+    snackbar.value = true;
   } catch (err: any) {
     snackbarMessage.value = 'Error saving protocol.';
     snackbarColor.value = 'error';
     snackbar.value = true;
-    // eslint-disable-next-line no-console
     console.error(err);
   }
 }
@@ -220,14 +240,6 @@ watch(
     }
   },
   { immediate: true }
-);
-
-watch(
-  formData,
-  (newVal) => {
-    isSaveEnabled.value = snapshotFormData(newVal) !== initialFormData.value;
-  },
-  { deep: true }
 );
 
 ////////////////////////////////

@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { type RecordingSessionPayload, useRecordingSessionStore } from '@/stores/recordingSession';
 import { type AnimalProfile } from '@/stores/animalProfile';
+import { useRecordingSessionStore } from '@/stores/recordingSession';
 import AnimalProfileSelectionModal from '@/components/modals/AnimalProfileSelectionModal.vue';
 
+// Props
 const props = defineProps<{
   selectedRecordingSessionId: number | null;
+}>();
+
+// ✅ declare emit
+const emit = defineEmits<{
+  (e: 'animal-selected', payload: { animalProfileId: number | null }): void;
+  (e: 'animal-saved', payload: { saved: boolean }): void;
 }>();
 
 const recordingSessionStore = useRecordingSessionStore();
@@ -16,20 +23,34 @@ const snackbarText = ref('');
 const snackbarColor = ref('');
 const selectedAnimalProfiles = ref<AnimalProfile[]>([]);
 
+const saved = ref(false);
+
 async function loadAnimalProfilesFromSession(sessionId: number) {
   const session = await recordingSessionStore.getSessionById(sessionId);
   if (!session) return;
 
   selectedAnimalProfiles.value = session.animal_profiles || [];
+
+  if (selectedAnimalProfiles.value.length > 0) {
+    emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
+    emit('animal-saved', { saved: true });
+  } else {
+    emit('animal-selected', { animalProfileId: null });
+    emit('animal-saved', { saved: false });
+  }
 }
 
 function removeAnimalProfile(id: number) {
   selectedAnimalProfiles.value = selectedAnimalProfiles.value.filter((p) => p.id !== id);
+  if (selectedAnimalProfiles.value.length === 0) {
+    emit('animal-selected', { animalProfileId: null });
+  }
 }
 
 // Clear all
 function clearAnimalProfiles() {
   selectedAnimalProfiles.value = [];
+  emit('animal-selected', { animalProfileId: null });
 }
 
 async function updateAnimalProfiles() {
@@ -45,6 +66,13 @@ async function updateAnimalProfiles() {
     snackbarText.value = 'Animal profiles updated successfully.';
     snackbar.value = true;
     snackbarColor.value = 'success';
+
+    saved.value = true;
+    emit('animal-saved', { saved: true });
+
+    if (selectedAnimalProfiles.value.length > 0) {
+      emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
+    }
   } catch (err) {
     snackbarText.value = 'Failed to update animal profiles.';
     snackbar.value = true;
@@ -62,6 +90,10 @@ function onUpdateSelectedAnimalProfiles(profiles: AnimalProfile[]) {
   });
 
   selectedAnimalProfiles.value = current;
+
+  if (selectedAnimalProfiles.value.length > 0) {
+    emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
+  }
 }
 
 watch(
@@ -71,6 +103,7 @@ watch(
       await loadAnimalProfilesFromSession(newId);
     } else {
       selectedAnimalProfiles.value = [];
+      emit('animal-selected', { animalProfileId: null });
     }
   },
   { immediate: true }
