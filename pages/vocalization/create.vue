@@ -90,15 +90,30 @@ function onValidate(tabName: string, validation: { hasErrors: boolean; message: 
 }
 
 // === SELECTION HANDLERS ===
-function onSessionSelected(payload: {
-  sessionId: number | null;
-  protocolId: number | null;
-  animalProfileId: number | null;
-}) {
-  selectedRecordingSessionId.value = payload?.sessionId ?? null;
-  selectedProtocolId.value = payload?.protocolId ?? null;
-  selectedAnimalProfileId.value = payload?.animalProfileId ?? null;
-  animalProfileSaved.value = false; // reset save on session change
+function onSessionSelected(
+  payload: {
+    sessionId: number | null;
+    protocolId: number | null;
+    animalProfileId: number | null;
+  } | null
+) {
+  if (!payload) {
+    selectedRecordingSessionId.value = null;
+    selectedProtocolId.value = null;
+    selectedAnimalProfileId.value = null;
+    animalProfileSaved.value = false;
+    return;
+  }
+
+  selectedRecordingSessionId.value = payload.sessionId ?? null;
+  selectedProtocolId.value = payload.protocolId ?? null;
+  selectedAnimalProfileId.value = payload.animalProfileId ?? null;
+  console.log(payload);
+  console.log(payload.animalProfileId);
+
+  // Débloque File tab seulement si un animal est lié à la session
+  animalProfileSaved.value = payload.animalProfileId !== null;
+  console.log(animalProfileSaved.value);
 }
 
 function onAnimalSelected(payload: { animalProfileId: number | null }) {

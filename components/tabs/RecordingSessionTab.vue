@@ -430,9 +430,13 @@ function onSessionSelected(session: RecordingSession) {
 
   updateInitialSnapshot();
 
+  const firstAnimalProfileId = session.animal_profiles?.[0]?.id ?? null;
+  // const animalProfiles = session.animal_profiles;
+
   emit('session-selected', {
     sessionId: session.id,
     protocolId: session.protocol?.id ?? null,
+    animalProfileId: firstAnimalProfileId,
   });
 }
 

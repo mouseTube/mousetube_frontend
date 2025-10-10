@@ -1,61 +1,115 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import { useFileStore } from '~/stores/file';
 import FileForm from '@/components/modals/CreateFileModal.vue';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
+import { useRecordingSessionStore } from '~/stores/recordingSession';
 
-const props = defineProps<{ recordingSessionId?: number | null }>();
+const recordingSessionStore = useRecordingSessionStore();
+
+// === PROPS ===
+const props = defineProps<{ selectedRecordingSessionId?: number | null }>();
+
+// === STORES & STATE ===
 const fileStore = useFileStore();
 const apiBaseUrl = useApiBaseUrl();
 
 const editingFile = ref<any>(null);
 const showFileForm = ref(false);
-
-// Tracker des intervalles pour polling
 const pollingIntervals = new Map<number, NodeJS.Timeout>();
 
-function editFile(file: any) {
-  editingFile.value = { ...file };
-  showFileForm.value = true;
-}
+// === PUBLISH STATE ===
+const publishTaskId = ref<string | null>(null);
+const isPublishing = ref(false);
+const publishDone = ref(false);
+const publishError = ref<string | null>(null);
+const publishProgress = ref(0);
+const sessionStatus = ref<string | null>(null);
 
-function createNewFile() {
-  editingFile.value = null;
-  showFileForm.value = true;
-}
+// === SNACKBAR ===
+const snackbar = ref(false);
+const snackbarMessage = ref('');
+const snackbarColor = ref('');
 
-function handleSaved() {
-  // Déterminer la fonction de fetch
-  const fetchFn =
-    props.recordingSessionId != null
-      ? () => fileStore.fetchFilesBySessionId(props.recordingSessionId!)
-      : fileStore.fetchFiles;
+// === FILES ===
+const files = computed(() => fileStore.files);
+const canPublish = computed(() => files.value.some((file) => file.status === 'done'));
 
-  fetchFn().then(() => {
-    // Lancer le polling sur tous les fichiers en cours
-    fileStore.files.forEach((file) => {
-      if (
-        (file.status === 'pending' || file.status === 'processing') &&
-        !pollingIntervals.has(file.id)
-      ) {
-        pollFileStatus(file.id);
-      }
+// === FUNCTIONS ===
+
+// ---- PUBLISH SESSION ----
+async function publishSession() {
+  if (!props.selectedRecordingSessionId) return;
+
+  try {
+    isPublishing.value = true;
+    publishDone.value = false;
+    publishError.value = null;
+    publishProgress.value = 0;
+
+    const res = await axios.post(`${apiBaseUrl}/file/publish_session/`, {
+      recording_session_id: props.selectedRecordingSessionId,
     });
-  });
 
-  showFileForm.value = false;
+    publishTaskId.value = res.data.task_id;
+    pollPublishTask();
+  } catch (err) {
+    console.error(err);
+    publishError.value = 'Failed to start publishing.';
+    isPublishing.value = false;
+    showSnackbar('❌ Failed to start publishing.', 'error');
+  }
 }
 
+// ---- POLL PUBLISH STATUS ----
+function pollPublishTask() {
+  if (!publishTaskId.value) return;
+
+  const interval = setInterval(async () => {
+    try {
+      const res = await axios.get(
+        `${apiBaseUrl}/recording-session/get_task_status?task_id=${publishTaskId.value}`
+      );
+
+      const state = res.data.state;
+      publishProgress.value = res.data.progress ?? publishProgress.value;
+
+      if (state === 'SUCCESS') {
+        clearInterval(interval);
+        publishProgress.value = 100;
+        isPublishing.value = false;
+        publishDone.value = true;
+        await fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId!);
+        showSnackbar('✅ Session published successfully!', 'success');
+      } else if (state === 'FAILURE') {
+        clearInterval(interval);
+        isPublishing.value = false;
+        publishError.value = res.data.error || 'Publishing failed.';
+        showSnackbar('❌ Publishing failed.', 'error');
+      } else {
+        if (publishProgress.value < 90) publishProgress.value += 5;
+      }
+    } catch (err) {
+      console.error(err);
+      clearInterval(interval);
+      isPublishing.value = false;
+      publishError.value = 'Error checking task status.';
+      showSnackbar('⚠️ Error checking task status.', 'warning');
+    }
+  }, 3000);
+}
+
+// ---- FILES POLLING ----
 function pollFileStatus(fileId: number) {
-  if (pollingIntervals.has(fileId)) return; // éviter doublons
+  if (pollingIntervals.has(fileId)) return;
 
   const interval = setInterval(async () => {
     try {
       const res = await axios.get(`${apiBaseUrl}/file/${fileId}/status/`);
       fileStore.updateFileStatus(fileId, { status: res.data.status });
 
-      if (res.data.status === 'done' || res.data.status === 'error') {
+      if (['done', 'error'].includes(res.data.status)) {
         clearInterval(interval);
         pollingIntervals.delete(fileId);
       }
@@ -69,65 +123,134 @@ function pollFileStatus(fileId: number) {
   pollingIntervals.set(fileId, interval);
 }
 
-const files = computed(() => fileStore.files);
-
-function openFileLink(link: string) {
-  window.open(link, '_blank');
+function startPollingForActiveFiles() {
+  fileStore.files.forEach((file) => {
+    if (['pending', 'processing'].includes(file.status) && !pollingIntervals.has(file.id)) {
+      pollFileStatus(file.id);
+    }
+  });
 }
 
-// Watch pour recordingSessionId
+function stopAllPolling() {
+  pollingIntervals.forEach((interval) => clearInterval(interval));
+  pollingIntervals.clear();
+}
+
+// ---- SAVE / REFRESH ----
+async function handleSaved() {
+  const fetchFn =
+    props.selectedRecordingSessionId != null
+      ? () => fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId!)
+      : fileStore.fetchFiles;
+
+  await fetchFn();
+  startPollingForActiveFiles();
+  showFileForm.value = false;
+}
+
+// ---- SNACKBAR ----
+function showSnackbar(message: string, color: string) {
+  snackbarMessage.value = message;
+  snackbarColor.value = color;
+  snackbar.value = true;
+}
+
+// ---- WATCH ----
 watch(
-  () => props.recordingSessionId,
+  () => props.selectedRecordingSessionId,
   async (newId) => {
+    stopAllPolling();
     if (newId) {
       await fileStore.fetchFilesBySessionId(newId);
     } else {
       fileStore.files.splice(0, fileStore.files.length);
     }
-
-    // Lancer le polling sur les fichiers en cours
-    fileStore.files.forEach((file) => {
-      if (
-        (file.status === 'pending' || file.status === 'processing') &&
-        !pollingIntervals.has(file.id)
-      ) {
-        pollFileStatus(file.id);
-      }
-    });
+    startPollingForActiveFiles();
   },
   { immediate: true }
 );
 
-// Initial fetch + polling
+// ---- LIFECYCLE ----
 onMounted(async () => {
-  if (props.recordingSessionId) {
-    await fileStore.fetchFilesBySessionId(props.recordingSessionId);
-  }
+  if (props.selectedRecordingSessionId) {
+    // 1️⃣ Récupère la session depuis le store
+    const session = await recordingSessionStore.getSessionById(props.selectedRecordingSessionId);
+    sessionStatus.value = session?.status ?? null;
 
-  fileStore.files.forEach((file) => {
-    if (
-      (file.status === 'pending' || file.status === 'processing') &&
-      !pollingIntervals.has(file.id)
-    ) {
-      pollFileStatus(file.id);
-    }
-  });
+    // 2️⃣ Met à jour le statut du bouton
+    publishDone.value = sessionStatus.value === 'published';
+
+    // 3️⃣ Récupère les fichiers et démarre le polling
+    await fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId);
+    startPollingForActiveFiles();
+  }
 });
+
+onUnmounted(() => stopAllPolling());
+
+// ---- UTILS ----
+function editFile(file: any) {
+  editingFile.value = { ...file };
+  showFileForm.value = true;
+}
+
+function createNewFile() {
+  editingFile.value = null;
+  showFileForm.value = true;
+}
+
+function openFileLink(link: string) {
+  window.open(link, '_blank');
+}
 </script>
 
 <template>
   <v-container>
     <v-card class="pa-6" outlined>
+      <!-- === HEADER === -->
       <v-card-title class="d-flex justify-space-between align-center">
         <h3 class="ma-0 pa-0">Files</h3>
-        <div class="d-flex align-center">
-          <v-btn color="primary" @click="createNewFile">
-            <v-icon start>mdi-plus</v-icon>
-            Add File
-          </v-btn>
+
+        <div class="d-flex align-center" style="gap: 1.5rem">
+          <!-- 🔹 Publish Button + Progress bar -->
+          <div class="d-flex flex-row justify-end align-center">
+            <v-btn
+              :color="
+                publishError ? 'red' : publishDone ? 'grey' : isPublishing ? 'warning' : 'success'
+              "
+              :disabled="!canPublish || isPublishing || publishDone"
+              @click="publishSession"
+              style="min-width: 140px"
+            >
+              <v-icon start>
+                {{
+                  publishError
+                    ? 'mdi-alert-circle'
+                    : isPublishing
+                      ? 'mdi-progress-clock'
+                      : publishDone
+                        ? 'mdi-check'
+                        : 'mdi-upload'
+                }}
+              </v-icon>
+              <span v-if="publishError">Error</span>
+              <span v-else-if="isPublishing">Publishing...</span>
+              <span v-else-if="publishDone">Published</span>
+              <span v-else>Publish</span>
+            </v-btn>
+          </div>
+
+          <!-- 🔹 Add File -->
+          <div class="d-flex align-center" style="height: 100%">
+            <v-btn color="primary" @click="createNewFile" style="min-width: 120px">
+              <v-icon start>mdi-plus</v-icon>
+              Add File
+            </v-btn>
+          </div>
         </div>
       </v-card-title>
 
+      <!-- === FILES TABLE === -->
       <v-table v-if="files.length > 0">
         <thead>
           <tr>
@@ -167,14 +290,20 @@ onMounted(async () => {
 
       <p v-else>No files found for this session.</p>
 
+      <!-- === FILE FORM MODAL === -->
       <v-dialog v-model="showFileForm" max-width="600">
         <FileForm
           v-if="showFileForm"
           v-model="editingFile"
-          :recordingSessionId="props.recordingSessionId"
+          :recordingSessionId="props.selectedRecordingSessionId"
           @saved="handleSaved"
         />
       </v-dialog>
+
+      <!-- === SNACKBAR === -->
+      <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000" top right>
+        {{ snackbarMessage }}
+      </v-snackbar>
     </v-card>
   </v-container>
 </template>
