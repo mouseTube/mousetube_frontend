@@ -21,6 +21,8 @@ export interface File {
   number: number | null;
   is_valid_link: boolean;
   downloads: number;
+  external_id: number | null;
+  external_url: string | null;
   status: string;
   celery_task_id?: string | null;
   created_at: string;

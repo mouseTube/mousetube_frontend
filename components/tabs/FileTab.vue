@@ -5,7 +5,9 @@ import { useFileStore } from '~/stores/file';
 import FileForm from '@/components/modals/CreateFileModal.vue';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 import { useRecordingSessionStore } from '~/stores/recordingSession';
+import { useRepositoryStore } from '~/stores/repository';
 
+const repositoryStore = useRepositoryStore();
 const recordingSessionStore = useRecordingSessionStore();
 
 // === PROPS ===
@@ -50,11 +52,13 @@ async function publishSession() {
 
     const res = await axios.post(`${apiBaseUrl}/file/publish_session/`, {
       recording_session_id: props.selectedRecordingSessionId,
+      repository_id: repositoryStore.selectedRepository?.id ?? null,
     });
 
     publishTaskId.value = res.data.task_id;
     pollPublishTask();
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error(err);
     publishError.value = 'Failed to start publishing.';
     isPublishing.value = false;
@@ -63,7 +67,7 @@ async function publishSession() {
 }
 
 // ---- POLL PUBLISH STATUS ----
-function pollPublishTask() {
+async function pollPublishTask() {
   if (!publishTaskId.value) return;
 
   const interval = setInterval(async () => {
@@ -80,7 +84,19 @@ function pollPublishTask() {
         publishProgress.value = 100;
         isPublishing.value = false;
         publishDone.value = true;
+
         await fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId!);
+
+        await recordingSessionStore.updateSessionStatus(
+          props.selectedRecordingSessionId!,
+          'published'
+        );
+        const updatedSession = await recordingSessionStore.getSessionById(
+          props.selectedRecordingSessionId!
+        );
+        sessionStatus.value = updatedSession?.status ?? null;
+        publishDone.value = sessionStatus.value === 'published';
+
         showSnackbar('✅ Session published successfully!', 'success');
       } else if (state === 'FAILURE') {
         clearInterval(interval);
@@ -91,6 +107,7 @@ function pollPublishTask() {
         if (publishProgress.value < 90) publishProgress.value += 5;
       }
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error(err);
       clearInterval(interval);
       isPublishing.value = false;
@@ -114,6 +131,7 @@ function pollFileStatus(fileId: number) {
         pollingIntervals.delete(fileId);
       }
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error(err);
       clearInterval(interval);
       pollingIntervals.delete(fileId);
@@ -160,11 +178,18 @@ watch(
   () => props.selectedRecordingSessionId,
   async (newId) => {
     stopAllPolling();
+
     if (newId) {
+      const session = await recordingSessionStore.getSessionById(newId);
+      sessionStatus.value = session?.status ?? null;
+      publishDone.value = sessionStatus.value === 'published';
       await fileStore.fetchFilesBySessionId(newId);
     } else {
       fileStore.files.splice(0, fileStore.files.length);
+      sessionStatus.value = null;
+      publishDone.value = false;
     }
+
     startPollingForActiveFiles();
   },
   { immediate: true }
@@ -172,6 +197,15 @@ watch(
 
 // ---- LIFECYCLE ----
 onMounted(async () => {
+  if (!repositoryStore.repositories.length) {
+    await repositoryStore.fetchRepositories();
+  }
+
+  // ✅ Pré-sélectionner le repository id=1 si aucun n’est choisi
+  const defaultRepo = repositoryStore.repositories.find((r) => r.id === 1);
+  if (!repositoryStore.selectedRepository && defaultRepo) {
+    repositoryStore.selectRepository(defaultRepo);
+  }
   if (props.selectedRecordingSessionId) {
     // 1️⃣ Récupère la session depuis le store
     const session = await recordingSessionStore.getSessionById(props.selectedRecordingSessionId);
@@ -202,6 +236,10 @@ function createNewFile() {
 function openFileLink(link: string) {
   window.open(link, '_blank');
 }
+
+function openExternalUrl(url?: string | null) {
+  if (url) window.open(url, '_blank');
+}
 </script>
 
 <template>
@@ -212,11 +250,56 @@ function openFileLink(link: string) {
         <h3 class="ma-0 pa-0">Files</h3>
 
         <div class="d-flex align-center" style="gap: 1.5rem">
+          <!-- 🔹 Repository Dropdown -->
+          <div class="d-flex align-center" style="gap: 1.5rem">
+            <!-- 🔹 Repository Dropdown (styled as button) -->
+            <v-menu>
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  variant="outlined"
+                  color="primary"
+                  class="text-none"
+                  style="min-width: 140px; justify-content: space-between"
+                  :disabled="files.length > 0"
+                >
+                  <div class="d-flex align-center" style="gap: 0.5rem">
+                    <img
+                      v-if="repositoryStore.selectedRepository?.logo_url"
+                      :src="repositoryStore.selectedRepository.logo_url"
+                      alt="logo"
+                      class="repo-logo"
+                    />
+                    <span>
+                      {{ repositoryStore.selectedRepository?.name || 'Select Repository' }}
+                    </span>
+                  </div>
+                  <v-icon icon="mdi-chevron-down" />
+                </v-btn>
+              </template>
+
+              <v-list>
+                <v-list-item
+                  v-for="repo in repositoryStore.repositories"
+                  :key="repo.id"
+                  @click="repositoryStore.selectRepository(repo)"
+                  :active="repo.id === repositoryStore.selectedRepository?.id"
+                  style="cursor: pointer"
+                >
+                  <template #prepend>
+                    <img v-if="repo.logo_url" :src="repo.logo_url" alt="logo" class="repo-logo" />
+                  </template>
+                  <v-list-item-title>{{ repo.name }}</v-list-item-title>
+                </v-list-item>
+              </v-list>
+            </v-menu>
+          </div>
+
           <!-- 🔹 Publish Button + Progress bar -->
           <div class="d-flex flex-row justify-end align-center">
             <v-btn
               :color="
-                publishError ? 'red' : publishDone ? 'grey' : isPublishing ? 'warning' : 'success'
+                publishError ? 'red' : publishDone ? 'teal' : isPublishing ? 'warning' : 'success'
               "
               :disabled="!canPublish || isPublishing || publishDone"
               @click="publishSession"
@@ -242,7 +325,12 @@ function openFileLink(link: string) {
 
           <!-- 🔹 Add File -->
           <div class="d-flex align-center" style="height: 100%">
-            <v-btn color="primary" @click="createNewFile" style="min-width: 120px">
+            <v-btn
+              color="primary"
+              @click="createNewFile"
+              style="min-width: 120px"
+              :disabled="isPublishing || publishDone"
+            >
               <v-icon start>mdi-plus</v-icon>
               Add File
             </v-btn>
@@ -268,21 +356,75 @@ function openFileLink(link: string) {
             <td>{{ file.date }}</td>
             <td>{{ file.format }}</td>
             <td>{{ file.size ? file.size.toLocaleString() : '-' }}</td>
-            <td>
-              <v-btn size="small" @click="editFile(file)" color="primary">
-                <v-icon>mdi-pencil</v-icon>
-              </v-btn>
-              <v-btn size="small" @click="openFileLink(file.link)" color="secondary">
-                <v-icon>mdi-link</v-icon>
-              </v-btn>
+            <td class="d-inline-flex align-center gap-1">
+              <v-tooltip location="top">
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    icon
+                    size="small"
+                    color="primary"
+                    variant="text"
+                    @click.stop="editFile(file)"
+                  >
+                    <v-icon>mdi-pencil</v-icon>
+                  </v-btn>
+                </template>
+                <span>Edit file</span>
+              </v-tooltip>
+              <v-tooltip location="top">
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    icon
+                    size="small"
+                    color="primary"
+                    variant="text"
+                    @click="openFileLink(file.link)"
+                  >
+                    <v-icon>mdi-download</v-icon>
+                  </v-btn>
+                </template>
+                <span>Download</span>
+              </v-tooltip>
             </td>
+
             <td>
-              <v-chip v-if="file.status === 'pending'" color="grey" label small>Pending</v-chip>
-              <v-chip v-else-if="file.status === 'processing'" color="blue" label small
-                >Processing</v-chip
-              >
-              <v-chip v-else-if="file.status === 'done'" color="green" label small>Done</v-chip>
-              <v-chip v-else-if="file.status === 'error'" color="red" label small>Error</v-chip>
+              <v-chip v-if="file.status === 'pending'" color="grey" label small>
+                ⏳ Pending
+              </v-chip>
+
+              <v-chip v-else-if="file.status === 'processing'" color="blue" label small>
+                🔄 Processing
+              </v-chip>
+
+              <v-chip v-else-if="file.status === 'done' && !publishDone" color="green" label small>
+                ✅ Ready (unpublished)
+              </v-chip>
+
+              <v-chip v-else-if="file.status === 'done' && publishDone" color="teal" label small>
+                <a
+                  :href="file.external_url || undefined"
+                  target="_blank"
+                  rel="noopener"
+                  class="ml-1 hover:opacity-80"
+                  style="text-decoration: none; color: inherit"
+                >
+                  🌍 Published
+                </a>
+                <v-icon
+                  v-if="file.external_url"
+                  size="16"
+                  class="ml-1 cursor-pointer"
+                  @click.stop="openExternalUrl(file.external_url)"
+                >
+                  mdi-open-in-new
+                </v-icon>
+              </v-chip>
+
+              <v-chip v-else-if="file.status === 'error'" color="red" label small>
+                ❌ Error
+              </v-chip>
             </td>
           </tr>
         </tbody>
@@ -296,6 +438,7 @@ function openFileLink(link: string) {
           v-if="showFileForm"
           v-model="editingFile"
           :recordingSessionId="props.selectedRecordingSessionId"
+          :repository="repositoryStore.selectedRepository"
           @saved="handleSaved"
         />
       </v-dialog>
@@ -307,3 +450,14 @@ function openFileLink(link: string) {
     </v-card>
   </v-container>
 </template>
+
+<style>
+.repo-logo {
+  height: 22px;
+  width: auto;
+  object-fit: contain;
+  margin-right: 0.75rem;
+  display: inline-block;
+  vertical-align: middle;
+}
+</style>

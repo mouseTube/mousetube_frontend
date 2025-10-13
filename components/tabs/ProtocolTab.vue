@@ -82,6 +82,17 @@ const isSaveEnabled = computed(() => {
 
   return formChanged || protocolSelectedButNotLinked;
 });
+
+const canLinkValidatedProtocol = computed(() => {
+  return (
+    selectedProtocolObject.value !== null &&
+    selectedProtocolObject.value.status === 'validated' &&
+    session.value?.status !== 'published' &&
+    session.value?.protocol?.id !== selectedProtocolObject.value.id
+  );
+});
+
+const isLinking = ref(false);
 ////////////////////////////////
 // FUNCTIONS
 ////////////////////////////////
@@ -214,7 +225,48 @@ async function onSubmit() {
     snackbarMessage.value = 'Error saving protocol.';
     snackbarColor.value = 'error';
     snackbar.value = true;
+    // eslint-disable-next-line no-console
     console.error(err);
+  }
+}
+
+async function linkValidatedProtocol() {
+  if (
+    !props.selectedRecordingSessionId ||
+    !selectedProtocolObject.value ||
+    typeof selectedProtocolObject.value.id !== 'number'
+  ) {
+    return;
+  }
+
+  try {
+    isLinking.value = true;
+    const protocolId = selectedProtocolObject.value.id;
+
+    // Appel store pour lier la session
+    await recordingSessionStore.updateSessionProtocol(props.selectedRecordingSessionId, protocolId);
+
+    // Mettre à jour la session locale pour refléter le lien
+    if (session.value) {
+      session.value.protocol = selectedProtocolObject.value;
+    }
+
+    // Émettre vers le parent pour débloquer l'onglet suivant
+    emit('update:selectedProtocolId', protocolId);
+    emit('protocol-selected', selectedProtocolObject.value);
+
+    // Feedback utilisateur
+    snackbarMessage.value = 'Validated protocol linked to recording session.';
+    snackbarColor.value = 'success';
+    snackbar.value = true;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(err);
+    snackbarMessage.value = 'Error linking validated protocol.';
+    snackbarColor.value = 'error';
+    snackbar.value = true;
+  } finally {
+    isLinking.value = false;
   }
 }
 
@@ -301,17 +353,31 @@ onMounted(async () => {
           </v-chip>
         </div>
         <div>
-          <v-btn
-            color="grey"
-            variant="outlined"
-            @click="resetForm"
-            class="mr-2"
-            :disabled="isValidated"
-            >Reset</v-btn
-          >
-          <v-btn color="primary" @click="onSubmit" :disabled="!isSaveEnabled || isValidated"
-            >Save</v-btn
-          >
+          <!-- Boutons dynamiques -->
+          <template v-if="canLinkValidatedProtocol">
+            <v-btn
+              :loading="isLinking"
+              :disabled="isLinking"
+              color="primary"
+              @click="linkValidatedProtocol"
+            >
+              Link this protocol
+            </v-btn>
+          </template>
+          <template v-else>
+            <v-btn
+              color="grey"
+              variant="outlined"
+              @click="resetForm"
+              class="mr-2"
+              :disabled="isValidated"
+            >
+              Reset
+            </v-btn>
+            <v-btn color="primary" @click="onSubmit" :disabled="!isSaveEnabled || isValidated">
+              Save
+            </v-btn>
+          </template>
         </div>
       </v-card-title>
 

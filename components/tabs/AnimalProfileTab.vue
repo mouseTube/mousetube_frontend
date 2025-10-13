@@ -96,18 +96,24 @@ function onUpdateSelectedAnimalProfiles(profiles: AnimalProfile[]) {
   }
 }
 
+const currentSession = ref<any>(null);
+
 watch(
   () => props.selectedRecordingSessionId,
   async (newId) => {
     if (newId !== null) {
+      currentSession.value = await recordingSessionStore.getSessionById(newId);
       await loadAnimalProfilesFromSession(newId);
     } else {
+      currentSession.value = null;
       selectedAnimalProfiles.value = [];
       emit('animal-selected', { animalProfileId: null });
     }
   },
   { immediate: true }
 );
+
+const isPublished = computed(() => currentSession.value?.status === 'published');
 </script>
 
 <template>
@@ -115,7 +121,7 @@ watch(
     <v-card outlined class="pa-6 mb-5">
       <v-card-title class="d-flex justify-space-between align-center mb-4">
         <h3>Animal Profiles</h3>
-        <v-btn color="primary" @click="updateAnimalProfiles">Save</v-btn>
+        <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isPublished">Save</v-btn>
       </v-card-title>
 
       <v-card-text>
@@ -124,8 +130,8 @@ watch(
             v-for="profile in selectedAnimalProfiles"
             :key="profile.id"
             variant="outlined"
-            closable
             class="ma-1"
+            :closable="!isPublished"
             @click:close="removeAnimalProfile(profile.id)"
           >
             {{ profile.name }}
@@ -137,11 +143,18 @@ watch(
             variant="outlined"
             class="ma-1"
             @click="clearAnimalProfiles"
+            :disabled="isPublished"
           >
             <v-icon start>mdi-close</v-icon> Clear All
           </v-chip>
 
-          <v-chip color="primary" variant="flat" class="ma-1" @click="showSelectionModal = true">
+          <v-chip
+            color="primary"
+            variant="flat"
+            class="ma-1"
+            @click="showSelectionModal = true"
+            :disabled="isPublished"
+          >
             <v-icon start>mdi-plus</v-icon> Select
           </v-chip>
         </div>

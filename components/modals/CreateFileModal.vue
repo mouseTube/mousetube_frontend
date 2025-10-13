@@ -7,6 +7,7 @@ import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 const props = defineProps<{
   modelValue: StoreFile | null;
   recordingSessionId?: number | null;
+  repository?: { id: number; name: string; logo_url?: string | null } | null;
 }>();
 const emit = defineEmits(['update:modelValue', 'saved']);
 
@@ -68,6 +69,44 @@ watch(
   }
 );
 
+watch(
+  () => props.modelValue,
+  (file) => {
+    if (file) {
+      formData.value = {
+        name: file.name || '',
+        date: file.date || null,
+        duration: file.duration || null,
+        format: file.format || null,
+        sampling_rate: file.sampling_rate || null,
+        bit_depth: file.bit_depth || null,
+        notes: file.notes || '',
+        size: file.size || null,
+        doi: file.doi || '',
+        number: file.number || null,
+        file: null,
+        uploadedUrl: file.link || null,
+      };
+    } else {
+      formData.value = {
+        name: '',
+        date: null,
+        duration: null,
+        format: null,
+        sampling_rate: null,
+        bit_depth: null,
+        notes: '',
+        size: null,
+        doi: '',
+        number: null,
+        file: null,
+        uploadedUrl: null,
+      };
+    }
+  },
+  { immediate: true }
+);
+
 async function uploadFile() {
   if (!formData.value.file) return;
   uploading.value = true;
@@ -93,6 +132,7 @@ async function uploadFile() {
       doi: formData.value.doi,
       number: formData.value.number,
       recording_session: props.recordingSessionId ?? null,
+      repository: props.repository?.id ?? null,
       link: publicUrl,
       status: 'pending',
       celery_task_id: task_id,
@@ -101,6 +141,7 @@ async function uploadFile() {
     const newFile = await fileStore.createFile(payload);
     emit('saved', newFile);
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error('Erreur upload ou création du fichier:', err);
   } finally {
     uploading.value = false;
@@ -113,6 +154,7 @@ async function handleSubmit() {
     const payload = {
       ...rest,
       recording_session: props.recordingSessionId ?? null,
+      repository: props.repository?.id ?? null,
       link: uploadedUrl ?? null,
       status: hasDOI.value ? 'published' : 'pending',
     };
@@ -128,6 +170,7 @@ async function handleSubmit() {
     emit('update:modelValue', null);
     emit('saved', saved);
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error(err);
   }
 }
@@ -137,8 +180,18 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
 
 <template>
   <v-card class="pa-4" max-width="600">
-    <v-card-title>
+    <v-card-title class="d-flex justify-space-between align-center">
       <span>{{ props.modelValue ? 'Edit File' : 'Create File' }}</span>
+
+      <div v-if="props.repository" class="d-flex align-center">
+        <img
+          v-if="props.repository.logo_url"
+          :src="props.repository.logo_url"
+          alt="logo"
+          style="width: 32px; height: 32px; margin-left: 8px; object-fit: contain"
+        />
+        <span class="ml-2">{{ props.repository.name }}</span>
+      </div>
     </v-card-title>
 
     <v-card-text>
