@@ -17,7 +17,7 @@ const selectedAnimalProfileId = ref<number | null>(null);
 const animalProfileSaved = ref(false);
 
 const fileStore = useFileStore();
-const filesCount = computed(() => fileStore.files.length);
+const filesCount = computed(() => fileStore.count);
 
 // === SAFE COMPUTED FOR TS ===
 const safeSelectedRecordingSessionId = computed(

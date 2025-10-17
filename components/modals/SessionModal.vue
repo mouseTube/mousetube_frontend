@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue';
-import debounce from 'lodash/debounce.js';
+import debounce from 'lodash-es/debounce';
 import { useRecordingSessionStore, type RecordingSession } from '@/stores/recordingSession';
 import type { DataTableSortItem } from 'vuetify';
 

@@ -91,7 +91,6 @@ export interface File {
   }>;
 }
 
-// ✅ Type fichier navigateur
 export interface UploadFile extends globalThis.File {
   previewUrl?: string;
 }
@@ -102,28 +101,34 @@ export const useFileStore = defineStore('file', {
     loading: false,
     error: null as string | null,
     uploadProgress: 0,
+    nextPageUrl: null as string | null,
+    previousPageUrl: null as string | null,
+    count: 0,
   }),
 
   actions: {
     // -------------------------------------------------
-    // Headers avec token d'authentification
+    // Headers with auth token
     // -------------------------------------------------
     getAuthHeaders() {
       return token.value ? { Authorization: `Bearer ${token.value}` } : {};
     },
 
     // -------------------------------------------------
-    // Récupération des fichiers
+    // Get files
     // -------------------------------------------------
-    async fetchFiles() {
+    async fetchFiles(pageUrl?: string) {
       this.loading = true;
       this.error = null;
       try {
         const apiBaseUrl = useApiBaseUrl();
-        const res = await axios.get(`${apiBaseUrl}/file/`, {
-          headers: this.getAuthHeaders(),
-        });
+        const url = pageUrl || `${apiBaseUrl}/file/`;
+        const res = await axios.get(url, { headers: this.getAuthHeaders() });
+
         this.files = res.data.results;
+        this.nextPageUrl = res.data.next;
+        this.previousPageUrl = res.data.previous;
+        this.count = res.data.count;
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch files';
       } finally {
@@ -131,24 +136,27 @@ export const useFileStore = defineStore('file', {
       }
     },
 
-    async fetchFilesBySessionId(sessionId: number | string) {
-      if (!sessionId) {
-        this.files = [];
-        return [];
-      }
+    async fetchFilesBySessionId(sessionId: number | string, page: number = 1) {
+      if (!sessionId) return [];
+
       this.loading = true;
       this.error = null;
       try {
         const apiBaseUrl = useApiBaseUrl();
-        const res = await axios.get(`${apiBaseUrl}/file/`, {
-          params: { recording_session: sessionId },
-          headers: this.getAuthHeaders(),
-        });
+        const url = `${apiBaseUrl}/file/?recording_session=${sessionId}&page=${page}`;
+        const res = await axios.get(url, { headers: this.getAuthHeaders() });
+
         this.files = res.data.results;
+        this.nextPageUrl = res.data.next;
+        this.previousPageUrl = res.data.previous;
+        this.count = res.data.count;
+
         return this.files;
       } catch (err: any) {
         this.error = err.message || 'Failed to fetch files by session id';
         this.files = [];
+        this.nextPageUrl = null;
+        this.previousPageUrl = null;
         return [];
       } finally {
         this.loading = false;
@@ -177,7 +185,7 @@ export const useFileStore = defineStore('file', {
     },
 
     // -------------------------------------------------
-    // Création de l'entrée File (métadonnées uniquement)
+    // Created entry file
     // -------------------------------------------------
     async createFile(data: any) {
       this.error = null;
@@ -198,7 +206,7 @@ export const useFileStore = defineStore('file', {
     },
 
     // -------------------------------------------------
-    // ✅ Upload temporaire vers MEDIA_ROOT/temp
+    // ✅ Temporary upload to MEDIA_ROOT/temp
     // -------------------------------------------------
     async uploadFile(file: UploadFile): Promise<{ temp_path: string; task_id: string }> {
       this.error = null;
@@ -234,7 +242,7 @@ export const useFileStore = defineStore('file', {
     },
 
     // -------------------------------------------------
-    // Mise à jour des métadonnées
+    // Update metadata
     // -------------------------------------------------
     async updateFile(id: number, data: any) {
       this.error = null;
@@ -269,7 +277,7 @@ export const useFileStore = defineStore('file', {
       }
     },
     // =====================================================
-    // Upload vers MEDIA_ROOT/temp (synchrone)
+    // Upload to MEDIA_ROOT/temp (synchronous)
     // =====================================================
     async uploadToTemp(file: UploadFile) {
       this.loading = true;
@@ -301,7 +309,7 @@ export const useFileStore = defineStore('file', {
     },
 
     // =====================================================
-    // Création du File et lancement de la tâche Celery
+    // Create file and start Celery
     // =====================================================
     async createFileAsync(data: any) {
       this.loading = true;
@@ -325,7 +333,7 @@ export const useFileStore = defineStore('file', {
     },
 
     // =====================================================
-    // Vérifie l’état d’une tâche Celery (polling)
+    // Check status task Celery (polling)
     // =====================================================
     async fetchFileTaskStatus(fileId: number) {
       try {
@@ -339,6 +347,19 @@ export const useFileStore = defineStore('file', {
         return res.data;
       } catch (err: any) {
         console.error('Erreur statut tâche:', err);
+      }
+    },
+
+    async deleteFile(fileId: number) {
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        await axios.delete(`${apiBaseUrl}/file/${fileId}/`, {
+          headers: this.getAuthHeaders(),
+        });
+        this.files = this.files.filter((f) => f.id !== fileId);
+      } catch (err: any) {
+        console.error('Failed to delete file:', err);
+        this.error = err.message || 'Failed to delete file';
       }
     },
   },

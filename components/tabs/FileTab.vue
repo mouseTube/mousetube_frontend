@@ -37,6 +37,7 @@ const snackbarColor = ref('');
 // === FILES ===
 const files = computed(() => fileStore.files);
 const canPublish = computed(() => files.value.some((file) => file.status === 'done'));
+const currentPageNumber = ref(1);
 
 // === FUNCTIONS ===
 
@@ -240,6 +241,49 @@ function openFileLink(link: string) {
 function openExternalUrl(url?: string | null) {
   if (url) window.open(url, '_blank');
 }
+function fetchPage(page: number) {
+  if (!props.selectedRecordingSessionId) return;
+  currentPageNumber.value = page;
+  fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId, page);
+}
+
+const PAGE_SIZE = 10;
+
+const totalPagesNumber = computed(() => {
+  if (!fileStore.count) return 1;
+  return Math.ceil(fileStore.count / PAGE_SIZE);
+});
+// === DIALOG STATE ===
+const showDeleteDialog = ref(false);
+const fileToDelete = ref<number | null>(null);
+
+function confirmDelete(fileId: number) {
+  fileToDelete.value = fileId;
+  showDeleteDialog.value = true;
+}
+
+async function deleteFile() {
+  if (fileToDelete.value === null) return;
+
+  try {
+    await fileStore.deleteFile(fileToDelete.value);
+
+    // Gérer la page vide après suppression
+    if (fileStore.files.length === 0 && currentPageNumber.value > 1) {
+      currentPageNumber.value--;
+      await fileStore.fetchFilesBySessionId(
+        props.selectedRecordingSessionId!,
+        currentPageNumber.value
+      );
+    }
+
+    showDeleteDialog.value = false;
+    fileToDelete.value = null;
+  } catch (err) {
+    console.error('Error deleting file:', err);
+    showSnackbar('❌ Failed to delete file.', 'error');
+  }
+}
 </script>
 
 <template>
@@ -365,6 +409,7 @@ function openExternalUrl(url?: string | null) {
                     size="small"
                     color="primary"
                     variant="text"
+                    :disabled="file.status !== 'done' || publishDone"
                     @click.stop="editFile(file)"
                   >
                     <v-icon>mdi-pencil</v-icon>
@@ -380,12 +425,30 @@ function openExternalUrl(url?: string | null) {
                     size="small"
                     color="primary"
                     variant="text"
+                    :disabled="file.status !== 'done' || !publishDone"
                     @click="openFileLink(file.link)"
                   >
                     <v-icon>mdi-download</v-icon>
                   </v-btn>
                 </template>
                 <span>Download</span>
+              </v-tooltip>
+              <!-- Delete (only error) -->
+              <v-tooltip location="top">
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    icon
+                    size="small"
+                    color="primary"
+                    variant="text"
+                    :disabled="file.status !== 'error'"
+                    @click="confirmDelete(file.id)"
+                  >
+                    <v-icon>mdi-delete</v-icon>
+                  </v-btn>
+                </template>
+                <span>Delete file (error only)</span>
               </v-tooltip>
             </td>
 
@@ -432,6 +495,16 @@ function openExternalUrl(url?: string | null) {
 
       <p v-else>No files found for this session.</p>
 
+      <v-pagination
+        v-model="currentPageNumber"
+        :length="totalPagesNumber"
+        :total-visible="7"
+        color="primary"
+        prev-icon="mdi-chevron-left"
+        next-icon="mdi-chevron-right"
+        @update:model-value="fetchPage"
+      />
+
       <!-- === FILE FORM MODAL === -->
       <v-dialog v-model="showFileForm" max-width="600">
         <FileForm
@@ -441,6 +514,18 @@ function openExternalUrl(url?: string | null) {
           :repository="repositoryStore.selectedRepository"
           @saved="handleSaved"
         />
+      </v-dialog>
+
+      <!-- DIALOG DELETE-->
+      <v-dialog v-model="showDeleteDialog" max-width="400">
+        <v-card>
+          <v-card-title class="text-h6">Confirm deletion</v-card-title>
+          <v-card-text>Are you sure you want to delete this file?</v-card-text>
+          <v-card-actions class="justify-end">
+            <v-btn text @click="showDeleteDialog = false">Cancel</v-btn>
+            <v-btn color="red" text @click="deleteFile">Delete</v-btn>
+          </v-card-actions>
+        </v-card>
       </v-dialog>
 
       <!-- === SNACKBAR === -->
