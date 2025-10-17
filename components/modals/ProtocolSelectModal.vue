@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce.js';
 import { useProtocolStore, type Protocol } from '@/stores/protocol';
 import type { DataTableSortItem } from 'vuetify';
 import { useAuth } from '@/composables/useAuth';

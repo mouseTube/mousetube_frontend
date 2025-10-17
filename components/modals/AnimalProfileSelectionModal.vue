@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce.js';
 import { type AnimalProfile, useAnimalProfileStore } from '@/stores/animalProfile';
 import { useFavoriteStore } from '@/stores/favorite';
 import { useSpeciesStore } from '@/stores/species';

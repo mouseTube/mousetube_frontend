@@ -118,7 +118,8 @@ async function uploadFile() {
     // 🧠 Construire l’URL publique à partir du chemin temporaire
     const apiBaseUrl = useApiBaseUrl();
     const baseUrl = apiBaseUrl.replace(/\/api\/?$/, '');
-    const publicUrl = `${baseUrl}/media/${temp_path.replace(/^\/?media\//, '')}`;
+    const filenameSafe = encodeURIComponent(temp_path.replace(/^\/?media\//, ''));
+    const publicUrl = `${baseUrl}/media/${filenameSafe}`;
 
     const payload = {
       name: formData.value.name || formData.value.file.name,
@@ -131,8 +132,8 @@ async function uploadFile() {
       size: formData.value.file.size,
       doi: formData.value.doi,
       number: formData.value.number,
-      recording_session: props.recordingSessionId ?? null,
-      repository: props.repository?.id ?? null,
+      recording_session_id: props.recordingSessionId ?? null,
+      repository_id: props.repository?.id ?? null,
       link: publicUrl,
       status: 'pending',
       celery_task_id: task_id,
@@ -153,8 +154,8 @@ async function handleSubmit() {
     const { file, uploadedUrl, ...rest } = formData.value;
     const payload = {
       ...rest,
-      recording_session: props.recordingSessionId ?? null,
-      repository: props.repository?.id ?? null,
+      recording_session_id: props.recordingSessionId ?? null,
+      repository_id: props.repository?.id ?? null,
       link: uploadedUrl ?? null,
       status: hasDOI.value ? 'published' : 'pending',
     };

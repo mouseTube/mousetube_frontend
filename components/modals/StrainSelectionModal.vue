@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce.js';
 import { useStrainStore, type Strain } from '@/stores/strain';
 import { useFavoriteStore } from '@/stores/favorite';
 import CreateStrainModal from '@/components/modals/CreateStrainModal.vue';

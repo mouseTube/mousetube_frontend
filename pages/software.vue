@@ -4,7 +4,7 @@
 ////////////////////////////////
 import { ref, onMounted, watch, onBeforeUnmount } from 'vue';
 import axios from 'axios';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce.js';
 import { MonitorCog } from 'lucide-vue-next';
 import { useAuth } from '@/composables/useAuth';
 
