@@ -358,7 +358,23 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
     async updateSessionStatus(sessionId: number, status: 'draft' | 'published') {
       const index = this.sessions.findIndex((s) => s.id === sessionId);
       if (index !== -1) {
-        this.sessions[index].status = status;
+        this.sessions[index] = { ...this.sessions[index], status };
+        return this.sessions[index];
+      }
+
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        const res = await axios.get(`${apiBaseUrl}/recording-session/${sessionId}/`, {
+          headers: this.getAuthHeaders(),
+        });
+        const session = res.data as RecordingSession;
+        session.status = status;
+        this.sessions.push(session);
+        return session;
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to fetch session when updating status:', err);
+        return null;
       }
     },
   },

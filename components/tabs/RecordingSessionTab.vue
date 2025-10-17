@@ -509,6 +509,19 @@ watch(
   { deep: true }
 );
 
+watch(
+  () => recordingSessionStore.sessions,
+  (newSessions) => {
+    if (!selectedSessionObject.value) return;
+    const updated = newSessions.find((s) => s.id === selectedSessionObject.value!.id);
+    if (updated) {
+      // reapply session into local formData
+      onSessionSelected(updated);
+    }
+  },
+  { deep: true }
+);
+
 function handleSessionSelection(newId: 'new' | 'select' | number) {
   if (newId === 'select') {
     showSessionSelectModal.value = true;

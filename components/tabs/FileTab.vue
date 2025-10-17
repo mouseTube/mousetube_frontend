@@ -268,7 +268,7 @@ async function deleteFile() {
   try {
     await fileStore.deleteFile(fileToDelete.value);
 
-    // Gérer la page vide après suppression
+    // Handle empty page after deletion
     if (fileStore.files.length === 0 && currentPageNumber.value > 1) {
       currentPageNumber.value--;
       await fileStore.fetchFilesBySessionId(
@@ -280,6 +280,7 @@ async function deleteFile() {
     showDeleteDialog.value = false;
     fileToDelete.value = null;
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error('Error deleting file:', err);
     showSnackbar('❌ Failed to delete file.', 'error');
   }

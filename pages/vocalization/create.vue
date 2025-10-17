@@ -108,12 +108,7 @@ function onSessionSelected(
   selectedRecordingSessionId.value = payload.sessionId ?? null;
   selectedProtocolId.value = payload.protocolId ?? null;
   selectedAnimalProfileId.value = payload.animalProfileId ?? null;
-  console.log(payload);
-  console.log(payload.animalProfileId);
-
-  // Débloque File tab seulement si un animal est lié à la session
   animalProfileSaved.value = payload.animalProfileId !== null;
-  console.log(animalProfileSaved.value);
 }
 
 function onAnimalSelected(payload: { animalProfileId: number | null }) {
