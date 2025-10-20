@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import { type AnimalProfile } from '@/stores/animalProfile';
 import { useRecordingSessionStore } from '@/stores/recordingSession';
 import AnimalProfileSelectionModal from '@/components/modals/AnimalProfileSelectionModal.vue';
+import { cloneDeep } from 'lodash';
 
 // Props
 const props = defineProps<{
@@ -102,15 +103,36 @@ watch(
   () => props.selectedRecordingSessionId,
   async (newId) => {
     if (newId !== null) {
-      currentSession.value = await recordingSessionStore.getSessionById(newId);
+      const session = await recordingSessionStore.getSessionById(newId);
+
+      // Clone pour forcer la réactivité
+      currentSession.value = session ? cloneDeep(session) : null;
+
       await loadAnimalProfilesFromSession(newId);
     } else {
       currentSession.value = null;
       selectedAnimalProfiles.value = [];
       emit('animal-selected', { animalProfileId: null });
+      emit('animal-saved', { saved: false });
     }
   },
   { immediate: true }
+);
+
+watch(
+  () => recordingSessionStore.sessions,
+  (newSessions) => {
+    if (props.selectedRecordingSessionId === null) return;
+    const updated = newSessions.find((s) => s.id === props.selectedRecordingSessionId);
+    if (!updated) return;
+
+    // Clone pour forcer la réactivité et recalculer isPublished
+    currentSession.value = updated ? cloneDeep(updated) : null;
+
+    // Refresh local animal profiles list from updated session
+    loadAnimalProfilesFromSession(props.selectedRecordingSessionId);
+  },
+  { deep: true }
 );
 
 const isPublished = computed(() => currentSession.value?.status === 'published');

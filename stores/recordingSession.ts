@@ -316,9 +316,10 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         const res = await axios.get(`${apiBaseUrl}/recording-session/${id}/`, {
           headers: this.getAuthHeaders(),
         });
-        return res.data as RecordingSession;
+        const session = res.data as RecordingSession;
+        this.sessions.push(session);
+        return this.sessions.find((s) => s.id === id) || null;
       } catch (err: any) {
-        // eslint-disable-next-line no-console
         console.error('Failed to fetch session from API:', err.message);
         return null;
       }
@@ -356,12 +357,6 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
       }
     },
     async updateSessionStatus(sessionId: number, status: 'draft' | 'published') {
-      const index = this.sessions.findIndex((s) => s.id === sessionId);
-      if (index !== -1) {
-        this.sessions[index] = { ...this.sessions[index], status };
-        return this.sessions[index];
-      }
-
       try {
         const apiBaseUrl = useApiBaseUrl();
         const res = await axios.get(`${apiBaseUrl}/recording-session/${sessionId}/`, {
@@ -369,7 +364,13 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         });
         const session = res.data as RecordingSession;
         session.status = status;
-        this.sessions.push(session);
+
+        const idx = this.sessions.findIndex((s) => s.id === sessionId);
+        if (idx !== -1) {
+          this.sessions[idx] = session;
+        } else {
+          this.sessions.push(session);
+        }
         return session;
       } catch (err) {
         // eslint-disable-next-line no-console

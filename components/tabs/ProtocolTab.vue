@@ -2,7 +2,7 @@
 ////////////////////////////////
 // IMPORTS
 ////////////////////////////////
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useProtocolStore, type Protocol } from '@/stores/protocol';
 import { type RecordingSession, useRecordingSessionStore } from '@/stores/recordingSession';
 import ProtocolSelectModal from '@/components/modals/ProtocolSelectModal.vue';
@@ -53,6 +53,9 @@ const snackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('');
 const session = ref<RecordingSession | null>(null);
+
+const skipNextProtocolPropWatch = ref(false);
+const skipNextSessionStoreWatch = ref(false); // <-- ADDED
 
 ////////////////////////////////
 // COMPUTED
@@ -183,14 +186,12 @@ async function onSubmit() {
     let resultProtocol: Protocol;
 
     if (typeof selectedProtocolIdRef.value === 'number') {
-      // Mise à jour d'un protocole existant
       const updated = await protocolStore.updateProtocol(selectedProtocolIdRef.value, payload);
       protocolId = updated.id;
       resultProtocol = updated;
       snackbarMessage.value = 'Protocol updated successfully.';
       snackbarColor.value = 'success';
     } else {
-      // Création d'un nouveau protocole
       const created = await protocolStore.createProtocol(payload);
       protocolId = created.id;
       resultProtocol = created;
@@ -198,21 +199,41 @@ async function onSubmit() {
       snackbarColor.value = 'success';
     }
 
-    // Mettre à jour la ref locale et émettre vers le parent
     selectedProtocolObject.value = resultProtocol;
     selectedProtocolIdRef.value = protocolId;
-    formData.value = mapProtocolToFormData(resultProtocol);
+
+    // --- CHANGED: merge server response with local form to avoid losing user-entered fields
+    const mapped = mapProtocolToFormData(resultProtocol);
+    formData.value = {
+      name: mapped.name ?? formData.value.name,
+      description: mapped.description ?? formData.value.description,
+      animals: {
+        sex: mapped.animals?.sex ?? formData.value.animals.sex,
+        age: mapped.animals?.age ?? formData.value.animals.age,
+        housing: mapped.animals?.housing ?? formData.value.animals.housing,
+      },
+      context: {
+        number_of_animals:
+          mapped.context?.number_of_animals ?? formData.value.context.number_of_animals,
+        duration: mapped.context?.duration ?? formData.value.context.duration,
+        cage: mapped.context?.cage ?? formData.value.context.cage,
+        bedding: mapped.context?.bedding ?? formData.value.context.bedding,
+        light_cycle: mapped.context?.light_cycle ?? formData.value.context.light_cycle,
+      },
+      status: mapped.status ?? formData.value.status,
+    };
     initialFormData.value = snapshotFormData(formData.value);
 
-    // Émission vers le parent pour débloquer l'onglet Animal Profile
+    // prevent the immediate prop-watcher from reloading/resetting the form
+    skipNextProtocolPropWatch.value = true;
     emit('update:selectedProtocolId', protocolId);
     emit('protocol-selected', resultProtocol);
 
-    // Forcer le recalcul du bouton Save (grisé)
     await nextTick();
 
-    // Lier le protocole à la session si nécessaire
     if (props.selectedRecordingSessionId !== null) {
+      // <-- ADDED: skip the session-store watcher once to avoid immediate overwrite
+      skipNextSessionStoreWatch.value = true;
       await recordingSessionStore.updateSessionProtocol(
         props.selectedRecordingSessionId,
         protocolId
@@ -243,19 +264,16 @@ async function linkValidatedProtocol() {
     isLinking.value = true;
     const protocolId = selectedProtocolObject.value.id;
 
-    // Appel store pour lier la session
+    // <-- ADDED: skip the session-store watcher once to avoid overwrite after linking
+    skipNextSessionStoreWatch.value = true;
     await recordingSessionStore.updateSessionProtocol(props.selectedRecordingSessionId, protocolId);
 
-    // Mettre à jour la session locale pour refléter le lien
     if (session.value) {
       session.value.protocol = selectedProtocolObject.value;
     }
 
-    // Émettre vers le parent pour débloquer l'onglet suivant
     emit('update:selectedProtocolId', protocolId);
     emit('protocol-selected', selectedProtocolObject.value);
-
-    // Feedback utilisateur
     snackbarMessage.value = 'Validated protocol linked to recording session.';
     snackbarColor.value = 'success';
     snackbar.value = true;
@@ -270,12 +288,39 @@ async function linkValidatedProtocol() {
   }
 }
 
+function mapSessionProtocolToForm(protocolFromSession: any): Protocol {
+  return {
+    id: protocolFromSession.id,
+    name: protocolFromSession.name ?? '',
+    description: protocolFromSession.description ?? '',
+    animals: {
+      sex: protocolFromSession.animals?.sex ?? '',
+      age: protocolFromSession.animals?.age ?? '',
+      housing: protocolFromSession.animals?.housing ?? '',
+    },
+    context: {
+      number_of_animals: protocolFromSession.context?.number_of_animals ?? null,
+      duration: protocolFromSession.context?.duration ?? '',
+      cage: protocolFromSession.context?.cage ?? '',
+      bedding: protocolFromSession.context?.bedding ?? '',
+      light_cycle: protocolFromSession.context?.light_cycle ?? '',
+    },
+    status: protocolFromSession.status ?? 'draft',
+  };
+}
+
 ////////////////////////////////
 // WATCHERS
 ////////////////////////////////
 watch(
   () => props.selectedProtocolId,
   (newId) => {
+    // skip the watcher once when we just saved and emitted the prop update
+    if (skipNextProtocolPropWatch.value) {
+      skipNextProtocolPropWatch.value = false;
+      return;
+    }
+
     if (newId !== null) loadProtocol(newId);
     else resetForm();
   },
@@ -292,6 +337,149 @@ watch(
     }
   },
   { immediate: true }
+);
+
+watch(
+  () => props.selectedRecordingSessionId,
+  async (newId) => {
+    if (!newId) return;
+
+    const s = await recordingSessionStore.getSessionById(newId);
+    session.value = s;
+
+    if (s?.protocol) {
+      const protocolForForm = mapSessionProtocolToForm(s.protocol);
+      selectedProtocolObject.value = protocolForForm;
+      formData.value = mapProtocolToFormData(protocolForForm);
+      initialFormData.value = snapshotFormData(formData.value);
+      selectedProtocolIdRef.value = protocolForForm.id;
+      emit('protocol-selected', protocolForForm);
+    } else {
+      resetForm();
+    }
+  },
+  { immediate: true }
+);
+
+watch(
+  () => recordingSessionStore.sessions,
+  (newSessions) => {
+    if (skipNextSessionStoreWatch.value) {
+      // ignore a single store update triggered by our own save/link action
+      skipNextSessionStoreWatch.value = false;
+      return;
+    }
+
+    if (!props.selectedRecordingSessionId) return;
+    const updated = newSessions.find((s) => s.id === props.selectedRecordingSessionId);
+    if (!updated) return;
+
+    // update local session snapshot
+    session.value = updated;
+
+    // ensure protocol/session status is applied immediately so UI reacts
+    const embedded = (updated as any).protocol;
+    const immediateProtocolStatus = embedded?.status ?? updated.status ?? null;
+    if (immediateProtocolStatus) {
+      // apply to form and selectedProtocolObject if present
+      formData.value.status = immediateProtocolStatus;
+      if (selectedProtocolObject.value) {
+        (selectedProtocolObject.value as any).status = immediateProtocolStatus;
+      }
+    }
+
+    const localDirty = snapshotFormData(formData.value) !== initialFormData.value;
+
+    if (!localDirty) {
+      if (updated.protocol) {
+        // If the protocol embedded in the session is minimal (no animals/context/description),
+        // DO NOT overwrite the whole form — only sync the status/name/description if present.
+        const embedded = updated.protocol as any;
+        // Consider "detailed" only when animals or context provide actual values.
+        const animalsHasValues =
+          !!embedded.animals &&
+          (Boolean(embedded.animals.sex) ||
+            Boolean(embedded.animals.age) ||
+            Boolean(embedded.animals.housing));
+        const contextHasValues =
+          !!embedded.context &&
+          Object.values(embedded.context).some((v: any) => v !== null && v !== '');
+        const hasDetail = animalsHasValues || contextHasValues;
+
+        if (!hasDetail) {
+          // keep user-visible form fields intact, only sync status so UI reacts immediately
+          const immediateProtocolStatus = embedded?.status ?? updated.status ?? null;
+          if (immediateProtocolStatus) {
+            formData.value.status = immediateProtocolStatus;
+            if (selectedProtocolObject.value) {
+              (selectedProtocolObject.value as any).status = immediateProtocolStatus;
+            }
+          }
+          // Optionally update name/description if provided, but don't clear other sections:
+          if (embedded.name) formData.value.name = embedded.name;
+          if (embedded.description) formData.value.description = embedded.description;
+          // leave initialFormData untouched so form is not considered reset
+          return;
+        }
+
+        // embedded has details — safe to build full form from it
+        (async () => {
+          let protocolForForm: Protocol | null = null;
+          try {
+            // prefer the embedded detailed payload
+            protocolForForm = mapSessionProtocolToForm(embedded);
+          } catch (e) {
+            protocolForForm = mapSessionProtocolToForm(embedded);
+          }
+
+          if (protocolForForm) {
+            // ensure the protocol object carries the immediate status we applied earlier
+            const immediateProtocolStatus = embedded?.status ?? updated.status ?? null;
+            protocolForForm.status = protocolForForm.status ?? immediateProtocolStatus ?? 'draft';
+
+            selectedProtocolObject.value = protocolForForm;
+            // merge to avoid losing fields if server fields are empty strings/null
+            const mapped = mapProtocolToFormData(protocolForForm);
+            formData.value = {
+              name: mapped.name ?? formData.value.name,
+              description: mapped.description ?? formData.value.description,
+              animals: {
+                sex: mapped.animals?.sex ?? formData.value.animals.sex,
+                age: mapped.animals?.age ?? formData.value.animals.age,
+                housing: mapped.animals?.housing ?? formData.value.animals.housing,
+              },
+              context: {
+                number_of_animals:
+                  mapped.context?.number_of_animals ?? formData.value.context.number_of_animals,
+                duration: mapped.context?.duration ?? formData.value.context.duration,
+                cage: mapped.context?.cage ?? formData.value.context.cage,
+                bedding: mapped.context?.bedding ?? formData.value.context.bedding,
+                light_cycle: mapped.context?.light_cycle ?? formData.value.context.light_cycle,
+              },
+              status: mapped.status ?? formData.value.status,
+            };
+            initialFormData.value = snapshotFormData(formData.value);
+            selectedProtocolIdRef.value = protocolForForm.id;
+            emit('protocol-selected', protocolForForm);
+          } else {
+            resetForm();
+          }
+        })();
+      } else {
+        resetForm();
+      }
+    } else {
+      // merge only safe fields: protocol status / basic metadata
+      if (updated.protocol) {
+        const protocolForForm = mapSessionProtocolToForm(updated.protocol);
+        selectedProtocolObject.value = protocolForForm;
+        // don't clobber user's edits, only update status shown in form and session-level status
+        formData.value.status = protocolForForm.status ?? formData.value.status;
+        session.value = updated;
+      }
+    }
+  },
+  { deep: true }
 );
 
 ////////////////////////////////

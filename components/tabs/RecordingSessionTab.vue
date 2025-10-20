@@ -514,9 +514,31 @@ watch(
   (newSessions) => {
     if (!selectedSessionObject.value) return;
     const updated = newSessions.find((s) => s.id === selectedSessionObject.value!.id);
-    if (updated) {
-      // reapply session into local formData
+    if (!updated) return;
+
+    // update cached ref
+    selectedSessionObject.value = updated;
+
+    const localDirty = JSON.stringify(formData.value) !== initialFormData.value;
+
+    if (!localDirty) {
+      // safe: replace whole form
       onSessionSelected(updated);
+    } else {
+      // merge only safe fields to avoid clobbering unsaved edits
+      formData.value.status = updated.status ?? formData.value.status;
+      // update session-level derived UI like date/status
+      if (updated.date) {
+        const d = new Date(updated.date);
+        if (!isNaN(d.getTime())) {
+          date.value = d;
+          time.value = d.toTimeString().slice(0, 5);
+          formattedDate.value = `${d.toISOString().slice(0, 10)} ${time.value}`;
+          formData.value.date = d.toISOString();
+        }
+      }
+      // optionally notify user
+      showSnackbar('Session updated remotely — some fields merged.', 'info');
     }
   },
   { deep: true }
