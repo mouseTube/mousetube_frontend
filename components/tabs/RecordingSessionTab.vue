@@ -325,9 +325,11 @@ async function saveSession() {
       selectedSessionObject.value = created as RecordingSession;
       selectedSessionName.value = created.name ?? '';
 
+      const firstAnimalProfileId = created.animal_profiles?.[0]?.id ?? null;
       emit('session-selected', {
         sessionId: created.id,
         protocolId: created.protocol?.id || null,
+        animalProfileId: firstAnimalProfileId,
       });
     } else {
       await recordingSessionStore.updateSession(Number(selectedSessionId.value), formData.value);
@@ -340,9 +342,11 @@ async function saveSession() {
       }
 
       const session = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
+      const firstAnimalProfileId = session?.animal_profiles?.[0]?.id ?? null;
       emit('session-selected', {
         sessionId: Number(selectedSessionId.value),
         protocolId: session?.protocol?.id || null,
+        animalProfileId: firstAnimalProfileId,
       });
     }
     updateInitialSnapshot();

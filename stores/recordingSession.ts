@@ -108,10 +108,9 @@ function toDjangoPayload(session: RecordingSessionPayload) {
     ...rest
   } = session;
 
-  return {
+  const payload: any = {
     ...rest,
     is_multiple,
-    protocol_id: protocol ?? null,
     laboratory_id: laboratory,
     study_ids: studies,
     animal_profile_ids: animal_profiles,
@@ -122,10 +121,22 @@ function toDjangoPayload(session: RecordingSessionPayload) {
     equipment_acquisition_hardware_microphone_ids: equipment?.microphones,
     equipment_channels: equipment?.channels,
     equipment_sound_isolation: equipment?.sound_isolation,
-    context_temperature_value: context?.temperature?.value || null,
-    context_temperature_unit: context?.temperature?.unit || null,
-    context_brightness: context?.brightness || null,
+    context_temperature_value: context?.temperature?.value ?? null,
+    context_temperature_unit: context?.temperature?.unit ?? null,
+    context_brightness: context?.brightness ?? null,
   };
+
+  // include protocol_id only when caller explicitly provided a protocol field
+  if (typeof protocol !== 'undefined') {
+    payload.protocol_id = protocol ?? null;
+  }
+
+  // include animal_profile_ids only when caller explicitly provided animal_profiles
+  if (typeof animal_profiles !== 'undefined') {
+    payload.animal_profile_ids = animal_profiles ?? null;
+  }
+
+  return payload;
 }
 
 export const useRecordingSessionStore = defineStore('recordingSession', {
@@ -283,7 +294,19 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
       });
       const index = this.sessions.findIndex((s) => s.id === id);
-      if (index !== -1) this.sessions[index] = res.data;
+      const newSession = res.data as RecordingSession;
+      if (index !== -1) {
+        const existing = this.sessions[index];
+        this.sessions[index] = {
+          ...existing,
+          ...newSession,
+          // prefer server values, but fall back to existing nested objects when missing
+          protocol: newSession.protocol ?? existing.protocol,
+          animal_profiles: newSession.animal_profiles ?? existing.animal_profiles,
+        };
+      } else {
+        this.sessions.push(newSession);
+      }
       return res.data;
     },
 
@@ -298,7 +321,18 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
           },
         });
         const index = this.sessions.findIndex((s) => s.id === sessionId);
-        if (index !== -1) this.sessions[index] = res.data;
+        const newSession = res.data as RecordingSession;
+        if (index !== -1) {
+          const existing = this.sessions[index];
+          this.sessions[index] = {
+            ...existing,
+            ...newSession,
+            protocol: newSession.protocol ?? existing.protocol,
+            animal_profiles: newSession.animal_profiles ?? existing.animal_profiles,
+          };
+        } else {
+          this.sessions.push(newSession);
+        }
         return res.data;
       } catch (err) {
         // eslint-disable-next-line no-console
@@ -347,9 +381,20 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
           headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
         });
 
-        // mettre à jour localement
         const index = this.sessions.findIndex((s) => s.id === sessionId);
-        if (index !== -1) this.sessions[index] = res.data;
+        const newSession = res.data as RecordingSession;
+        if (index !== -1) {
+          const existing = this.sessions[index];
+          this.sessions[index] = {
+            ...existing,
+            ...newSession,
+            // preserve nested relations when the response omits them
+            protocol: newSession.protocol ?? existing.protocol,
+            animal_profiles: newSession.animal_profiles ?? existing.animal_profiles,
+          };
+        } else {
+          this.sessions.push(newSession);
+        }
         return res.data;
       } catch (err) {
         console.error('Failed to update animal profiles:', err);
@@ -362,16 +407,23 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         const res = await axios.get(`${apiBaseUrl}/recording-session/${sessionId}/`, {
           headers: this.getAuthHeaders(),
         });
-        const session = res.data as RecordingSession;
-        session.status = status;
+        const fetched = res.data as RecordingSession;
+        // apply requested status locally (in case API hasn't propagated it yet)
+        fetched.status = status;
 
         const idx = this.sessions.findIndex((s) => s.id === sessionId);
         if (idx !== -1) {
-          this.sessions[idx] = session;
+          const existing = this.sessions[idx];
+          this.sessions[idx] = {
+            ...existing,
+            ...fetched,
+            protocol: fetched.protocol ?? existing.protocol,
+            animal_profiles: fetched.animal_profiles ?? existing.animal_profiles,
+          };
         } else {
-          this.sessions.push(session);
+          this.sessions.push(fetched);
         }
-        return session;
+        return fetched;
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Failed to fetch session when updating status:', err);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { type AnimalProfile } from '@/stores/animalProfile';
 import { useRecordingSessionStore } from '@/stores/recordingSession';
 import AnimalProfileSelectionModal from '@/components/modals/AnimalProfileSelectionModal.vue';
@@ -25,12 +25,23 @@ const snackbarColor = ref('');
 const selectedAnimalProfiles = ref<AnimalProfile[]>([]);
 
 const saved = ref(false);
+// snapshot of last-saved animal profile ids
+const savedSnapshot = ref<number[]>([]);
+
+const isDirty = computed(() => {
+  const current = selectedAnimalProfiles.value.map((p) => p.id).sort();
+  const snap = [...savedSnapshot.value].sort();
+  return JSON.stringify(current) !== JSON.stringify(snap);
+});
 
 async function loadAnimalProfilesFromSession(sessionId: number) {
   const session = await recordingSessionStore.getSessionById(sessionId);
   if (!session) return;
 
   selectedAnimalProfiles.value = session.animal_profiles || [];
+  // mark current state as saved (snapshot)
+  savedSnapshot.value = selectedAnimalProfiles.value.map((p) => p.id);
+  saved.value = false;
 
   if (selectedAnimalProfiles.value.length > 0) {
     emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
@@ -43,6 +54,8 @@ async function loadAnimalProfilesFromSession(sessionId: number) {
 
 function removeAnimalProfile(id: number) {
   selectedAnimalProfiles.value = selectedAnimalProfiles.value.filter((p) => p.id !== id);
+  // mark dirty after user change
+  saved.value = false;
   if (selectedAnimalProfiles.value.length === 0) {
     emit('animal-selected', { animalProfileId: null });
   }
@@ -51,6 +64,7 @@ function removeAnimalProfile(id: number) {
 // Clear all
 function clearAnimalProfiles() {
   selectedAnimalProfiles.value = [];
+  saved.value = false;
   emit('animal-selected', { animalProfileId: null });
 }
 
@@ -68,6 +82,8 @@ async function updateAnimalProfiles() {
     snackbar.value = true;
     snackbarColor.value = 'success';
 
+    // update saved snapshot so button is disabled until next change
+    savedSnapshot.value = selectedAnimalProfiles.value.map((p) => p.id);
     saved.value = true;
     emit('animal-saved', { saved: true });
 
@@ -92,6 +108,7 @@ function onUpdateSelectedAnimalProfiles(profiles: AnimalProfile[]) {
 
   selectedAnimalProfiles.value = current;
 
+  saved.value = false;
   if (selectedAnimalProfiles.value.length > 0) {
     emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
   }
@@ -126,7 +143,7 @@ watch(
     const updated = newSessions.find((s) => s.id === props.selectedRecordingSessionId);
     if (!updated) return;
 
-    // Clone pour forcer la réactivité et recalculer isPublished
+    // Clone to force reactivity
     currentSession.value = updated ? cloneDeep(updated) : null;
 
     // Refresh local animal profiles list from updated session
@@ -143,7 +160,9 @@ const isPublished = computed(() => currentSession.value?.status === 'published')
     <v-card outlined class="pa-6 mb-5">
       <v-card-title class="d-flex justify-space-between align-center mb-4">
         <h3>Animal Profiles</h3>
-        <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isPublished">Save</v-btn>
+        <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isPublished || !isDirty"
+          >Save</v-btn
+        >
       </v-card-title>
 
       <v-card-text>
