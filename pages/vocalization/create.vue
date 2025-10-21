@@ -157,6 +157,27 @@ function getTooltipMessage(tabName: string) {
   if (tabName === 'file') return 'Please save an Animal Profile first';
   return '';
 }
+// === NAVIGATION HELPERS ===
+function goToProtocolTab() {
+  const protocolIndex = tabs.findIndex((t) => t.name === 'protocol');
+  if (protocolIndex !== -1) {
+    tab.value = protocolIndex;
+  }
+}
+
+function goToAnimalProfileTab() {
+  const animalProfileIndex = tabs.findIndex((t) => t.name === 'animalProfile');
+  if (animalProfileIndex !== -1) {
+    tab.value = animalProfileIndex;
+  }
+}
+
+function goToFileTab() {
+  const fileIndex = tabs.findIndex((t) => t.name === 'file');
+  if (fileIndex !== -1) {
+    tab.value = fileIndex;
+  }
+}
 </script>
 
 <template>
@@ -233,16 +254,24 @@ function getTooltipMessage(tabName: string) {
             @protocol-saved="onProtocolSaved($event)"
             @animal-dirty="onAnimalDirty($event)"
             v-bind="{
+              ...(item.name === 'recordingSession'
+                ? {
+                    selectedRecordingSessionId: selectedRecordingSessionId,
+                    onGoToProtocol: goToProtocolTab,
+                  }
+                : {}),
               ...(item.name === 'protocol'
                 ? {
                     selectedProtocolId: safeSelectedProtocolId,
                     selectedRecordingSessionId: safeSelectedRecordingSessionId,
+                    onGoToAnimalProfile: goToAnimalProfileTab,
                   }
                 : {}),
               ...(item.name === 'animalProfile'
                 ? {
                     selectedProtocolId: safeSelectedProtocolId,
                     selectedRecordingSessionId: safeSelectedRecordingSessionId,
+                    onGoToFile: goToFileTab,
                   }
                 : {}),
               ...(item.name === 'file'

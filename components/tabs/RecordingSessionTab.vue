@@ -30,9 +30,14 @@ const auth = useAuth();
 const router = useRouter();
 
 ////////////////////////////////
-// EMITS
+// EMITS & PROPS
 ////////////////////////////////
 const emit = defineEmits(['validate', 'session-selected', 'session-saved', 'session-dirty']);
+
+const props = defineProps<{
+  selectedRecordingSessionId?: number;
+  onGoToProtocol?: () => void;
+}>();
 
 ////////////////////////////////
 // DATA & STATE
@@ -638,9 +643,9 @@ onMounted(async () => {
         <p class="text--secondary mb-4">
           A <strong>Recording Session</strong> represents a set of audio recordings made under the
           same experimental conditions. It can be <strong>single</strong> or
-          <strong>multiple</strong>
-          . Recording sessions are used to organize and link recorded data, the laboratory, studies,
-          animal subjects, and equipment used, ensuring that all metadata is properly tracked.
+          <strong>multiple</strong>. Recording sessions are used to organize and link recorded data,
+          the laboratory, studies, animal subjects, and equipment used, ensuring that all metadata
+          is properly tracked.
         </p>
       </v-col>
     </v-row>
@@ -1206,7 +1211,37 @@ onMounted(async () => {
           </v-card>
         </v-form>
       </v-card-text>
+      <v-card-actions class="d-flex justify-end mt-4">
+        <v-btn
+          color="grey"
+          variant="outlined"
+          @click="resetForm"
+          class="mr-2"
+          :disabled="isPublished"
+        >
+          Reset
+        </v-btn>
+
+        <v-btn
+          color="primary"
+          variant="flat"
+          :disabled="!isSaveEnabled || isPublished"
+          @click="saveSession"
+        >
+          Save
+        </v-btn>
+      </v-card-actions>
     </v-card>
+    <v-btn
+      color="primary"
+      variant="text"
+      class="mt-2"
+      :disabled="!props.selectedRecordingSessionId"
+      @click="props.onGoToProtocol?.()"
+    >
+      Go to Protocol
+      <v-icon end>mdi-arrow-right</v-icon>
+    </v-btn>
 
     <!-- Session selection modal (modal handles its own pagination/search using the store) -->
     <SelectSessionModal v-model="showSessionSelectModal" @selected="onSessionSelected" />

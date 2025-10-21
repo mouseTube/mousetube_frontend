@@ -13,6 +13,7 @@ import ProtocolSelectModal from '@/components/modals/ProtocolSelectModal.vue';
 const props = defineProps<{
   selectedProtocolId: number | null;
   selectedRecordingSessionId: number | null;
+  onGoToAnimalProfile?: () => void;
 }>();
 
 const emit = defineEmits<{
@@ -743,7 +744,50 @@ onMounted(async () => {
           auto-grow
         />
       </v-card-text>
+      <v-card-actions class="d-flex justify-end mt-4">
+        <div>
+          <template v-if="canLinkValidatedProtocol">
+            <v-btn
+              :loading="isLinking"
+              :disabled="isLinking"
+              color="primary"
+              @click="linkValidatedProtocol"
+            >
+              Link this protocol
+            </v-btn>
+          </template>
+          <template v-else>
+            <v-btn
+              color="grey"
+              variant="outlined"
+              @click="resetForm"
+              class="mr-2"
+              :disabled="isValidated"
+            >
+              Reset
+            </v-btn>
+            <v-btn
+              color="primary"
+              variant="flat"
+              @click="onSubmit"
+              :disabled="!isSaveEnabled || isValidated || isSaving"
+            >
+              Save
+            </v-btn>
+          </template>
+        </div>
+      </v-card-actions>
     </v-card>
+    <v-btn
+      color="primary"
+      variant="text"
+      class="mt-2"
+      :disabled="!props.selectedProtocolId"
+      @click="props.onGoToAnimalProfile?.()"
+    >
+      Go to Animal Profile
+      <v-icon end>mdi-arrow-right</v-icon>
+    </v-btn>
 
     <!-- Snackbar -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000" location="top right">

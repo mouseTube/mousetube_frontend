@@ -8,6 +8,8 @@ import { cloneDeep } from 'lodash';
 // Props
 const props = defineProps<{
   selectedRecordingSessionId: number | null;
+  selectedProtocolId?: number | null;
+  onGoToFile?: () => void;
 }>();
 
 // ✅ declare emit
@@ -205,6 +207,20 @@ const isPublished = computed(() => currentSession.value?.status === 'published')
         </div>
       </v-card-text>
     </v-card>
+    <v-btn
+      color="primary"
+      variant="text"
+      class="mt-2"
+      :disabled="
+        !props.selectedRecordingSessionId ||
+        !props.selectedProtocolId ||
+        selectedAnimalProfiles.length === 0
+      "
+      @click="props.onGoToFile?.()"
+    >
+      Go to File
+      <v-icon end>mdi-arrow-right</v-icon>
+    </v-btn>
 
     <AnimalProfileSelectionModal
       v-model="showSelectionModal"
