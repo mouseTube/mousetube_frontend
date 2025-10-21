@@ -32,7 +32,7 @@ const router = useRouter();
 ////////////////////////////////
 // EMITS
 ////////////////////////////////
-const emit = defineEmits(['validate', 'session-selected']);
+const emit = defineEmits(['validate', 'session-selected', 'session-saved', 'session-dirty']);
 
 ////////////////////////////////
 // DATA & STATE
@@ -214,7 +214,9 @@ function resetForm() {
   selectedSessionName.value = '';
   selectedSessionId.value = 'new';
 
-  updateInitialSnapshot();
+  updateInitialSnapshot(false);
+  emit('session-saved', { saved: false });
+  emit('session-dirty', { dirty: false });
 
   emit('session-selected', null);
 }
@@ -351,6 +353,7 @@ async function saveSession() {
     }
     updateInitialSnapshot();
     isSaveEnabled.value = false;
+    emit('session-saved', { saved: true });
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('Error saving session', e);
@@ -358,8 +361,14 @@ async function saveSession() {
   }
 }
 
-function updateInitialSnapshot() {
+function updateInitialSnapshot(markInitialized = true) {
   initialFormData.value = JSON.stringify(formData.value);
+  isSaveEnabled.value = false;
+  if (markInitialized) {
+    formInitialized.value = true;
+  } else {
+    formInitialized.value = false;
+  }
 }
 
 function onSessionSelected(session: RecordingSession) {
@@ -505,12 +514,40 @@ watch(selectedSessionId, (newId, oldId) => {
   const idNum = Number(newId);
 });
 
+const formInitialized = ref(false);
+
 watch(
   formData,
   (newVal) => {
-    isSaveEnabled.value = JSON.stringify(newVal) !== initialFormData.value;
+    // --- DÉTECTION DE CHANGEMENTS ---
+    // active dès qu'on tape, mais ignore seulement le snapshot initial
+    const dirty = JSON.stringify(newVal) !== initialFormData.value;
+    isSaveEnabled.value = dirty;
+
+    // --- NOTIFICATION DE DIRTINESS ---
+    emit('session-dirty', { dirty });
+
+    // --- VALIDATION LOGIC ---
+    const errors: string[] = [];
+
+    if (!newVal.name || !newVal.name.trim()) {
+      errors.push('Name is required');
+    }
+
+    // Date obligatoire uniquement si session non multiple
+    if (!newVal.is_multiple && !newVal.date) {
+      errors.push('Date is required for single sessions');
+    }
+
+    const hasErrors = errors.length > 0;
+    emit('validate', { hasErrors, message: hasErrors ? errors[0] : '' });
+
+    // On considère que le formulaire a été initialisé après le premier changement utilisateur
+    if (!formInitialized.value) {
+      formInitialized.value = true;
+    }
   },
-  { deep: true }
+  { deep: true, immediate: true }
 );
 
 watch(
@@ -587,6 +624,7 @@ onMounted(async () => {
     router.push('/account/login');
     return;
   }
+  resetForm();
   await fetchSelectableData();
   // Prefetch first page for modal convenience (modal also fetches on open)
   await recordingSessionStore.fetchSessionsPage(1);

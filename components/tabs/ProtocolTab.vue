@@ -18,6 +18,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:selectedProtocolId', value: number | null): void;
   (e: 'protocol-selected', value: Protocol | null): void;
+  (e: 'protocol-saved', value: { saved: boolean }): void;
+  (e: 'protocol-dirty', value: { dirty: boolean }): void;
+  (e: 'validate', value: { hasErrors: boolean; message?: string }): void;
 }>();
 
 ////////////////////////////////
@@ -124,6 +127,10 @@ function resetForm() {
   selectedProtocolIdRef.value = 'new';
   emit('update:selectedProtocolId', null);
   emit('protocol-selected', null);
+  // notify parent
+  emit('protocol-saved', { saved: false });
+  emit('protocol-dirty', { dirty: false });
+  emit('validate', { hasErrors: false, message: '' });
 }
 
 function mapProtocolToFormData(protocol: Protocol) {
@@ -173,7 +180,7 @@ function onProtocolSelected(protocol: Protocol) {
 
   const mapped = mapProtocolToFormData(protocol);
   formData.value = mapped;
-  initialFormData.value = snapshotFormData(formData.value);
+  // initialFormData.value = snapshotFormData(formData.value);
   showProtocolSelectModal.value = false;
 
   if (session.value?.protocol?.id === protocol.id) {
@@ -181,6 +188,7 @@ function onProtocolSelected(protocol: Protocol) {
   }
 
   emit('protocol-selected', protocol);
+  emit('protocol-dirty', { dirty: true });
 }
 
 function handleProtocolSelection(newId: 'new' | 'select' | number) {
@@ -242,6 +250,11 @@ async function onSubmit() {
     };
     initialFormData.value = snapshotFormData(formData.value);
 
+    // notify parent about saved
+    emit('protocol-saved', { saved: true });
+    emit('protocol-dirty', { dirty: false });
+    emit('validate', { hasErrors: false, message: '' });
+
     // prevent the immediate prop-watcher from reloading/resetting the form
     skipNextProtocolPropWatch.value = true;
     emit('update:selectedProtocolId', protocolId);
@@ -288,13 +301,18 @@ async function linkValidatedProtocol() {
     isLinking.value = true;
     const protocolId = selectedProtocolObject.value.id;
 
-    // <-- ADDED: skip the session-store watcher once to avoid overwrite after linking
     skipNextSessionStoreWatch.value = true;
     await recordingSessionStore.updateSessionProtocol(props.selectedRecordingSessionId, protocolId);
 
     if (session.value) {
       session.value.protocol = selectedProtocolObject.value;
     }
+
+    // Mise à jour du snapshot pour que le formulaire ne soit plus dirty
+    initialFormData.value = snapshotFormData(formData.value);
+
+    // Force le dirty à false
+    emit('protocol-dirty', { dirty: false });
 
     emit('update:selectedProtocolId', protocolId);
     emit('protocol-selected', selectedProtocolObject.value);
@@ -472,11 +490,39 @@ watch(
         const proto = mapSessionProtocolToForm(embedded);
         selectedProtocolObject.value = proto;
         formData.value.status = proto.status ?? formData.value.status;
+        initialFormData.value = snapshotFormData(formData.value);
         session.value = updated;
       }
     }
   },
   { deep: true }
+);
+
+watch(
+  formData,
+  () => {
+    // compute validation (same rules as template)
+    const errors: string[] = [];
+    if (!formData.value.name || !formData.value.name.trim()) errors.push('Name is required');
+    const animals = formData.value.animals || {};
+    if (!animals.sex) errors.push('Sex is required');
+    if (!animals.age) errors.push('Age is required');
+    if (!animals.housing) errors.push('Housing is required');
+    const ctx = formData.value.context || {};
+    if (ctx.number_of_animals === null || ctx.number_of_animals === undefined)
+      errors.push('Number of animals is required');
+    if (!ctx.duration) errors.push('Duration is required');
+    if (!ctx.cage) errors.push('Cage Type is required');
+    if (!ctx.bedding) errors.push('Bedding is required');
+    if (!ctx.light_cycle) errors.push('Light Cycle is required');
+
+    const hasErrors = errors.length > 0;
+    emit('validate', { hasErrors, message: hasErrors ? errors[0] : '' });
+
+    const dirty = snapshotFormData(formData.value) !== initialFormData.value;
+    emit('protocol-dirty', { dirty });
+  },
+  { deep: true, immediate: true }
 );
 
 ////////////////////////////////
@@ -636,7 +682,7 @@ onMounted(async () => {
                 (val: string) =>
                   (formData.context.number_of_animals = val === '' ? null : Number(val))
               "
-              :rules="[(v: number | null) => v === null || v > 0 || 'Must be a positive number']"
+              :rules="[(v: number | null) => (v !== null && v > 0) || 'Must be a positive number']"
               :disabled="isValidated"
             >
               <template #label>Number of Animals <span style="color: red">*</span></template>

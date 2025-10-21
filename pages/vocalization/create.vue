@@ -35,6 +35,7 @@ const tabs = reactive([
     disabled: false,
     hasErrors: false,
     errorMessage: '',
+    unsaved: false, // <-- ADDED
   },
   {
     name: 'protocol',
@@ -43,6 +44,7 @@ const tabs = reactive([
     disabled: true,
     hasErrors: false,
     errorMessage: '',
+    unsaved: false, // <-- ADDED
   },
   {
     name: 'animalProfile',
@@ -51,6 +53,7 @@ const tabs = reactive([
     disabled: true,
     hasErrors: false,
     errorMessage: '',
+    unsaved: false, // <-- ADDED
   },
   {
     name: 'file',
@@ -59,6 +62,7 @@ const tabs = reactive([
     disabled: true,
     hasErrors: false,
     errorMessage: '',
+    unsaved: false, // <-- ADDED (optional)
   },
 ]);
 
@@ -120,6 +124,32 @@ function onAnimalSaved(saved: boolean) {
   animalProfileSaved.value = saved;
 }
 
+// === UNSAVED HANDLERS ===
+function setTabUnsaved(tabName: string, unsaved: boolean) {
+  const t = tabs.find((x) => x.name === tabName);
+  if (t) t.unsaved = unsaved;
+}
+
+// update handlers to be used by child emits
+function onSessionDirty(payload: { dirty: boolean }) {
+  setTabUnsaved('recordingSession', !!payload.dirty);
+}
+function onSessionSaved(payload: { saved: boolean }) {
+  setTabUnsaved('recordingSession', !payload.saved);
+}
+function onProtocolDirty(payload: { dirty: boolean }) {
+  setTabUnsaved('protocol', !!payload.dirty);
+}
+function onProtocolSaved(payload: { saved: boolean }) {
+  setTabUnsaved('protocol', !payload.saved);
+}
+function onAnimalDirty(payload: { dirty: boolean }) {
+  setTabUnsaved('animalProfile', !!payload.dirty);
+}
+function onAnimalSavedFlag(payload: { saved: boolean }) {
+  setTabUnsaved('animalProfile', !payload.saved);
+}
+
 // === TOOLTIP MESSAGES ===
 function getTooltipMessage(tabName: string) {
   if (tabName === 'protocol') return 'Please create or select a Recording Session first';
@@ -166,6 +196,9 @@ function getTooltipMessage(tabName: string) {
                 {{ filesCount }}
               </v-chip>
 
+              <v-icon v-if="item.unsaved" color="orange" size="small" class="ms-1">
+                mdi-content-save-outline
+              </v-icon>
               <v-icon v-if="item.hasErrors" color="warning" class="ms-2">
                 mdi-alert-circle-outline
               </v-icon>
@@ -194,6 +227,11 @@ function getTooltipMessage(tabName: string) {
             @animal-selected="onAnimalSelected"
             @animal-saved="onAnimalSaved($event.saved)"
             @update:selectedProtocolId="selectedProtocolId = $event"
+            @session-dirty="onSessionDirty($event)"
+            @session-saved="onSessionSaved($event)"
+            @protocol-dirty="onProtocolDirty($event)"
+            @protocol-saved="onProtocolSaved($event)"
+            @animal-dirty="onAnimalDirty($event)"
             v-bind="{
               ...(item.name === 'protocol'
                 ? {

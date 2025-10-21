@@ -14,6 +14,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'animal-selected', payload: { animalProfileId: number | null }): void;
   (e: 'animal-saved', payload: { saved: boolean }): void;
+  (e: 'animal-dirty', payload: { dirty: boolean }): void;
 }>();
 
 const recordingSessionStore = useRecordingSessionStore();
@@ -56,6 +57,7 @@ function removeAnimalProfile(id: number) {
   selectedAnimalProfiles.value = selectedAnimalProfiles.value.filter((p) => p.id !== id);
   // mark dirty after user change
   saved.value = false;
+  emit('animal-dirty', { dirty: true });
   if (selectedAnimalProfiles.value.length === 0) {
     emit('animal-selected', { animalProfileId: null });
   }
@@ -65,6 +67,7 @@ function removeAnimalProfile(id: number) {
 function clearAnimalProfiles() {
   selectedAnimalProfiles.value = [];
   saved.value = false;
+  emit('animal-dirty', { dirty: true });
   emit('animal-selected', { animalProfileId: null });
 }
 
@@ -86,6 +89,7 @@ async function updateAnimalProfiles() {
     savedSnapshot.value = selectedAnimalProfiles.value.map((p) => p.id);
     saved.value = true;
     emit('animal-saved', { saved: true });
+    emit('animal-dirty', { dirty: false });
 
     if (selectedAnimalProfiles.value.length > 0) {
       emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
@@ -107,8 +111,8 @@ function onUpdateSelectedAnimalProfiles(profiles: AnimalProfile[]) {
   });
 
   selectedAnimalProfiles.value = current;
-
   saved.value = false;
+  emit('animal-dirty', { dirty: true });
   if (selectedAnimalProfiles.value.length > 0) {
     emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
   }
