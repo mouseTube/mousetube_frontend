@@ -185,7 +185,8 @@ watch(
   () => props.modelValue,
   async (val) => {
     if (val) {
-      fetchData(1);
+      page.value = 1;
+      await fetchData(1);
 
       if (favoriteStore.isEmpty()) {
         try {

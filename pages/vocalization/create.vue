@@ -184,7 +184,7 @@ function goToFileTab() {
   <v-container fluid>
     <v-card variant="flat" class="mx-auto mt-16 mb-4" max-width="1000">
       <div class="d-flex align-center mt-1 mb-4">
-        <h1><AudioLines class="mr-2" /> New Vocalization</h1>
+        <h1><AudioLines class="mr-2" /> New Vocalization Entry</h1>
       </div>
 
       <v-card-text>
@@ -217,10 +217,10 @@ function goToFileTab() {
                 {{ filesCount }}
               </v-chip>
 
-              <v-icon v-if="item.unsaved" color="orange" size="small" class="ms-1">
+              <v-icon v-if="item.unsaved" color="primary" size="small" class="ms-1">
                 mdi-content-save-outline
               </v-icon>
-              <v-icon v-if="item.hasErrors" color="warning" class="ms-2">
+              <v-icon v-if="item.hasErrors" color="primary" class="ms-2">
                 mdi-alert-circle-outline
               </v-icon>
             </v-tab>

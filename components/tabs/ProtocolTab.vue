@@ -63,6 +63,9 @@ const skipNextSessionStoreWatch = ref(false);
 
 const isSaving = ref(false);
 
+const formRef = ref();
+const isFormValid = ref(false);
+
 ////////////////////////////////
 // COMPUTED
 ////////////////////////////////
@@ -105,6 +108,13 @@ const isLinking = ref(false);
 ////////////////////////////////
 // FUNCTIONS
 ////////////////////////////////
+/* Show a snackbar notification with the given message and color. */
+function showSnackbar(message: string, color: string) {
+  snackbarMessage.value = message;
+  snackbarColor.value = color;
+  snackbar.value = true;
+}
+
 function snapshotFormData(data: typeof formData.value) {
   return JSON.stringify(JSON.parse(JSON.stringify(data)));
 }
@@ -204,6 +214,14 @@ function handleProtocolSelection(newId: 'new' | 'select' | number) {
 }
 
 async function onSubmit() {
+  if (!formRef.value?.validate) return;
+
+  const result = await formRef.value.validate();
+  const isValid = typeof result === 'boolean' ? result : result.valid;
+  if (!isValid) {
+    showSnackbar('Please fill in all required fields.', 'error');
+    return;
+  }
   if (isSaving.value) return;
   isSaving.value = true;
   try {
@@ -618,131 +636,135 @@ onMounted(async () => {
       </v-card-title>
 
       <v-card-text>
-        <v-text-field
-          v-model="formData.name"
-          outlined
-          required
-          class="mb-4"
-          :rules="[(v: any) => !!v || 'Name is required']"
-          :disabled="isValidated"
-        >
-          <template #label>Name <span style="color: red">*</span></template>
-        </v-text-field>
+        <v-form ref="formRef" v-model="isFormValid">
+          <v-text-field
+            v-model="formData.name"
+            outlined
+            required
+            class="mb-4"
+            :rules="[(v: any) => !!v || 'Name is required']"
+            :disabled="isValidated"
+          >
+            <template #label>Name <span style="color: red">*</span></template>
+          </v-text-field>
 
-        <!-- Animal Information -->
-        <v-card class="pa-4 mb-4" outlined>
-          <v-card-title>Animal Information</v-card-title>
-          <v-card-text>
-            <v-select
-              v-model="formData.animals.sex"
-              :items="['male(s)', 'female(s)', 'male(s) & female(s)']"
-              label="Sex"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Sex is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Sex <span style="color: red">*</span></template>
-            </v-select>
-            <v-select
-              v-model="formData.animals.age"
-              :items="['pup', 'juvenile', 'adult']"
-              label="Age"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Age is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Age <span style="color: red">*</span></template>
-            </v-select>
-            <v-select
-              v-model="formData.animals.housing"
-              :items="['grouped', 'isolated', 'grouped & isolated']"
-              label="Housing"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Housing is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Housing <span style="color: red">*</span></template>
-            </v-select>
-          </v-card-text>
-        </v-card>
+          <!-- Animal Information -->
+          <v-card class="pa-4 mb-4" outlined>
+            <v-card-title>Animal Information</v-card-title>
+            <v-card-text>
+              <v-select
+                v-model="formData.animals.sex"
+                :items="['male(s)', 'female(s)', 'male(s) & female(s)']"
+                label="Sex"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Sex is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Sex <span style="color: red">*</span></template>
+              </v-select>
+              <v-select
+                v-model="formData.animals.age"
+                :items="['pup', 'juvenile', 'adult', 'unspecified']"
+                label="Age"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Age is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Age <span style="color: red">*</span></template>
+              </v-select>
+              <v-select
+                v-model="formData.animals.housing"
+                :items="['grouped', 'isolated', 'grouped & isolated']"
+                label="Housing"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Housing is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Housing <span style="color: red">*</span></template>
+              </v-select>
+            </v-card-text>
+          </v-card>
 
-        <!-- Experimental Context -->
-        <v-card class="pa-4 mb-4" outlined>
-          <v-card-title>Experimental Context</v-card-title>
-          <v-card-text>
-            <v-text-field
-              v-model="formData.context.number_of_animals"
-              label="Number of Animals"
-              type="number"
-              outlined
-              class="mb-4"
-              @update:modelValue="
-                (val: string) =>
-                  (formData.context.number_of_animals = val === '' ? null : Number(val))
-              "
-              :rules="[(v: number | null) => (v !== null && v > 0) || 'Must be a positive number']"
-              :disabled="isValidated"
-            >
-              <template #label>Number of Animals <span style="color: red">*</span></template>
-            </v-text-field>
-            <v-select
-              v-model="formData.context.duration"
-              :items="['short term (<1h)', 'mid term (<1day)', 'long term (>=1day)']"
-              label="Duration"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Duration is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Duration <span style="color: red">*</span></template>
-            </v-select>
-            <v-select
-              v-model="formData.context.cage"
-              :items="['unfamiliar test cage', 'familiar test cage', 'home cage']"
-              label="Cage Type"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Cage Type is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Cage Type <span style="color: red">*</span></template>
-            </v-select>
-            <v-select
-              v-model="formData.context.bedding"
-              :items="['bedding', 'no bedding']"
-              label="Bedding"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Bedding is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Bedding <span style="color: red">*</span></template>
-            </v-select>
-            <v-select
-              v-model="formData.context.light_cycle"
-              :items="['day', 'night', 'both']"
-              label="Light Cycle"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Light Cycle is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Light Cycle <span style="color: red">*</span></template>
-            </v-select>
-          </v-card-text>
-        </v-card>
-        <v-textarea
-          v-model="formData.description"
-          label="Note"
-          outlined
-          required
-          class="mb-4"
-          :disabled="isValidated"
-          auto-grow
-        />
+          <!-- Experimental Context -->
+          <v-card class="pa-4 mb-4" outlined>
+            <v-card-title>Experimental Context</v-card-title>
+            <v-card-text>
+              <v-text-field
+                v-model="formData.context.number_of_animals"
+                label="Number of Animals"
+                type="number"
+                outlined
+                class="mb-4"
+                @update:modelValue="
+                  (val: string) =>
+                    (formData.context.number_of_animals = val === '' ? null : Number(val))
+                "
+                :rules="[
+                  (v: number | null) => (v !== null && v > 0) || 'Must be a positive number',
+                ]"
+                :disabled="isValidated"
+              >
+                <template #label>Number of Animals <span style="color: red">*</span></template>
+              </v-text-field>
+              <v-select
+                v-model="formData.context.duration"
+                :items="['short term (<1h)', 'mid term (<1day)', 'long term (>=1day)']"
+                label="Duration"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Duration is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Duration <span style="color: red">*</span></template>
+              </v-select>
+              <v-select
+                v-model="formData.context.cage"
+                :items="['unfamiliar test cage', 'familiar test cage', 'home cage']"
+                label="Cage Type"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Cage Type is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Cage Type <span style="color: red">*</span></template>
+              </v-select>
+              <v-select
+                v-model="formData.context.bedding"
+                :items="['bedding', 'no bedding']"
+                label="Bedding"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Bedding is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Bedding <span style="color: red">*</span></template>
+              </v-select>
+              <v-select
+                v-model="formData.context.light_cycle"
+                :items="['day', 'night', 'both']"
+                label="Light Cycle"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Light Cycle is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Light Cycle <span style="color: red">*</span></template>
+              </v-select>
+            </v-card-text>
+          </v-card>
+          <v-textarea
+            v-model="formData.description"
+            label="Note"
+            outlined
+            required
+            class="mb-4"
+            :disabled="isValidated"
+            auto-grow
+          />
+        </v-form>
       </v-card-text>
       <v-card-actions class="d-flex justify-end mt-4">
         <div>

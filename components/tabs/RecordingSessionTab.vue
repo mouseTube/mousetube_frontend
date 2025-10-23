@@ -58,7 +58,6 @@ const selectedSessionName = ref<string>('');
 const formattedDate = ref('');
 
 const laboratoriesOptions = ref<any[]>([]);
-const studiesOptions = ref<any[]>([]);
 const hardwareOptions = ref<any[]>([]);
 const softwareOptions = ref<any[]>([]);
 const showSoftwareSelectionModal = ref(false);
@@ -274,7 +273,6 @@ async function fetchSelectableData() {
     ]);
     hardwareOptions.value = hardwareStore.hardwares;
     softwareOptions.value = softwareStore.softwares;
-    studiesOptions.value = studyStore.studies;
     laboratoriesOptions.value = laboratoryStore.laboratories;
   } catch (e) {
     showSnackbar('Error loading selectable data.', 'error');
@@ -294,7 +292,10 @@ function openEditLabDialog() {
 
 /* Save or update the session using the store. Handles both 'new' and existing sessions. */
 async function saveSession() {
-  const isValid = await formRef.value?.validate?.();
+  if (!formRef.value?.validate) return;
+
+  const result = await formRef.value.validate();
+  const isValid = typeof result === 'boolean' ? result : result.valid;
   if (!isValid) {
     showSnackbar('Please fill in all required fields.', 'error');
     return;
@@ -481,9 +482,9 @@ function clearSoftware() {
 // STUDIES HANDLING
 ////////////////////////////////
 
-const selectedStudiesDisplay = computed(() => {
+const selectedStudiesDisplay = computed((): { id: number; name: string }[] => {
   return formData.value.studies
-    .map((id) => studiesOptions.value.find((s) => s.id === id))
+    .map((id: number) => studyStore.studies.find((s) => s.id === id))
     .filter((s): s is { id: number; name: string } => !!s);
 });
 
@@ -618,6 +619,12 @@ function onUpdateSelectedSoftwareVersions(val: number[]) {
     })
     .filter(Boolean) as { id: number; label: string }[];
 }
+
+const clearDate = () => {
+  date.value = null;
+  time.value = null;
+  formattedDate.value = '';
+};
 
 ////////////////////////////////
 // LIFECYCLE
@@ -808,12 +815,24 @@ onMounted(async () => {
                 readonly
                 outlined
                 class="mb-4"
+                v-bind="props"
+                :disabled="isPublished"
                 :rules="[
                   (v: string) => formData.is_multiple || !!v || 'Recording Date is required',
                 ]"
-                v-bind="props"
-                :disabled="isPublished"
+                label="Recording Date"
               >
+                <template #append-inner>
+                  <v-icon
+                    v-if="formattedDate && !isPublished"
+                    size="small"
+                    class="cursor-pointer"
+                    @click.stop="clearDate"
+                  >
+                    mdi-close
+                  </v-icon>
+                </template>
+
                 <template #label>
                   Recording Date <span style="color: red" v-if="!formData.is_multiple">*</span>
                 </template>

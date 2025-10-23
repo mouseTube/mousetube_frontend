@@ -281,7 +281,9 @@ onBeforeUnmount(() => {
                       {{ item.name }}
                     </span>
                   </template>
-                  <span>{{ item.description }}</span>
+                  <span style="max-width: 70vw; display: inline-block; white-space: normal">{{
+                    item.description
+                  }}</span>
                 </v-tooltip>
               </template>
 

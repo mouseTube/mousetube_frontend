@@ -9,6 +9,7 @@ export interface AnimalProfile {
   description: string;
   strain: Strain | null;
   sex: string;
+  age: string | null;
   genotype: string;
   treatment: string;
   status: string;
@@ -22,7 +23,7 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
   }),
   actions: {
     getAuthHeaders() {
-      return token.value ? { Authorization: `Bearer ${token.value}` } : {}
+      return token.value ? { Authorization: `Bearer ${token.value}` } : {};
     },
     async fetchAnimalProfiles(): Promise<AnimalProfile[]> {
       this.loading = true;
@@ -49,7 +50,7 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
             break;
           }
 
-          url = res.data.next ?? null; 
+          url = res.data.next ?? null;
         }
 
         this.animalProfiles = allProfiles;
@@ -65,7 +66,12 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
     async fetchAnimalProfilesPage(
       page = 1,
       filters: Record<string, any> = {}
-    ): Promise<{ results: AnimalProfile[]; count: number; next: string | null; previous: string | null }> {
+    ): Promise<{
+      results: AnimalProfile[];
+      count: number;
+      next: string | null;
+      previous: string | null;
+    }> {
       this.loading = true;
       this.error = null;
 
@@ -74,7 +80,7 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
 
         const params = { page, ...filters };
 
-        const res: import("axios").AxiosResponse<{
+        const res: import('axios').AxiosResponse<{
           results: AnimalProfile[];
           count: number;
           next: string | null;
@@ -88,16 +94,15 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
 
         return res.data;
       } catch (err: any) {
-        this.error = err.message || "Failed to fetch animal profiles page";
+        this.error = err.message || 'Failed to fetch animal profiles page';
         throw err;
       } finally {
         this.loading = false;
       }
     },
 
-
     getAnimalProfileById(id: number): AnimalProfile | null {
-      return this.animalProfiles.find(a => a.id === id) || null;
+      return this.animalProfiles.find((a) => a.id === id) || null;
     },
 
     async createAnimalProfile(data: Omit<AnimalProfile, 'id'>): Promise<AnimalProfile> {
@@ -108,10 +113,9 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
           ...data,
           strain_id: data.strain ? data.strain.id : null,
         };
-        const res = await axios.post(`${apiBaseUrl}/animalprofile/`,
-          payload,
-          { headers: this.getAuthHeaders() }
-        );
+        const res = await axios.post(`${apiBaseUrl}/animalprofile/`, payload, {
+          headers: this.getAuthHeaders(),
+        });
         const created: AnimalProfile = res.data;
         this.animalProfiles.push(created);
         return created;
@@ -130,9 +134,9 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
           strain_id: data.strain ? data.strain.id : null,
         };
         const res = await axios.put(`${apiBaseUrl}/animalprofile/${id}/`, payload, {
-          headers: this.getAuthHeaders()
+          headers: this.getAuthHeaders(),
         });
-        const index = this.animalProfiles.findIndex(a => a.id === id);
+        const index = this.animalProfiles.findIndex((a) => a.id === id);
         if (index !== -1) this.animalProfiles[index] = res.data;
         return res.data;
       } catch (err: any) {
@@ -146,9 +150,9 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
       try {
         const apiBaseUrl = useApiBaseUrl();
         await axios.delete(`${apiBaseUrl}/animalprofile/${id}/`, {
-          headers: this.getAuthHeaders()
+          headers: this.getAuthHeaders(),
         });
-        this.animalProfiles = this.animalProfiles.filter(a => a.id !== id);
+        this.animalProfiles = this.animalProfiles.filter((a) => a.id !== id);
       } catch (err: any) {
         this.error = err.message || 'Failed to delete animal profile';
         throw err;
@@ -156,6 +160,6 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
     },
     isEmpty() {
       return this.animalProfiles.length === 0;
-    }
-  }
+    },
+  },
 });

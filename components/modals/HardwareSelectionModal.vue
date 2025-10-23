@@ -16,7 +16,6 @@ const emit = defineEmits<{
 
 const hardwareStore = useHardwareStore();
 
-// UI state
 const searchQuery = ref('');
 const sortOrder = ref<'asc' | 'desc'>('asc');
 const page = ref(1);
@@ -26,7 +25,6 @@ const showCreateModal = ref(false);
 const showEditModal = ref(false);
 const editingHardwareId = ref<number | null>(null);
 
-// Dialog confirmation delete
 const showDeleteConfirm = ref(false);
 const deleteTargetId = ref<number | null>(null);
 const deleteTargetName = ref<string>('');
@@ -48,6 +46,7 @@ watch(localDialog, async (val) => {
   }
 });
 
+// Pagination, filter, sort
 const filteredHardware = computed(() => {
   let items = hardwareStore.hardwares.filter((hw) => hw.type === props.hardwareType);
   if (searchQuery.value.trim()) {
@@ -59,25 +58,21 @@ const filteredHardware = computed(() => {
 
 const sortedHardware = computed(() => {
   const items = [...filteredHardware.value];
-  return items.sort((a, b) => {
-    let comparison = a.name.localeCompare(b.name);
-    return sortOrder.value === 'asc' ? comparison : -comparison;
-  });
+  return items.sort((a, b) =>
+    sortOrder.value === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+  );
 });
 
-// Pagination
 const paginatedHardware = computed(() => {
   const start = (page.value - 1) * itemsPerPage;
   return sortedHardware.value.slice(start, start + itemsPerPage);
 });
 
-// Utils
 function truncate(text: string, length = 100) {
   if (!text) return '—';
   return text.length > length ? text.slice(0, length) + '…' : text;
 }
 
-// Actions
 function toggleSelection(id: number) {
   const newSelection = [...internalSelectedHardwareIds.value];
   const index = newSelection.indexOf(id);
@@ -108,7 +103,7 @@ function askDeleteHardware(id: number) {
   const hw = hardwareStore.hardwares.find((h) => h.id === id);
   if (!hw) return;
   deleteTargetId.value = id;
-  deleteTargetName.value = hw.name; // <-- on stocke le nom
+  deleteTargetName.value = hw.name;
   showDeleteConfirm.value = true;
 }
 
@@ -117,9 +112,7 @@ async function confirmDeleteHardware() {
   await hardwareStore.deleteHardware(deleteTargetId.value);
   await hardwareStore.fetchAllHardware();
   const totalPages = Math.ceil(filteredHardware.value.length / itemsPerPage);
-  if (page.value > totalPages) {
-    page.value = totalPages > 0 ? totalPages : 1;
-  }
+  if (page.value > totalPages) page.value = totalPages > 0 ? totalPages : 1;
   showDeleteConfirm.value = false;
   deleteTargetId.value = null;
   deleteTargetName.value = '';
@@ -128,11 +121,20 @@ async function confirmDeleteHardware() {
 function clearAllHardwareSelection() {
   internalSelectedHardwareIds.value = [];
 }
+
+// ✅ Gestion de la pré-sélection après création
+function onHardwareCreated(newId?: number) {
+  hardwareStore.fetchAllHardware();
+  if (newId) {
+    internalSelectedHardwareIds.value = [...internalSelectedHardwareIds.value, newId];
+  }
+}
 </script>
 
 <template>
   <v-dialog v-model="localDialog" max-width="900px">
     <v-card class="pa-3">
+      <!-- Header, recherche et tri -->
       <v-card-title class="d-flex align-center font-weight-bold">
         <span>Select {{ hardwareType }}s</span>
         <v-spacer />
@@ -155,6 +157,7 @@ function clearAllHardwareSelection() {
         />
       </v-card-title>
 
+      <!-- Liste hardware -->
       <v-card-text>
         <v-row v-if="paginatedHardware.length > 0" dense>
           <v-col v-for="hw in paginatedHardware" :key="hw.id" cols="12" sm="6" md="4">
@@ -171,36 +174,31 @@ function clearAllHardwareSelection() {
               ]"
               @click="toggleSelection(hw.id!)"
             >
-              <v-icon v-if="isSelected(hw.id!)" color="primary" size="24" class="check-icon">
-                mdi-check-circle
-              </v-icon>
-
+              <v-icon v-if="isSelected(hw.id!)" color="primary" size="24" class="check-icon"
+                >mdi-check-circle</v-icon
+              >
               <div style="flex-grow: 1; padding: 16px">
                 <v-card-title class="pa-0">{{ hw.name }}</v-card-title>
                 <v-card-subtitle>Type: {{ hw.type }}</v-card-subtitle>
-                <v-card-text class="pa-0 mt-2 text-body-2">
-                  {{ truncate(hw.description || '') }}
-                </v-card-text>
+                <v-card-text class="pa-0 mt-2 text-body-2">{{
+                  truncate(hw.description || '')
+                }}</v-card-text>
               </div>
-
               <v-card-actions class="justify-end pt-0">
                 <v-icon
                   color="primary"
                   @click.stop="editHardware(hw)"
                   title="Edit hardware"
                   class="mr-2 cursor-pointer hover-icon"
+                  >mdi-pencil</v-icon
                 >
-                  mdi-pencil
-                </v-icon>
-
                 <v-icon
                   color="error"
                   @click.stop="askDeleteHardware(hw.id!)"
                   title="Delete hardware"
                   class="cursor-pointer hover-icon"
+                  >mdi-delete</v-icon
                 >
-                  mdi-delete
-                </v-icon>
               </v-card-actions>
             </v-card>
           </v-col>
@@ -219,6 +217,7 @@ function clearAllHardwareSelection() {
         />
       </v-card-text>
 
+      <!-- Footer actions -->
       <v-card-actions class="justify-space-between">
         <v-btn color="primary" variant="flat" @click="openCreateModal" title="Add new hardware">
           <v-icon start>mdi-plus</v-icon> Add Hardware
@@ -232,25 +231,24 @@ function clearAllHardwareSelection() {
         >
           <v-icon start>mdi-close</v-icon> Clear All
         </v-btn>
-
         <v-btn color="primary" variant="flat" @click="localDialog = false">Close</v-btn>
       </v-card-actions>
     </v-card>
 
-    <!-- Modal creation -->
+    <!-- Création -->
     <HardwareModal
       v-model="showCreateModal"
       :hardware-id="null"
       :hardware-type="hardwareType"
-      @saved="hardwareStore.fetchAllHardware()"
+      @saved="onHardwareCreated"
     />
 
-    <!-- Modal edition -->
+    <!-- Édition -->
     <HardwareModal
       v-model="showEditModal"
       :hardware-id="editingHardwareId"
       :hardware-type="hardwareType"
-      @saved="hardwareStore.fetchAllHardware()"
+      @saved="() => hardwareStore.fetchAllHardware()"
     />
 
     <!-- Dialog confirmation delete -->
@@ -258,8 +256,7 @@ function clearAllHardwareSelection() {
       <v-card>
         <v-card-title class="text-h6">Confirm Deletion</v-card-title>
         <v-card-text>
-          Are you sure you want to delete
-          <strong>{{ deleteTargetName }}</strong
+          Are you sure you want to delete <strong>{{ deleteTargetName }}</strong
           >? This action cannot be undone.
         </v-card-text>
         <v-card-actions>

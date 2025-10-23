@@ -254,7 +254,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
 
       <v-text-field
         v-model="formData.number"
-        label="Vocalization Number"
+        label="File Number"
         type="number"
         outlined
         class="mb-3"

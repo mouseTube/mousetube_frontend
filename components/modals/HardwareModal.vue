@@ -10,7 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
-  (e: 'saved'): void;
+  (e: 'saved', hardwareId?: number): void;
 }>();
 
 const hardwareStore = useHardwareStore();
@@ -68,15 +68,22 @@ function resetForm() {
 
 async function saveHardware() {
   try {
+    let createdHardware: Hardware | undefined;
     if (isEdit.value && props.hardwareId !== null && props.hardwareId !== undefined) {
-      await hardwareStore.updateHardware(props.hardwareId, { ...formData.value });
+      createdHardware = await hardwareStore.updateHardware(props.hardwareId, { ...formData.value });
     } else {
-      await hardwareStore.createHardware({ ...formData.value });
+      createdHardware = await hardwareStore.createHardware({ ...formData.value });
     }
-    emit('saved');
+
+    if (createdHardware?.id) {
+      emit('saved', createdHardware.id);
+    } else {
+      emit('saved');
+    }
+
     emit('update:modelValue', false);
   } catch (err) {
-    //eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console
     console.error(err);
     alert('Error saving hardware.');
   }

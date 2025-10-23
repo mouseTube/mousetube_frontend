@@ -12,6 +12,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
   (e: 'update:selectedStudies', value: number[]): void;
+  (e: 'saved', study: Study): void;
 }>();
 
 const studyStore = useStudyStore();
@@ -113,6 +114,23 @@ async function handleDialogOpen(val: boolean) {
 function resetAndOpenModal() {
   editStudy.value = undefined;
   showCreateStudyModal.value = true;
+}
+
+async function onStudySaved(newStudy?: Study) {
+  editStudy.value = undefined;
+  await studyStore.fetchAllStudies(); // le store contient maintenant le nouveau study
+  page.value = 1;
+
+  if (newStudy?.id) {
+    // crée un nouveau tableau pour forcer la réactivité
+    const newSelection = [...internalSelectedStudyIds.value, newStudy.id];
+    internalSelectedStudyIds.value = newSelection;
+
+    // émet pour le parent
+    // attention : émettre après fetchAllStudies pour que le parent puisse voir le nouveau study
+    emit('update:selectedStudies', newSelection);
+    emit('saved', newStudy);
+  }
 }
 
 watch(localDialog, handleDialogOpen, { immediate: true });
@@ -233,7 +251,7 @@ watch(localDialog, handleDialogOpen, { immediate: true });
             }
           : undefined
       "
-      @saved="editStudy = undefined"
+      @saved="onStudySaved"
     />
 
     <v-dialog v-model="showDeleteConfirm" max-width="400">

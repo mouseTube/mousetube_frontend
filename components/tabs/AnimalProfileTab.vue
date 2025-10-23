@@ -5,20 +5,24 @@ import { useRecordingSessionStore } from '@/stores/recordingSession';
 import AnimalProfileSelectionModal from '@/components/modals/AnimalProfileSelectionModal.vue';
 import { cloneDeep } from 'lodash';
 
-// Props
+// ----------------------
+// Props & Emits
+// ----------------------
 const props = defineProps<{
   selectedRecordingSessionId: number | null;
   selectedProtocolId?: number | null;
   onGoToFile?: () => void;
 }>();
 
-// ✅ declare emit
 const emit = defineEmits<{
   (e: 'animal-selected', payload: { animalProfileId: number | null }): void;
   (e: 'animal-saved', payload: { saved: boolean }): void;
   (e: 'animal-dirty', payload: { dirty: boolean }): void;
 }>();
 
+// ----------------------
+// Stores & Refs
+// ----------------------
 const recordingSessionStore = useRecordingSessionStore();
 
 const showSelectionModal = ref(false);
@@ -28,7 +32,6 @@ const snackbarColor = ref('');
 const selectedAnimalProfiles = ref<AnimalProfile[]>([]);
 
 const saved = ref(false);
-// snapshot of last-saved animal profile ids
 const savedSnapshot = ref<number[]>([]);
 
 const isDirty = computed(() => {
@@ -37,15 +40,21 @@ const isDirty = computed(() => {
   return JSON.stringify(current) !== JSON.stringify(snap);
 });
 
+const currentSession = ref<any>(null);
+const isPublished = computed(() => currentSession.value?.status === 'published');
+
+// ----------------------
+// Functions
+// ----------------------
 async function loadAnimalProfilesFromSession(sessionId: number) {
   const session = await recordingSessionStore.getSessionById(sessionId);
   if (!session) return;
 
   selectedAnimalProfiles.value = session.animal_profiles || [];
-  // mark current state as saved (snapshot)
   savedSnapshot.value = selectedAnimalProfiles.value.map((p) => p.id);
-  saved.value = false;
+  saved.value = selectedAnimalProfiles.value.length > 0;
 
+  // Emit selection / saved status
   if (selectedAnimalProfiles.value.length > 0) {
     emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
     emit('animal-saved', { saved: true });
@@ -57,15 +66,16 @@ async function loadAnimalProfilesFromSession(sessionId: number) {
 
 function removeAnimalProfile(id: number) {
   selectedAnimalProfiles.value = selectedAnimalProfiles.value.filter((p) => p.id !== id);
-  // mark dirty after user change
   saved.value = false;
   emit('animal-dirty', { dirty: true });
+
   if (selectedAnimalProfiles.value.length === 0) {
     emit('animal-selected', { animalProfileId: null });
+  } else {
+    emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
   }
 }
 
-// Clear all
 function clearAnimalProfiles() {
   selectedAnimalProfiles.value = [];
   saved.value = false;
@@ -84,10 +94,9 @@ async function updateAnimalProfiles() {
     );
 
     snackbarText.value = 'Animal profiles updated successfully.';
-    snackbar.value = true;
     snackbarColor.value = 'success';
+    snackbar.value = true;
 
-    // update saved snapshot so button is disabled until next change
     savedSnapshot.value = selectedAnimalProfiles.value.map((p) => p.id);
     saved.value = true;
     emit('animal-saved', { saved: true });
@@ -98,43 +107,35 @@ async function updateAnimalProfiles() {
     }
   } catch (err) {
     snackbarText.value = 'Failed to update animal profiles.';
-    snackbar.value = true;
     snackbarColor.value = 'error';
+    snackbar.value = true;
   }
 }
 
 function onUpdateSelectedAnimalProfiles(profiles: AnimalProfile[]) {
-  const current = [...selectedAnimalProfiles.value];
-
-  profiles.forEach((profile) => {
-    if (!current.some((p) => p.id === profile.id)) {
-      current.push(profile);
-    }
-  });
-
-  selectedAnimalProfiles.value = current;
+  selectedAnimalProfiles.value = profiles;
   saved.value = false;
   emit('animal-dirty', { dirty: true });
+
   if (selectedAnimalProfiles.value.length > 0) {
     emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
   }
 }
 
-const currentSession = ref<any>(null);
-
+// ----------------------
+// Watchers
+// ----------------------
 watch(
   () => props.selectedRecordingSessionId,
   async (newId) => {
     if (newId !== null) {
       const session = await recordingSessionStore.getSessionById(newId);
-
-      // Clone pour forcer la réactivité
       currentSession.value = session ? cloneDeep(session) : null;
-
       await loadAnimalProfilesFromSession(newId);
     } else {
       currentSession.value = null;
       selectedAnimalProfiles.value = [];
+      saved.value = false;
       emit('animal-selected', { animalProfileId: null });
       emit('animal-saved', { saved: false });
     }
@@ -149,16 +150,11 @@ watch(
     const updated = newSessions.find((s) => s.id === props.selectedRecordingSessionId);
     if (!updated) return;
 
-    // Clone to force reactivity
-    currentSession.value = updated ? cloneDeep(updated) : null;
-
-    // Refresh local animal profiles list from updated session
+    currentSession.value = cloneDeep(updated);
     loadAnimalProfilesFromSession(props.selectedRecordingSessionId);
   },
   { deep: true }
 );
-
-const isPublished = computed(() => currentSession.value?.status === 'published');
 </script>
 
 <template>
@@ -166,9 +162,9 @@ const isPublished = computed(() => currentSession.value?.status === 'published')
     <v-card outlined class="pa-6 mb-5">
       <v-card-title class="d-flex justify-space-between align-center mb-4">
         <h3>Animal Profiles</h3>
-        <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isPublished || !isDirty"
-          >Save</v-btn
-        >
+        <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isPublished || !isDirty">
+          Save
+        </v-btn>
       </v-card-title>
 
       <v-card-text>
@@ -207,6 +203,7 @@ const isPublished = computed(() => currentSession.value?.status === 'published')
         </div>
       </v-card-text>
     </v-card>
+
     <v-btn
       color="primary"
       variant="text"
@@ -214,7 +211,8 @@ const isPublished = computed(() => currentSession.value?.status === 'published')
       :disabled="
         !props.selectedRecordingSessionId ||
         !props.selectedProtocolId ||
-        selectedAnimalProfiles.length === 0
+        selectedAnimalProfiles.length === 0 ||
+        !saved
       "
       @click="props.onGoToFile?.()"
     >

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { useStudyStore } from '@/stores/study';
+import type { Study } from '@/stores/study';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -13,11 +14,14 @@ const props = defineProps<{
   };
 }>();
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: boolean): void;
+  (e: 'saved', study: Study): void;
+}>();
 
 const studyStore = useStudyStore();
 
-// Formulaire
+// Form Data
 const formData = ref({
   id: props.study?.id,
   name: props.study?.name || '',
@@ -26,13 +30,13 @@ const formData = ref({
   end_date: props.study?.end_date || '',
 });
 
-// Snackbar pour les erreurs
+// Snackbar
 const snackbar = ref({
   show: false,
   message: '',
 });
 
-// Helper pour formater les dates
+// Helper to format date to YYYY-MM-DD
 function formatDate(dateString: string | null | undefined): string | null {
   if (!dateString) return null;
   return dateString.split('T')[0];
@@ -41,10 +45,6 @@ function formatDate(dateString: string | null | undefined): string | null {
 async function saveStudy() {
   if (!formData.value.name.trim()) {
     snackbar.value = { show: true, message: 'Study Name is required.' };
-    return;
-  }
-  if (!formData.value.start_date) {
-    snackbar.value = { show: true, message: 'Start Date is required.' };
     return;
   }
 
@@ -59,7 +59,8 @@ async function saveStudy() {
     if (formData.value.id) {
       await studyStore.updateStudy(formData.value.id, payload);
     } else {
-      await studyStore.createStudy(payload);
+      const createdStudy = await studyStore.createStudy(payload);
+      emit('saved', createdStudy);
     }
 
     emit('update:modelValue', false);
@@ -118,8 +119,13 @@ watch(
         <v-textarea v-model="formData.description" label="Description" outlined class="mb-4" />
 
         <!-- Start Date -->
-        <v-text-field v-model="formData.start_date" type="date" outlined required class="mb-4">
-          <template #label> Start Date <span class="text-error">*</span> </template>
+        <v-text-field
+          v-model="formData.start_date"
+          label="Start Date"
+          type="date"
+          outlined
+          class="mb-4"
+        >
         </v-text-field>
 
         <!-- End Date -->
