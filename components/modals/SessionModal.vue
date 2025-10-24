@@ -3,6 +3,26 @@ import { ref, watch, computed, onMounted } from 'vue';
 import debounce from 'lodash-es/debounce';
 import { useRecordingSessionStore, type RecordingSession } from '@/stores/recordingSession';
 import type { DataTableSortItem } from 'vuetify';
+import { useLaboratoryStore } from '@/stores/laboratory';
+
+// === Stores ===
+const laboratoryStore = useLaboratoryStore();
+const store = useRecordingSessionStore();
+
+// === Form Data ===
+const formData = ref({
+  laboratory: null as number | null,
+  status: null as string | null,
+});
+
+// === Options for Laboratory v-select ===
+const laboratoriesOptions = ref<{ title: string; value: number }[]>([]);
+
+// === Predefined Options for Status ===
+const statusOptions = [
+  { title: 'Draft', value: 'draft' },
+  { title: 'Published', value: 'published' },
+];
 
 // Props
 const props = defineProps<{ modelValue: boolean }>();
@@ -12,9 +32,6 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
   (e: 'selected', session: RecordingSession): void;
 }>();
-
-// Store
-const store = useRecordingSessionStore();
 
 // Search & pagination
 const search = ref('');
@@ -52,17 +69,18 @@ const loading = computed(() => store.loadingSessions);
 const sessions = computed(() => store.sessions);
 const totalPages = computed(() => store.totalPages || 1);
 
-// Headers
+// === Headers with Filters ===
 const headers = [
   { title: 'Session Name', key: 'name', sortable: true },
   { title: 'Protocol', key: 'protocol', sortable: true },
-  { title: 'Laboratory', key: 'laboratory', sortable: true },
+  { title: 'Laboratory', key: 'laboratory', sortable: false },
   { title: 'Recording Date', key: 'date', sortable: true },
-  { title: 'Status', key: 'status', sortable: true },
+  { title: 'Status', key: 'status', sortable: false },
   { title: 'Studies', key: 'studies', sortable: false },
   { title: 'Actions', key: 'actions', sortable: false },
 ];
 
+// === Mapping for Sorting ===
 const fieldMap: Record<string, string> = {
   name: 'name',
   protocol: 'protocol__name',
@@ -71,7 +89,7 @@ const fieldMap: Record<string, string> = {
   status: 'status',
 };
 
-// Utils
+// === Utils ===
 function formatDate(dateStr: string | undefined | null) {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
@@ -80,8 +98,9 @@ function formatDate(dateStr: string | undefined | null) {
   );
 }
 
-// Fetch
+// === Fetch ===
 const debouncedFetch = debounce((pg: number) => fetchData(pg), 300);
+
 async function fetchData(pg: number) {
   let isMultiple: boolean | null = null;
   if (filterMultiple.value === 'single') isMultiple = false;
@@ -94,7 +113,14 @@ async function fetchData(pg: number) {
     if (field) ordering = s.order === 'desc' ? `-${field}` : field;
   }
 
-  await store.fetchSessionsPage(pg, search.value, isMultiple, ordering);
+  await store.fetchSessionsPage(
+    pg,
+    search.value,
+    isMultiple,
+    ordering,
+    formData.value.laboratory,
+    formData.value.status
+  );
   page.value = pg;
 }
 
@@ -104,10 +130,11 @@ function onSortUpdate(newSort: DataTableSortItem[]) {
   fetchData(1);
 }
 
-// Watchers
+// === Watchers ===
 watch(search, () => debouncedFetch(1));
 watch(page, (val) => fetchData(val));
 watch(filterMultiple, () => fetchData(1));
+watch([() => formData.value.laboratory, () => formData.value.status], () => fetchData(1));
 watch(
   () => props.modelValue,
   (val) => {
@@ -121,7 +148,7 @@ watch(
   }
 );
 
-// Selection
+// === SSelection ===
 function selectSession(session: RecordingSession) {
   emit('selected', session);
   emit('update:modelValue', false);
@@ -131,11 +158,11 @@ function close() {
   emit('update:modelValue', false);
 }
 
-// Duplicate
+// === Duplicate ===
 function openDuplicateDialog(session: RecordingSession) {
   sessionToDuplicate = session;
   duplicateForm.value.name = `${session.name} Copy`;
-  duplicateForm.value.is_multiple = session.is_multiple; // repris de l'original
+  duplicateForm.value.is_multiple = session.is_multiple;
   duplicateForm.value.date = session.date || null;
 
   if (duplicateForm.value.date) {
@@ -203,7 +230,7 @@ async function confirmDuplicate() {
   }
 }
 
-// Delete
+// === Delete ===
 function openDeleteDialog(session: RecordingSession) {
   if (session.status === 'published') return;
   sessionToDelete = session;
@@ -226,42 +253,46 @@ async function confirmDelete() {
   }
 }
 
-// Mounted
-onMounted(() => {
+// === Mounted ===
+onMounted(async () => {
   if (props.modelValue) fetchData(page.value);
+  await laboratoryStore.fetchAllLaboratories();
+  laboratoriesOptions.value = laboratoryStore.laboratories.map((lab) => ({
+    title: lab.name,
+    value: lab.id,
+  }));
 });
 </script>
 
 <template>
-  <!-- Main Dialog -->
   <v-dialog :model-value="modelValue" max-width="1200px" @click:outside="close">
     <v-card class="pa-3" style="max-height: 80vh; overflow-y: auto">
-      <v-card-title class="d-flex align-center justify-space-between gap-4">
+      <v-card-title class="d-flex align-center justify-space-between flex-wrap gap-4">
         <span class="text-h6 font-weight-bold">Recording Sessions</span>
-        <div class="d-flex align-center gap-3 flex-wrap">
-          <v-text-field
-            v-model="search"
-            placeholder="Search recording session"
-            clearable
-            append-inner-icon="mdi-magnify"
-            density="comfortable"
-            hide-details
-            class="search-field"
-          />
-          <v-btn-toggle
-            v-model="filterMultiple"
-            mandatory
-            density="comfortable"
-            divided
-            color="primary"
-            variant="outlined"
-            class="rounded-lg ml-3"
-          >
-            <v-btn value="all" size="small">All</v-btn>
-            <v-btn value="single" size="small">Single</v-btn>
-            <v-btn value="multiple" size="small">Multiple</v-btn>
-          </v-btn-toggle>
-        </div>
+
+        <v-text-field
+          v-model="search"
+          placeholder="Search recording session"
+          clearable
+          append-inner-icon="mdi-magnify"
+          density="comfortable"
+          hide-details
+          class="search-field"
+        />
+
+        <v-btn-toggle
+          v-model="filterMultiple"
+          mandatory
+          density="comfortable"
+          divided
+          color="primary"
+          variant="outlined"
+          class="rounded-lg"
+        >
+          <v-btn value="all" size="small">All</v-btn>
+          <v-btn value="single" size="small">Single</v-btn>
+          <v-btn value="multiple" size="small">Multiple</v-btn>
+        </v-btn-toggle>
       </v-card-title>
 
       <v-card-text>
@@ -279,6 +310,36 @@ onMounted(() => {
             (event: MouseEvent, { item }: { item: RecordingSession }) => selectSession(item)
           "
         >
+          <!-- ================== HEADER FILTERS ================== -->
+          <template #header.laboratory>
+            <v-select
+              v-model="formData.laboratory"
+              :items="laboratoriesOptions"
+              item-title="title"
+              item-value="value"
+              density="compact"
+              hide-details
+              clearable
+              placeholder="Laboratory"
+              style="min-width: 130px"
+            />
+          </template>
+
+          <template #header.status>
+            <v-select
+              v-model="formData.status"
+              :items="statusOptions"
+              item-title="title"
+              item-value="value"
+              density="compact"
+              hide-details
+              clearable
+              placeholder="Status"
+              style="min-width: 130px"
+            />
+          </template>
+
+          <!-- ================== CELLS ================== -->
           <template #item.protocol="{ item }">{{ item.protocol?.name || '—' }}</template>
           <template #item.laboratory="{ item }">{{ item.laboratory?.name || '—' }}</template>
           <template #item.date="{ item }">{{ formatDate(item.date) }}</template>
@@ -288,9 +349,9 @@ onMounted(() => {
             </v-chip>
           </template>
           <template #item.studies="{ item }">
-            <span v-if="item.studies?.length">{{
-              item.studies.map((s: { name: string }) => s.name).join(', ')
-            }}</span>
+            <span v-if="item.studies?.length">
+              {{ item.studies.map((s: { name: string }) => s.name).join(', ') }}
+            </span>
             <span v-else>—</span>
           </template>
 
@@ -438,5 +499,10 @@ onMounted(() => {
   background: white;
   z-index: 1;
   padding: 12px;
+}
+.v-data-table thead th {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+  vertical-align: top;
 }
 </style>

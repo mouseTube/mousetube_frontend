@@ -188,7 +188,9 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
       page = 1,
       searchQuery: string | null = null,
       isMultiple: boolean | null = null,
-      ordering: string | null = null
+      ordering: string | null = null,
+      laboratoryId: number | null = null,
+      status: string | null = null
     ) {
       this.loadingSessions = true;
       this.errorSessions = null;
@@ -200,6 +202,8 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         if (searchQuery?.trim()) params.search = searchQuery.trim();
         if (isMultiple !== null) params.is_multiple = isMultiple;
         if (ordering) params.ordering = ordering;
+        if (laboratoryId !== null) params.laboratory = laboratoryId;
+        if (status !== null) params.status = status;
 
         const res = await axios.get(`${apiBaseUrl}/recording-session/`, {
           headers: this.getAuthHeaders(),
