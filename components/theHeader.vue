@@ -21,11 +21,17 @@ import { ref } from 'vue';
 import { useDisplay } from 'vuetify';
 import { useAuth } from '@/composables/useAuth';
 import { useRouter } from 'vue-router';
+import SoftwareModal from '@/components/modals/SoftwareModal.vue';
+import HardwareModal from '@/components/modals/HardwareModal.vue';
 
 const drawer = ref(false);
 const { smAndDown } = useDisplay();
 const { currentUser, logout } = useAuth();
 const router = useRouter();
+const showSoftwareModal = ref(false);
+const newSoftwareFromSoftware = ref(false);
+const showHardwareModal = ref(false);
+const newHardwareFromHardware = ref(false);
 
 const links = [
   { to: '/vocalizations', label: 'Vocalizations', icon: AudioLines },
@@ -42,6 +48,34 @@ const handleLogout = async () => {
   logout();
   router.push('/account/login');
 };
+
+function openSoftwareModal() {
+  newSoftwareFromSoftware.value = true;
+  showSoftwareModal.value = true;
+}
+
+function onSoftwareSaved(softwareId) {
+  showSoftwareModal.value = false;
+
+  if (newSoftwareFromSoftware.value) {
+    router.push({ path: '/account/details', query: { tab: 'software' } });
+    newSoftwareFromSoftware.value = false;
+  }
+}
+
+function openHardwareModal() {
+  newHardwareFromHardware.value = true;
+  showHardwareModal.value = true;
+}
+
+function onHardwareSaved(hardwareId) {
+  showHardwareModal.value = false;
+
+  if (newHardwareFromHardware.value) {
+    router.push({ path: '/account/details', query: { tab: 'hardware' } });
+    newHardwareFromHardware.value = false;
+  }
+}
 </script>
 
 <template>
@@ -109,13 +143,13 @@ const handleLogout = async () => {
                 </template>
                 <v-list-item-title>Vocalization</v-list-item-title>
               </v-list-item>
-              <v-list-item @click="() => router.push('/software/create')">
+              <v-list-item @click="() => openSoftwareModal()">
                 <template #prepend>
                   <MonitorCog size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
                 </template>
                 <v-list-item-title>Software</v-list-item-title>
               </v-list-item>
-              <v-list-item @click="() => router.push('/hardware/create')">
+              <v-list-item @click="() => openHardwareModal()">
                 <template #prepend>
                   <Mic size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
                 </template>
@@ -263,6 +297,8 @@ const handleLogout = async () => {
       </v-list>
     </div>
   </v-navigation-drawer>
+  <SoftwareModal v-model="showSoftwareModal" @saved="onSoftwareSaved" />
+  <HardwareModal v-model="showHardwareModal" @saved="onHardwareSaved" />
 </template>
 
 <style scoped>

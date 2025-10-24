@@ -7,8 +7,10 @@ import axios from 'axios';
 import debounce from 'lodash/debounce.js';
 import { MonitorCog } from 'lucide-vue-next';
 import { useAuth } from '@/composables/useAuth';
+import { useRouter } from 'vue-router';
+import SoftwareModal from '@/components/modals/SoftwareModal.vue';
 
-const { token, id_user, fetchUser } = useAuth();
+const { currentUser, token, id_user, fetchUser } = useAuth();
 
 ////////////////////////////////
 // DATA
@@ -29,10 +31,27 @@ const showFiltersMobile = ref(false);
 const showFiltersDesktop = ref(false);
 const isDesktop = ref(window.innerWidth >= 960);
 const userProfile = ref(null);
+const router = useRouter();
+const showSoftwareModal = ref(false);
+const newSoftwareFromSoftware = ref(false);
 
 ////////////////////////////////
 // METHODS
 ////////////////////////////////
+
+function openSoftwareModal() {
+  newSoftwareFromSoftware.value = true;
+  showSoftwareModal.value = true;
+}
+
+function onSoftwareSaved(softwareId) {
+  showSoftwareModal.value = false;
+
+  if (newSoftwareFromSoftware.value) {
+    router.push({ path: '/account/details', query: { tab: 'software' } });
+    newSoftwareFromSoftware.value = false;
+  }
+}
 
 function updateIsDesktop() {
   isDesktop.value = window.innerWidth >= 960;
@@ -178,9 +197,22 @@ onBeforeUnmount(() => {
         <!-- Main Content -->
         <v-col :cols="12">
           <v-card variant="flat" class="mx-auto" max-width="1000">
-            <div class="d-flex align-center mt-1 mb-4">
-              <h1><MonitorCog /> Software</h1>
-              <v-chip v-if="count > 0" class="me-1 my-1 mx-2">{{ count }}</v-chip>
+            <div class="d-flex align-center justify-space-between mt-1 mb-4">
+              <div class="d-flex align-center">
+                <h1><MonitorCog /> Software</h1>
+                <v-chip v-if="count > 0" class="ms-2">{{ count }}</v-chip>
+              </div>
+              <div v-if="currentUser">
+                <v-btn
+                  variant="outlined"
+                  size="small"
+                  class="nav-icon audio-hover-icon"
+                  @click="openSoftwareModal"
+                >
+                  <Plus size="20" class="nav-icon audio-hover-icon" />
+                  Add
+                </v-btn>
+              </div>
             </div>
 
             <v-toolbar rounded="lg" class="px-2 border-sm mb-4">
@@ -524,6 +556,7 @@ onBeforeUnmount(() => {
       </v-row>
     </v-container>
   </v-main>
+  <SoftwareModal v-model="showSoftwareModal" @saved="onSoftwareSaved" />
 </template>
 
 <style scoped>
