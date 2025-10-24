@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useSoftwareStore } from '@/stores/software';
+import { useFavoriteStore } from '@/stores/favorite';
 import SoftwareEditModal from '@/components/modals/SoftwareModal.vue';
 import CreateSoftwareVersionModal from '@/components/modals/CreateSoftwareVersionModal.vue';
 import { useAuth } from '@/composables/useAuth';
 
 const softwareStore = useSoftwareStore();
+const favoriteStore = useFavoriteStore();
 const { id_user } = useAuth();
 
 // UI state
@@ -20,25 +22,31 @@ const deleteTarget = ref<{ id: number; softwareName: string; version: string | n
 const showDeleteSoftwareConfirm = ref(false);
 const deleteSoftwareTarget = ref<{ id: number; name: string } | null>(null);
 
-const duplicatedSoftwareData = ref(null);
 const searchQuery = ref('');
 const sortOrder = ref<'asc' | 'desc'>('asc');
 const page = ref(1);
 const itemsPerPage = ref(6);
 
+// ----------------------
 // Grouped software
+// ----------------------
 const groupedSoftware = computed(() => {
-  const items = softwareStore.softwareVersions.filter(
+  const filtered = softwareStore.softwareVersions.filter(
     (sv) => sv.software.type === 'acquisition' || sv.software.type === 'acquisition and analysis'
   );
 
   const map = new Map<number, { software: any; versions: any[] }>();
-  items.forEach((sv) => {
+  filtered.forEach((sv) => {
     if (!map.has(sv.software.id)) map.set(sv.software.id, { software: sv.software, versions: [] });
     map.get(sv.software.id)!.versions.push(sv);
   });
 
-  return Array.from(map.values()).sort((a, b) =>
+  const searchLower = searchQuery.value.toLowerCase();
+  const results = Array.from(map.values()).filter((g) =>
+    g.software.name.toLowerCase().includes(searchLower)
+  );
+
+  return results.sort((a, b) =>
     sortOrder.value === 'asc'
       ? a.software.name.localeCompare(b.software.name)
       : b.software.name.localeCompare(a.software.name)
@@ -50,7 +58,9 @@ const paginatedGroups = computed(() => {
   return groupedSoftware.value.slice(start, start + itemsPerPage.value);
 });
 
+// ----------------------
 // Handlers
+// ----------------------
 function toggleSortOrder() {
   sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
 }
@@ -83,10 +93,8 @@ function onDeleteVersion(item: { id: number; softwareName: string; version: stri
 
 async function confirmDelete() {
   if (!deleteTarget.value) return;
-
   await softwareStore.deleteSoftwareVersion(deleteTarget.value.id);
   await softwareStore.fetchAllSoftwareVersions();
-
   showDeleteConfirm.value = false;
   deleteTarget.value = null;
 }
@@ -101,22 +109,24 @@ async function confirmDeleteSoftware() {
   await softwareStore.deleteSoftware(deleteSoftwareTarget.value.id);
   await softwareStore.fetchAllSoftware();
   await softwareStore.fetchAllSoftwareVersions();
-
   showDeleteSoftwareConfirm.value = false;
   deleteSoftwareTarget.value = null;
 }
 
-// Software saved / version created
-function onSoftwareSaved(newOrEditedSoftwareId: number) {
+function onSoftwareSaved() {
   showEditModal.value = false;
   softwareStore.fetchAllSoftware();
   softwareStore.fetchAllSoftwareVersions();
 }
 
-async function onVersionCreated(versionId: number) {
+async function onVersionCreated() {
   showSoftwareVersionModal.value = false;
   editSoftwareVersionId.value = null;
   await softwareStore.fetchAllSoftwareVersions();
+}
+
+function toggleFavorite(softwareId: number) {
+  favoriteStore.toggleFavorite('software', softwareId);
 }
 
 onMounted(async () => {
@@ -151,17 +161,35 @@ onMounted(async () => {
       <v-col v-for="group in paginatedGroups" :key="group.software.id" cols="12" sm="6" md="4">
         <v-card class="software-card" outlined>
           <v-card-title class="d-flex justify-space-between align-center pa-2">
-            {{ group.software.name }}
+            <div class="d-flex align-center gap-2">
+              <v-btn
+                variant="text"
+                size="small"
+                :icon="
+                  favoriteStore.isFavorite('software', group.software.id)
+                    ? 'mdi-star'
+                    : 'mdi-star-outline'
+                "
+                :color="
+                  favoriteStore.isFavorite('software', group.software.id) ? 'warning' : 'grey'
+                "
+                @click.stop="toggleFavorite(group.software.id)"
+                title="Toggle favorite"
+                class="favorite-btn me-2"
+              />
+              <span>{{ group.software.name }}</span>
+            </div>
+
             <div class="d-flex align-center gap-1" v-if="group.software.created_by === id_user">
               <v-icon
-                small
+                size="20"
                 color="primary"
                 class="hover-icon"
                 @click.stop="onEditSoftware(group.software.id)"
                 >mdi-pencil</v-icon
               >
               <v-icon
-                small
+                size="20"
                 color="primary"
                 class="hover-icon"
                 @click.stop="onDeleteSoftware(group.software.id, group.software.name)"
@@ -176,27 +204,28 @@ onMounted(async () => {
               item-title="version"
               item-value="id"
               label="Versions"
-              dense
-              outlined
+              density="compact"
+              variant="outlined"
+              clearable
             />
           </v-card-text>
 
           <v-card-actions class="justify-between align-center">
-            <div class="d-flex gap-1">
-              <v-icon
-                small
-                color="primary"
-                class="hover-icon"
-                @click.stop="onCreateVersion(group.software.id)"
-                >mdi-plus</v-icon
-              >
-            </div>
+            <v-btn
+              size="small"
+              color="primary"
+              variant="text"
+              @click.stop="onCreateVersion(group.software.id)"
+            >
+              <v-icon start>mdi-plus</v-icon>
+              Add Version
+            </v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
     </v-row>
 
-    <v-alert v-else type="info" variant="tonal" class="mt-4"> No software found </v-alert>
+    <v-alert v-else type="info" variant="tonal" class="mt-4">No software found</v-alert>
 
     <v-pagination
       v-if="groupedSoftware.length > itemsPerPage"
@@ -206,9 +235,10 @@ onMounted(async () => {
       total-visible="5"
     />
 
-    <v-card-actions class="justify-start mt-4">
+    <v-card-actions class="justify-start mt-6">
       <v-btn color="primary" variant="flat" @click="onAddSoftware">
-        <v-icon start>mdi-plus</v-icon> Add Software
+        <v-icon start>mdi-plus</v-icon>
+        Add Software
       </v-btn>
     </v-card-actions>
 
@@ -232,7 +262,7 @@ onMounted(async () => {
         <v-card-title class="text-h6">Confirm deletion</v-card-title>
         <v-card-text>
           Are you sure you want to delete
-          <strong> version {{ deleteTarget?.version || '' }}</strong> of
+          <strong>version {{ deleteTarget?.version || '' }}</strong> of
           <strong>{{ deleteTarget?.softwareName }}</strong
           >?
         </v-card-text>
@@ -269,6 +299,15 @@ onMounted(async () => {
   justify-content: space-between;
   min-height: 220px;
 }
+
+.favorite-btn {
+  margin-right: 6px;
+  transition: transform 0.2s ease;
+}
+.favorite-btn:hover {
+  transform: scale(1.1);
+}
+
 .hover-icon:hover {
   color: #000 !important;
   transform: scale(1.1);

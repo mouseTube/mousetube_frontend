@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useHardwareStore, type Hardware } from '@/stores/hardware';
+import { useFavoriteStore } from '@/stores/favorite';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
 
 const hardwareStore = useHardwareStore();
+const favoriteStore = useFavoriteStore();
 
 const searchQuery = ref('');
 const sortOrder = ref<'asc' | 'desc'>('asc');
@@ -77,12 +79,22 @@ function openCreateModal() {
   showCreateModal.value = true;
 }
 
-function onHardwareCreated(newId?: number) {
+function onHardwareCreated() {
   hardwareStore.fetchAllHardware();
+}
+
+async function toggleFavorite(hardwareId: number) {
+  try {
+    await favoriteStore.toggleFavorite('hardware', hardwareId);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to toggle favorite:', err);
+  }
 }
 
 onMounted(async () => {
   await hardwareStore.fetchAllHardware();
+  await favoriteStore.fetchAllFavorites();
 });
 </script>
 
@@ -111,28 +123,54 @@ onMounted(async () => {
     <v-row v-if="paginatedHardware.length > 0" dense>
       <v-col v-for="hw in paginatedHardware" :key="hw.id" cols="12" sm="6" md="4">
         <v-card class="h-100 d-flex flex-column justify-space-between">
-          <div style="flex-grow: 1; padding: 16px">
-            <v-card-title class="pa-0">{{ hw.name }}</v-card-title>
-            <v-card-subtitle>Type: {{ hw.type }}</v-card-subtitle>
-            <v-card-text class="pa-0 mt-2 text-body-2">{{
-              truncate(hw.description || '')
-            }}</v-card-text>
+          <!-- En-tête sans padding -->
+          <div class="pa-0" style="flex-grow: 1">
+            <div class="d-flex align-center mb-1" style="padding: 8px 16px 0 8px">
+              <!-- Bouton favori collé au bord -->
+              <v-btn
+                variant="text"
+                size="small"
+                :icon="
+                  favoriteStore.isFavorite('hardware', hw.id ?? -1)
+                    ? 'mdi-star'
+                    : 'mdi-star-outline'
+                "
+                :color="favoriteStore.isFavorite('hardware', hw.id ?? -1) ? 'warning' : 'grey'"
+                @click.stop="hw.id && toggleFavorite(hw.id)"
+                title="Toggle favorite"
+                style="min-width: 32px; margin: 0; padding: 0"
+              />
+
+              <!-- Titre sans marge excessive -->
+              <div class="text-h6 font-weight-medium ms-1" style="margin: 0">
+                {{ hw.name }}
+              </div>
+            </div>
+
+            <v-card-subtitle class="text-body-2 mb-1 ps-4"> Type: {{ hw.type }} </v-card-subtitle>
+
+            <v-card-text class="pa-0 mt-2 text-body-2 ps-4 pe-4 pb-4">
+              {{ truncate(hw.description || '') }}
+            </v-card-text>
           </div>
-          <v-card-actions class="justify-end pt-0">
+
+          <v-card-actions class="justify-end pt-0 pe-3 pb-3">
             <v-icon
               color="primary"
               @click.stop="editHardware(hw)"
               title="Edit hardware"
               class="mr-2 cursor-pointer hover-icon"
-              >mdi-pencil</v-icon
             >
+              mdi-pencil
+            </v-icon>
             <v-icon
               color="error"
               @click.stop="askDeleteHardware(hw.id!)"
               title="Delete hardware"
               class="cursor-pointer hover-icon"
-              >mdi-delete</v-icon
             >
+              mdi-delete
+            </v-icon>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -167,13 +205,14 @@ onMounted(async () => {
       <v-card>
         <v-card-title class="text-h6">Confirm Deletion</v-card-title>
         <v-card-text>
-          Are you sure you want to delete <strong>{{ deleteTargetName }}</strong
+          Are you sure you want to delete
+          <strong>{{ deleteTargetName }}</strong
           >? This action cannot be undone.
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="showDeleteConfirm = false">Cancel</v-btn>
-          <v-btn color="error" variant="flat" @click="confirmDeleteHardware">Delete</v-btn>
+          <v-btn color="error" variant="flat" @click="confirmDeleteHardware"> Delete </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -193,5 +232,8 @@ onMounted(async () => {
 }
 .h-100 {
   height: 100%;
+}
+.favorite-btn {
+  min-width: 36px;
 }
 </style>
