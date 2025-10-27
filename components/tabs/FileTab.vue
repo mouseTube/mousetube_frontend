@@ -4,8 +4,9 @@ import axios from 'axios';
 import { useFileStore } from '~/stores/file';
 import FileForm from '@/components/modals/CreateFileModal.vue';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
-import { useRecordingSessionStore } from '~/stores/recordingSession';
+import { type RecordingSession, useRecordingSessionStore } from '~/stores/recordingSession';
 import { useRepositoryStore } from '~/stores/repository';
+import RepositoryPublishModal from '@/components/modals/RepositoryPublishModal.vue';
 
 const repositoryStore = useRepositoryStore();
 const recordingSessionStore = useRecordingSessionStore();
@@ -38,11 +39,13 @@ const snackbarColor = ref('');
 const files = computed(() => fileStore.files);
 const canPublish = computed(() => files.value.some((file) => file.status === 'done'));
 const currentPageNumber = ref(1);
+const showPublishModal = ref(false);
+const session = ref<RecordingSession | null>(null);
 
 // === FUNCTIONS ===
 
 // ---- PUBLISH SESSION ----
-async function publishSession() {
+async function publishSession(payload: any = null) {
   if (!props.selectedRecordingSessionId) return;
 
   try {
@@ -51,15 +54,20 @@ async function publishSession() {
     publishError.value = null;
     publishProgress.value = 0;
 
-    const res = await axios.post(`${apiBaseUrl}/file/publish_session/`, {
+    const data: any = {
       recording_session_id: props.selectedRecordingSessionId,
       repository_id: repositoryStore.selectedRepository?.id ?? null,
-    });
+    };
+
+    if (payload) {
+      data.payload = payload;
+    }
+
+    const res = await axios.post(`${apiBaseUrl}/file/publish_session/`, data);
 
     publishTaskId.value = res.data.task_id;
     pollPublishTask();
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error(err);
     publishError.value = 'Failed to start publishing.';
     isPublishing.value = false;
@@ -196,26 +204,37 @@ watch(
   { immediate: true }
 );
 
+watch(
+  () => props.selectedRecordingSessionId,
+  async (id) => {
+    if (!id) {
+      session.value = null;
+      return;
+    }
+    session.value = await recordingSessionStore.getSessionById(id);
+  },
+  { immediate: true }
+);
+
 // ---- LIFECYCLE ----
 onMounted(async () => {
   if (!repositoryStore.repositories.length) {
     await repositoryStore.fetchRepositories();
   }
 
-  // ✅ Pré-sélectionner le repository id=1 si aucun n’est choisi
   const defaultRepo = repositoryStore.repositories.find((r) => r.id === 1);
   if (!repositoryStore.selectedRepository && defaultRepo) {
     repositoryStore.selectRepository(defaultRepo);
   }
   if (props.selectedRecordingSessionId) {
-    // 1️⃣ Récupère la session depuis le store
+    // 1️⃣ Get session status
     const session = await recordingSessionStore.getSessionById(props.selectedRecordingSessionId);
     sessionStatus.value = session?.status ?? null;
 
-    // 2️⃣ Met à jour le statut du bouton
+    // 2️⃣ Update button status
     publishDone.value = sessionStatus.value === 'published';
 
-    // 3️⃣ Récupère les fichiers et démarre le polling
+    // 3️⃣ Fetch files and start polling
     await fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId);
     startPollingForActiveFiles();
   }
@@ -347,7 +366,7 @@ async function deleteFile() {
                 publishError ? 'red' : publishDone ? 'teal' : isPublishing ? 'warning' : 'success'
               "
               :disabled="!canPublish || isPublishing || publishDone"
-              @click="publishSession"
+              @click="showPublishModal = true"
               style="min-width: 140px"
             >
               <v-icon start>
@@ -533,6 +552,26 @@ async function deleteFile() {
       <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000" top right>
         {{ snackbarMessage }}
       </v-snackbar>
+      <RepositoryPublishModal
+        v-if="
+          props.selectedRecordingSessionId != null && repositoryStore.selectedRepository != null
+        "
+        :recordingSessionId="props.selectedRecordingSessionId"
+        :recordingSessionName="session?.name || ''"
+        :repository="{
+          id: repositoryStore.selectedRepository.id,
+          name: repositoryStore.selectedRepository.name,
+          logo_url: repositoryStore.selectedRepository.logo_url ?? undefined,
+        }"
+        :show="showPublishModal"
+        @close="showPublishModal = false"
+        @publishConfirmed="
+          (payload) => {
+            showPublishModal = false;
+            publishSession(payload);
+          }
+        "
+      />
     </v-card>
   </v-container>
 </template>
