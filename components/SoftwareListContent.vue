@@ -145,6 +145,11 @@ function toggleFavorite(softwareId: number) {
   favoriteStore.toggleFavorite('software', softwareId);
 }
 
+const truncate = (text: string, length = 40) => {
+  if (!text) return '';
+  return text.length > length ? text.slice(0, length - 1) + '…' : text;
+};
+
 function getStatusColor(status: string) {
   switch (status) {
     case 'draft':
@@ -189,8 +194,12 @@ onMounted(async () => {
     <v-row dense v-if="paginatedGroups.length">
       <v-col v-for="group in paginatedGroups" :key="group.software.id" cols="12" sm="6" md="4">
         <v-card class="software-card" outlined>
-          <v-card-title class="d-flex justify-space-between align-center pa-2">
-            <div class="d-flex align-center gap-2">
+          <v-card-title
+            class="d-flex justify-space-between align-center pa-2"
+            style="min-height: 40px"
+          >
+            <!-- Partie gauche -->
+            <div class="d-flex align-center flex-shrink-1" style="min-width: 0">
               <v-btn
                 variant="text"
                 size="small"
@@ -204,26 +213,50 @@ onMounted(async () => {
                 "
                 @click.stop="toggleFavorite(group.software.id)"
                 title="Toggle favorite"
-                class="favorite-btn me-2"
+                class="favorite-btn me-2 flex-shrink-0"
               />
-              <span>{{ group.software.name }}</span>
+
+              <v-tooltip location="top">
+                <template #activator="{ props }">
+                  <div
+                    v-bind="props"
+                    class="font-weight-medium text-truncate"
+                    style="
+                      display: block;
+                      white-space: nowrap;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                      max-width: 220px;
+                    "
+                  >
+                    {{ group.software.name }}
+                  </div>
+                </template>
+                <span>{{ group.software.name }}</span>
+              </v-tooltip>
             </div>
 
-            <div class="d-flex align-center gap-1" v-if="group.software.created_by === id_user">
+            <!-- Partie droite -->
+            <div
+              class="d-flex align-center gap-1 flex-shrink-0"
+              v-if="group.software.created_by === id_user"
+            >
               <v-icon
                 size="20"
                 color="primary"
                 class="hover-icon"
                 @click.stop="onEditSoftware(group.software.id)"
-                >mdi-pencil</v-icon
               >
+                mdi-pencil
+              </v-icon>
               <v-icon
                 size="20"
                 color="primary"
                 class="hover-icon"
                 @click.stop="onDeleteSoftware(group.software.id, group.software.name)"
-                >mdi-delete</v-icon
               >
+                mdi-delete
+              </v-icon>
             </div>
           </v-card-title>
 

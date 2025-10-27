@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import { useHardwareStore, type Hardware } from '@/stores/hardware';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
+import { useFavoriteStore } from '@/stores/favorite';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -28,6 +29,7 @@ const editingHardwareId = ref<number | null>(null);
 const showDeleteConfirm = ref(false);
 const deleteTargetId = ref<number | null>(null);
 const deleteTargetName = ref<string>('');
+const favoriteStore = useFavoriteStore();
 
 const localDialog = computed({
   get: () => props.modelValue,
@@ -68,7 +70,7 @@ const paginatedHardware = computed(() => {
   return sortedHardware.value.slice(start, start + itemsPerPage);
 });
 
-function truncate(text: string, length = 100) {
+function truncate(text: string, length = 80) {
   if (!text) return '—';
   return text.length > length ? text.slice(0, length) + '…' : text;
 }
@@ -122,6 +124,15 @@ function clearAllHardwareSelection() {
   internalSelectedHardwareIds.value = [];
 }
 
+async function toggleFavorite(hardwareId: number) {
+  try {
+    await favoriteStore.toggleFavorite('hardware', hardwareId);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to toggle favorite:', err);
+  }
+}
+
 function getStatusColor(status: string) {
   switch (status) {
     case 'draft':
@@ -141,6 +152,10 @@ function onHardwareCreated(newId?: number) {
     internalSelectedHardwareIds.value = [...internalSelectedHardwareIds.value, newId];
   }
 }
+
+onMounted(async () => {
+  await favoriteStore.fetchAllFavorites();
+});
 </script>
 
 <template>
@@ -190,24 +205,39 @@ function onHardwareCreated(newId?: number) {
                 >mdi-check-circle</v-icon
               >
               <div style="flex-grow: 1; padding: 16px">
-                <v-tooltip location="top">
-                  <template #activator="{ props }">
-                    <div
-                      class="text-h6 font-weight-medium ms-1"
-                      v-bind="props"
-                      style="
-                        margin: 0;
-                        max-width: calc(100% - 75px);
-                        white-space: nowrap;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                      "
-                    >
-                      {{ hw.name }}
-                    </div>
-                  </template>
-                  <span>{{ hw.name }}</span>
-                </v-tooltip>
+                <div class="d-flex align-center mb-1" style="padding: 8px 8px 0 8px">
+                  <v-btn
+                    variant="text"
+                    size="small"
+                    :icon="
+                      favoriteStore.isFavorite('hardware', hw.id ?? -1)
+                        ? 'mdi-star'
+                        : 'mdi-star-outline'
+                    "
+                    :color="favoriteStore.isFavorite('hardware', hw.id ?? -1) ? 'warning' : 'grey'"
+                    @click.stop="hw.id && toggleFavorite(hw.id)"
+                    title="Toggle favorite"
+                    style="min-width: 32px; margin: 0; padding: 0"
+                  />
+                  <v-tooltip location="top">
+                    <template #activator="{ props }">
+                      <div
+                        class="text-h6 font-weight-medium ms-1"
+                        v-bind="props"
+                        style="
+                          margin: 0;
+                          max-width: calc(100% - 75px);
+                          white-space: nowrap;
+                          overflow: hidden;
+                          text-overflow: ellipsis;
+                        "
+                      >
+                        {{ hw.name }}
+                      </div>
+                    </template>
+                    <span>{{ hw.name }}</span>
+                  </v-tooltip>
+                </div>
                 <!-- <v-card-subtitle>Type: {{ hw.type }}</v-card-subtitle> -->
                 <v-card-text class="pa-0 mt-2 text-body-2"
                   ><v-tooltip location="top">
@@ -348,5 +378,8 @@ function onHardwareCreated(newId?: number) {
   position: absolute;
   top: 8px;
   right: 8px;
+}
+.favorite-btn {
+  min-width: 36px;
 }
 </style>

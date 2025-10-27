@@ -122,7 +122,6 @@ function onHardwareSaved(hardwareId) {
             <template #activator="{ props }">
               <v-btn
                 color="white"
-                variant="outlined"
                 size="small"
                 v-bind="props"
                 class="mr-4 nav-icon audio-hover-icon nav-item"
