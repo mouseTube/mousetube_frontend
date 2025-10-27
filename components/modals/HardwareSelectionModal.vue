@@ -122,7 +122,19 @@ function clearAllHardwareSelection() {
   internalSelectedHardwareIds.value = [];
 }
 
-// ✅ Gestion de la pré-sélection après création
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'draft':
+      return 'grey';
+    case 'waiting validation':
+      return 'orange';
+    case 'validated':
+      return 'green';
+    default:
+      return 'grey';
+  }
+}
+
 function onHardwareCreated(newId?: number) {
   hardwareStore.fetchAllHardware();
   if (newId) {
@@ -178,27 +190,68 @@ function onHardwareCreated(newId?: number) {
                 >mdi-check-circle</v-icon
               >
               <div style="flex-grow: 1; padding: 16px">
-                <v-card-title class="pa-0">{{ hw.name }}</v-card-title>
-                <v-card-subtitle>Type: {{ hw.type }}</v-card-subtitle>
-                <v-card-text class="pa-0 mt-2 text-body-2">{{
-                  truncate(hw.description || '')
-                }}</v-card-text>
+                <v-tooltip location="top">
+                  <template #activator="{ props }">
+                    <div
+                      class="text-h6 font-weight-medium ms-1"
+                      v-bind="props"
+                      style="
+                        margin: 0;
+                        max-width: calc(100% - 75px);
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                      "
+                    >
+                      {{ hw.name }}
+                    </div>
+                  </template>
+                  <span>{{ hw.name }}</span>
+                </v-tooltip>
+                <!-- <v-card-subtitle>Type: {{ hw.type }}</v-card-subtitle> -->
+                <v-card-text class="pa-0 mt-2 text-body-2"
+                  ><v-tooltip location="top">
+                    <template #activator="{ props }">
+                      <v-card-text
+                        v-bind="props"
+                        class="pa-0 mt-2 text-body-2 ps-4 pe-4 pb-4"
+                        style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis"
+                      >
+                        {{ truncate(hw.description || '') }}
+                      </v-card-text>
+                    </template>
+                    <span style="max-width: 300px; white-space: normal; display: block">
+                      {{ hw.description }}
+                    </span>
+                  </v-tooltip></v-card-text
+                >
               </div>
-              <v-card-actions class="justify-end pt-0">
-                <v-icon
-                  color="primary"
-                  @click.stop="editHardware(hw)"
-                  title="Edit hardware"
-                  class="mr-2 cursor-pointer hover-icon"
-                  >mdi-pencil</v-icon
+              <v-card-actions class="justify-space-between pt-0">
+                <v-chip
+                  v-if="hw.status"
+                  :color="getStatusColor(hw.status)"
+                  size="small"
+                  class="ms-2 text-white"
+                  label
                 >
-                <v-icon
-                  color="error"
-                  @click.stop="askDeleteHardware(hw.id!)"
-                  title="Delete hardware"
-                  class="cursor-pointer hover-icon"
-                  >mdi-delete</v-icon
-                >
+                  {{ hw.status }}
+                </v-chip>
+                <div class="d-flex align-center" style="gap: 4px">
+                  <v-icon
+                    color="primary"
+                    @click.stop="editHardware(hw)"
+                    title="Edit hardware"
+                    class="mr-2 cursor-pointer hover-icon"
+                    >mdi-pencil</v-icon
+                  >
+                  <v-icon
+                    color="error"
+                    @click.stop="askDeleteHardware(hw.id!)"
+                    title="Delete hardware"
+                    class="cursor-pointer hover-icon"
+                    >mdi-delete</v-icon
+                  >
+                </div>
               </v-card-actions>
             </v-card>
           </v-col>

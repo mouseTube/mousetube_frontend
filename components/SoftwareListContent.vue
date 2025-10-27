@@ -22,6 +22,8 @@ const deleteTarget = ref<{ id: number; softwareName: string; version: string | n
 const showDeleteSoftwareConfirm = ref(false);
 const deleteSoftwareTarget = ref<{ id: number; name: string } | null>(null);
 
+const selectedVersionBySoftware = ref<Record<number, number | null>>({});
+
 const searchQuery = ref('');
 const sortOrder = ref<'asc' | 'desc'>('asc');
 const page = ref(1);
@@ -92,9 +94,23 @@ function onDeleteVersion(item: { id: number; softwareName: string; version: stri
 }
 
 async function confirmDelete() {
-  if (!deleteTarget.value) return;
-  await softwareStore.deleteSoftwareVersion(deleteTarget.value.id);
+  const target = deleteTarget.value;
+  if (!target) return;
+
+  await softwareStore.deleteSoftwareVersion(target.id);
   await softwareStore.fetchAllSoftwareVersions();
+
+  const softwareItem = softwareStore.softwareVersions.find(
+    (sv) => sv.software.name === target.softwareName
+  );
+  const softwareId = softwareItem?.software.id;
+
+  if (softwareId != null) {
+    if (selectedVersionBySoftware.value[softwareId] === target.id) {
+      selectedVersionBySoftware.value[softwareId] = null;
+    }
+  }
+
   showDeleteConfirm.value = false;
   deleteTarget.value = null;
 }
@@ -127,6 +143,19 @@ async function onVersionCreated() {
 
 function toggleFavorite(softwareId: number) {
   favoriteStore.toggleFavorite('software', softwareId);
+}
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'draft':
+      return 'grey';
+    case 'waiting validation':
+      return 'orange';
+    case 'validated':
+      return 'green';
+    default:
+      return 'grey';
+  }
 }
 
 onMounted(async () => {
@@ -200,6 +229,7 @@ onMounted(async () => {
 
           <v-card-text>
             <v-autocomplete
+              v-model="selectedVersionBySoftware[group.software.id]"
               :items="group.versions"
               item-title="version"
               item-value="id"
@@ -210,16 +240,59 @@ onMounted(async () => {
             />
           </v-card-text>
 
-          <v-card-actions class="justify-between align-center">
-            <v-btn
+          <v-card-actions class="justify-space-between align-center">
+            <v-chip
+              v-if="group.software.status"
+              :color="getStatusColor(group.software.status)"
               size="small"
-              color="primary"
-              variant="text"
-              @click.stop="onCreateVersion(group.software.id)"
+              class="ms-2 text-white"
+              label
             >
-              <v-icon start>mdi-plus</v-icon>
-              Add Version
-            </v-btn>
+              {{ group.software.status }}
+            </v-chip>
+            <div class="d-flex gap-1">
+              <v-icon
+                small
+                color="primary"
+                class="hover-icon"
+                @click.stop="onCreateVersion(group.software.id)"
+                >mdi-plus</v-icon
+              >
+              <v-icon
+                small
+                color="primary"
+                class="hover-icon"
+                :disabled="!selectedVersionBySoftware[group.software.id]"
+                @click.stop="
+                  () => {
+                    const versionId = selectedVersionBySoftware[group.software.id];
+                    if (versionId != null) onEditVersion(versionId);
+                  }
+                "
+              >
+                mdi-pencil
+              </v-icon>
+              <v-icon
+                small
+                color="primary"
+                class="hover-icon"
+                :disabled="!selectedVersionBySoftware[group.software.id]"
+                @click.stop="
+                  () => {
+                    const versionId = selectedVersionBySoftware[group.software.id];
+                    if (versionId != null) {
+                      onDeleteVersion({
+                        id: versionId,
+                        softwareName: group.software.name,
+                        version: group.versions.find((v) => v.id === versionId)?.version ?? null,
+                      });
+                    }
+                  }
+                "
+              >
+                mdi-delete
+              </v-icon>
+            </div>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -297,7 +370,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 220px;
 }
 
 .favorite-btn {

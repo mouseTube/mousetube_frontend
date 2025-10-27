@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useHardwareStore, type Hardware } from '@/stores/hardware';
 import { useFavoriteStore } from '@/stores/favorite';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
+import { Mic, MicVocal, Speaker, BoomBox, Microchip } from 'lucide-vue-next';
 
 const hardwareStore = useHardwareStore();
 const favoriteStore = useFavoriteStore();
@@ -41,7 +42,7 @@ const paginatedHardware = computed(() => {
   return sortedHardware.value.slice(start, start + itemsPerPage);
 });
 
-function truncate(text: string, length = 100) {
+function truncate(text: string, length = 60) {
   if (!text) return '—';
   return text.length > length ? text.slice(0, length) + '…' : text;
 }
@@ -92,6 +93,19 @@ async function toggleFavorite(hardwareId: number) {
   }
 }
 
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'draft':
+      return 'grey';
+    case 'waiting validation':
+      return 'orange';
+    case 'validated':
+      return 'green';
+    default:
+      return 'grey';
+  }
+}
+
 onMounted(async () => {
   await hardwareStore.fetchAllHardware();
   await favoriteStore.fetchAllFavorites();
@@ -125,8 +139,7 @@ onMounted(async () => {
         <v-card class="h-100 d-flex flex-column justify-space-between">
           <!-- En-tête sans padding -->
           <div class="pa-0" style="flex-grow: 1">
-            <div class="d-flex align-center mb-1" style="padding: 8px 16px 0 8px">
-              <!-- Bouton favori collé au bord -->
+            <div class="d-flex align-center mb-1" style="padding: 8px 8px 0 8px">
               <v-btn
                 variant="text"
                 size="small"
@@ -141,36 +154,118 @@ onMounted(async () => {
                 style="min-width: 32px; margin: 0; padding: 0"
               />
 
-              <!-- Titre sans marge excessive -->
-              <div class="text-h6 font-weight-medium ms-1" style="margin: 0">
-                {{ hw.name }}
-              </div>
+              <v-tooltip location="top">
+                <template #activator="{ props }">
+                  <div
+                    class="text-h6 font-weight-medium ms-1"
+                    v-bind="props"
+                    style="
+                      margin: 0;
+                      max-width: calc(100% - 75px);
+                      white-space: nowrap;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                    "
+                  >
+                    {{ hw.name }}
+                  </div>
+                </template>
+                <span>{{ hw.name }}</span>
+              </v-tooltip>
+              <v-tooltip location="right">
+                <template #activator="{ props }">
+                  <div
+                    v-if="hw.type"
+                    v-bind="props"
+                    style="
+                      position: absolute;
+                      top: 12px;
+                      right: 12px;
+                      width: 22px;
+                      height: 22px;
+                      background: #fff;
+                      border: 1px solid #eee;
+                      border-radius: 10px;
+                      overflow: hidden;
+                      z-index: 2;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    "
+                  >
+                    <MicVocal
+                      v-if="hw.type === 'microphone'"
+                      class="w-100 h-100"
+                      style="width: 100%; height: 100%; object-fit: contain"
+                    />
+                    <Speaker
+                      v-else-if="hw.type === 'speaker'"
+                      class="w-100 h-100"
+                      style="width: 100%; height: 100%; object-fit: contain"
+                    />
+                    <BoomBox
+                      v-else-if="hw.type === 'amplifier'"
+                      class="w-100 h-100"
+                      style="width: 100%; height: 100%; object-fit: contain"
+                    />
+                    <Microchip
+                      v-else-if="hw.type === 'soundcard'"
+                      class="w-100 h-100"
+                      style="width: 100%; height: 100%; object-fit: contain"
+                    />
+                  </div>
+                </template>
+                <span>{{ hw.type.charAt(0).toUpperCase() + hw.type.slice(1) }}</span>
+              </v-tooltip>
             </div>
 
-            <v-card-subtitle class="text-body-2 mb-1 ps-4"> Type: {{ hw.type }} </v-card-subtitle>
+            <!-- <v-card-subtitle class="text-body-2 mb-1 ps-4"> Type: {{ hw.type }} </v-card-subtitle> -->
 
-            <v-card-text class="pa-0 mt-2 text-body-2 ps-4 pe-4 pb-4">
-              {{ truncate(hw.description || '') }}
-            </v-card-text>
+            <v-tooltip location="top">
+              <template #activator="{ props }">
+                <v-card-text
+                  v-bind="props"
+                  class="pa-0 mt-2 text-body-2 ps-4 pe-4 pb-4"
+                  style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis"
+                >
+                  {{ truncate(hw.description || '') }}
+                </v-card-text>
+              </template>
+              <span style="max-width: 300px; white-space: normal; display: block">
+                {{ hw.description }}
+              </span>
+            </v-tooltip>
           </div>
 
-          <v-card-actions class="justify-end pt-0 pe-3 pb-3">
-            <v-icon
-              color="primary"
-              @click.stop="editHardware(hw)"
-              title="Edit hardware"
-              class="mr-2 cursor-pointer hover-icon"
+          <v-card-actions class="justify-space-between pt-0 pe-3 pb-3">
+            <v-chip
+              v-if="hw.status"
+              :color="getStatusColor(hw.status)"
+              size="small"
+              class="ms-2 text-white"
+              label
             >
-              mdi-pencil
-            </v-icon>
-            <v-icon
-              color="error"
-              @click.stop="askDeleteHardware(hw.id!)"
-              title="Delete hardware"
-              class="cursor-pointer hover-icon"
-            >
-              mdi-delete
-            </v-icon>
+              {{ hw.status }}
+            </v-chip>
+
+            <div>
+              <v-icon
+                color="primary"
+                @click.stop="editHardware(hw)"
+                title="Edit hardware"
+                class="mr-2 cursor-pointer hover-icon"
+              >
+                mdi-pencil
+              </v-icon>
+              <v-icon
+                color="error"
+                @click.stop="askDeleteHardware(hw.id!)"
+                title="Delete hardware"
+                class="cursor-pointer hover-icon"
+              >
+                mdi-delete
+              </v-icon>
+            </div>
           </v-card-actions>
         </v-card>
       </v-col>

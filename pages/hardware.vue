@@ -74,7 +74,7 @@ function updateIsDesktop() {
  * @param {string} url - The URL to fetch hardware data from
  */
 const fetchHardware = async (
-  url = `${apiBaseUrl}/hardware/?page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`
+  url = `${apiBaseUrl}/hardware/?page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}&status=validated`
 ) => {
   dataLoaded.value = false;
   try {

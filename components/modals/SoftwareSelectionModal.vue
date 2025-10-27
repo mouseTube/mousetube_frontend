@@ -267,6 +267,19 @@ function onDuplicateSoftware(data: any) {
   }, 0);
 }
 
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'draft':
+      return 'grey';
+    case 'waiting validation':
+      return 'orange';
+    case 'validated':
+      return 'green';
+    default:
+      return 'grey';
+  }
+}
+
 // Watchers
 watch(localDialog, handleDialogOpen, { immediate: true });
 
@@ -351,20 +364,29 @@ watch(
               </v-card-text>
 
               <!-- Card actions -->
-              <v-card-actions class="justify-between align-center">
-                <div
-                  class="selection-box"
-                  :class="{ selected: selectedSoftwareIds.includes(group.software.id) }"
-                  @click.stop="toggleCardSelection(group)"
+              <v-card-actions class="justify-space-between align-center">
+                <v-chip
+                  v-if="group.software.status"
+                  :color="getStatusColor(group.software.status)"
+                  size="small"
+                  class="ms-2 text-white"
+                  label
                 >
-                  <v-icon
-                    v-if="selectedSoftwareIds.includes(group.software.id)"
-                    small
-                    color="primary"
-                    >mdi-check</v-icon
+                  {{ group.software.status }}
+                </v-chip>
+                <div class="d-flex align-center" style="gap: 4px">
+                  <div
+                    class="selection-box"
+                    :class="{ selected: selectedSoftwareIds.includes(group.software.id) }"
+                    @click.stop="toggleCardSelection(group)"
                   >
-                </div>
-                <div class="d-flex gap-1">
+                    <v-icon
+                      v-if="selectedSoftwareIds.includes(group.software.id)"
+                      small
+                      color="primary"
+                      >mdi-check</v-icon
+                    >
+                  </div>
                   <v-icon
                     small
                     color="primary"
@@ -511,13 +533,21 @@ watch(
   width: 20px;
   height: 20px;
   border: 2px solid #ccc;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: all 0.2s;
 }
+
 .selection-box.selected {
   border-color: #c62828;
   background-color: #ffe6e6;
+  color: #c62828;
+}
+
+.selection-box v-icon {
+  font-size: 16px;
 }
 </style>

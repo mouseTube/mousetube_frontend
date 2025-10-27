@@ -61,7 +61,7 @@ function updateIsDesktop() {
 }
 
 const fetchSoftware = async (
-  url = `${apiBaseUrl}/software/?page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`
+  url = `${apiBaseUrl}/software/?page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}&status=validated`
 ) => {
   dataLoaded.value = false;
   try {
