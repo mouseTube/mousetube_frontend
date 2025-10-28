@@ -4,8 +4,9 @@ import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 import { useAuth } from '@/composables/useAuth';
 import { useLaboratoryStore } from '@/stores/laboratory';
 
-// Liste des pays en format { label, value } pour v-select
-import countriesList from '@/data/countries'; // voir ci-dessous pour le fichier
+import countriesList from '@/data/countries';
+
+const formRef = ref<any>(null);
 
 const props = defineProps<{
   modelValue: boolean;
@@ -64,6 +65,11 @@ async function loadLaboratory() {
 }
 
 async function save() {
+  const { valid } = await formRef.value?.validate();
+  if (!valid) {
+    showSnackbar('Please fill all required fields.', 'error');
+    return;
+  }
   if (!form.value.name.trim()) {
     showSnackbar('Name is required.', 'error');
     return;
@@ -124,8 +130,13 @@ watch(
     <v-card>
       <v-card-title>{{ props.editId ? 'Edit Laboratory' : 'Create Laboratory' }}</v-card-title>
       <v-card-text>
-        <v-form>
-          <v-text-field v-model="form.name" label="Name *" required />
+        <v-form ref="formRef" v-slot="{ validate }">
+          <v-text-field
+            v-model="form.name"
+            label="Name *"
+            required
+            :rules="[(v) => !!v || 'Name is required']"
+          />
           <v-text-field v-model="form.institution" label="Institution" />
           <v-text-field v-model="form.unit" label="Unit" />
           <v-text-field v-model="form.address" label="Address" />
@@ -134,10 +145,12 @@ watch(
           <v-select
             v-model="form.country"
             :items="countriesList"
-            label="Country"
+            label="Country *"
             item-title="label"
             item-value="value"
             clearable
+            required
+            :rules="[(v) => !!v || 'Country is required']"
           />
 
           <v-text-field v-model="form.contact" label="Contact" />
