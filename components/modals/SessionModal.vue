@@ -21,7 +21,7 @@ const laboratoriesOptions = ref<{ title: string; value: number }[]>([]);
 // === Predefined Options for Status ===
 const statusOptions = [
   { title: 'Draft', value: 'draft' },
-  { title: 'Published', value: 'published' },
+  { title: 'Shared', value: 'shared' },
 ];
 
 // Props
@@ -232,7 +232,7 @@ async function confirmDuplicate() {
 
 // === Delete ===
 function openDeleteDialog(session: RecordingSession) {
-  if (session.status === 'published') return;
+  if (session.status === 'shared') return;
   sessionToDelete = session;
   showDeleteDialog.value = true;
 }
@@ -344,7 +344,7 @@ onMounted(async () => {
           <template #item.laboratory="{ item }">{{ item.laboratory?.name || '—' }}</template>
           <template #item.date="{ item }">{{ formatDate(item.date) }}</template>
           <template #item.status="{ item }">
-            <v-chip :color="item.status === 'published' ? 'green' : 'grey'" dark small>
+            <v-chip :color="item.status === 'shared' ? 'green' : 'grey'" dark small>
               {{ item.status }}
             </v-chip>
           </template>
@@ -379,11 +379,11 @@ onMounted(async () => {
                     size="small"
                     color="error"
                     variant="text"
-                    :class="{ 'disabled-btn': item.status === 'published' }"
-                    @click.stop="item.status !== 'published' && openDeleteDialog(item)"
+                    :class="{ 'disabled-btn': item.status === 'shared' }"
+                    @click.stop="item.status !== 'shared' && openDeleteDialog(item)"
                   />
                 </template>
-                <span v-if="item.status === 'published'">Cannot delete published session</span>
+                <span v-if="item.status === 'shared'">Cannot delete shared session</span>
                 <span v-else>Delete</span>
               </v-tooltip>
             </div>

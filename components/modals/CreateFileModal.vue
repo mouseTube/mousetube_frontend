@@ -157,7 +157,7 @@ async function handleSubmit() {
       recording_session_id: props.recordingSessionId ?? null,
       repository_id: props.repository?.id ?? null,
       link: uploadedUrl ?? null,
-      status: hasDOI.value ? 'published' : 'pending',
+      status: hasDOI.value ? 'shared' : 'pending',
     };
 
     let saved;
@@ -304,7 +304,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
       <!-- Alerte DOI -->
       <template v-else>
         <v-alert type="info" class="mt-3">
-          DOI specified — file already published. You can now save the metadata.
+          DOI specified — file already shared. You can now save the metadata.
         </v-alert>
       </template>
     </v-card-text>

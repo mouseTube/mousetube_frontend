@@ -111,7 +111,7 @@ function isFieldReadOnly(field: FieldSchema) {
     <v-card>
       <!-- Header -->
       <v-card-title class="d-flex justify-space-between align-center">
-        <div class="font-weight-bold">Publish {{ props.recordingSessionName }}</div>
+        <div class="font-weight-bold">Share {{ props.recordingSessionName }}</div>
         <div class="d-flex align-center gap-2">
           <img
             v-if="props.repository.logo_url"
@@ -232,7 +232,7 @@ function isFieldReadOnly(field: FieldSchema) {
       <!-- Actions -->
       <v-card-actions class="justify-end">
         <v-btn text @click="closeModal">Cancel</v-btn>
-        <v-btn color="primary" @click="confirmPublish">Publish</v-btn>
+        <v-btn color="primary" @click="confirmPublish">Share</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

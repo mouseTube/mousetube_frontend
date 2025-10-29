@@ -41,7 +41,7 @@ const isDirty = computed(() => {
 });
 
 const currentSession = ref<any>(null);
-const isPublished = computed(() => currentSession.value?.status === 'published');
+const isShared = computed(() => currentSession.value?.status === 'shared');
 
 // ----------------------
 // Functions
@@ -162,7 +162,7 @@ watch(
     <v-card outlined class="pa-6 mb-5">
       <v-card-title class="d-flex justify-space-between align-center mb-4">
         <h3>Animal Profiles</h3>
-        <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isPublished || !isDirty">
+        <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isShared || !isDirty">
           Save
         </v-btn>
       </v-card-title>
@@ -174,7 +174,7 @@ watch(
             :key="profile.id"
             variant="outlined"
             class="ma-1"
-            :closable="!isPublished"
+            :closable="!isShared"
             @click:close="removeAnimalProfile(profile.id)"
           >
             {{ profile.name }}
@@ -186,7 +186,7 @@ watch(
             variant="outlined"
             class="ma-1"
             @click="clearAnimalProfiles"
-            :disabled="isPublished"
+            :disabled="isShared"
           >
             <v-icon start>mdi-close</v-icon> Clear All
           </v-chip>
@@ -196,7 +196,7 @@ watch(
             variant="flat"
             class="ma-1"
             @click="showSelectionModal = true"
-            :disabled="isPublished"
+            :disabled="isShared"
           >
             <v-icon start>mdi-plus</v-icon> Select
           </v-chip>

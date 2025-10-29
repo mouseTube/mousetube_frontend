@@ -42,7 +42,7 @@ export interface RecordingSession {
   studies: Study[];
   description?: string | null;
   date?: string | null;
-  status: 'draft' | 'published';
+  status: 'draft' | 'shared';
   duration?: number | null;
   laboratory?: Laboratory | null;
   animal_profiles: AnimalProfile[];
@@ -405,7 +405,7 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         throw err;
       }
     },
-    async updateSessionStatus(sessionId: number, status: 'draft' | 'published') {
+    async updateSessionStatus(sessionId: number, status: 'draft' | 'shared') {
       try {
         const apiBaseUrl = useApiBaseUrl();
         const res = await axios.get(`${apiBaseUrl}/recording-session/${sessionId}/`, {

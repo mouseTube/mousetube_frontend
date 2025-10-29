@@ -99,7 +99,7 @@ const canLinkValidatedProtocol = computed(() => {
   return (
     selectedProtocolObject.value !== null &&
     selectedProtocolObject.value.status === 'validated' &&
-    session.value?.status !== 'published' &&
+    session.value?.status !== 'shared' &&
     session.value?.protocol?.id !== selectedProtocolObject.value.id
   );
 });
@@ -571,7 +571,7 @@ onMounted(async () => {
       dense
       :value-comparator="(a: any, b: any) => a === b"
       @update:modelValue="handleProtocolSelection"
-      :disabled="isValidated && session?.status === 'published'"
+      :disabled="isValidated && session?.status === 'shared'"
     >
       <template #selection="{ item, index }">
         <span>

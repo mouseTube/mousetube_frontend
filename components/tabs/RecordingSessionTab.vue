@@ -72,7 +72,7 @@ const formData = ref({
   name: '',
   description: '',
   date: null as string | null,
-  status: 'draft' as 'draft' | 'published' | null,
+  status: 'draft' as 'draft' | 'shared' | null,
   duration: null as number | null,
   studies: [] as number[],
   context: {
@@ -132,7 +132,7 @@ const selectItems = computed(() => {
   return items;
 });
 
-const isPublished = computed(() => formData.value.status === 'published');
+const isShared = computed(() => formData.value.status === 'shared');
 
 ////////////////////////////////
 // METHODS
@@ -663,8 +663,8 @@ onMounted(async () => {
       border="start"
       class="mb-6 position-relative"
     >
-      <template v-if="formData.status === 'published'">
-        A published recording session cannot be edited or deleted.
+      <template v-if="formData.status === 'shared'">
+        A shared recording session cannot be edited or deleted.
       </template>
       <template v-else>
         Files could be linked to this recording session. Editing this session will affect those
@@ -706,7 +706,7 @@ onMounted(async () => {
           class="status-card blue"
           :class="{ active: !formData.is_multiple }"
           @click="formData.is_multiple = false"
-          :style="isPublished ? 'pointer-events: none; opacity: 0.6;' : ''"
+          :style="isShared ? 'pointer-events: none; opacity: 0.6;' : ''"
         >
           <div class="status-text">
             <strong>Single</strong>
@@ -728,7 +728,7 @@ onMounted(async () => {
           :color="formData.is_multiple ? '#ff9800' : '#1976d2'"
           :track-color="formData.is_multiple ? '#ffcc80' : '#90caf9'"
           class="toggle-switch"
-          :disabled="isPublished"
+          :disabled="isShared"
         ></v-switch>
       </v-col>
 
@@ -738,7 +738,7 @@ onMounted(async () => {
           class="status-card orange"
           :class="{ active: formData.is_multiple }"
           @click="formData.is_multiple = true"
-          :style="isPublished ? 'pointer-events: none; opacity: 0.6;' : ''"
+          :style="isShared ? 'pointer-events: none; opacity: 0.6;' : ''"
         >
           <div class="status-text">
             <strong>Multiple</strong>
@@ -758,7 +758,7 @@ onMounted(async () => {
       <v-card-title class="d-flex justify-space-between align-center mb-4">
         <div class="d-flex align-center" style="gap: 12px">
           <h3 class="m-0">Recording Session Metadata</h3>
-          <v-chip :color="formData.status === 'published' ? 'green' : 'grey'" dark small>
+          <v-chip :color="formData.status === 'shared' ? 'green' : 'grey'" dark small>
             {{ formData.status }}
           </v-chip>
         </div>
@@ -769,11 +769,11 @@ onMounted(async () => {
             variant="outlined"
             @click="resetForm"
             class="mr-2"
-            :disabled="isPublished"
+            :disabled="isShared"
           >
             Reset
           </v-btn>
-          <v-btn color="primary" :disabled="!isSaveEnabled || isPublished" @click="saveSession">
+          <v-btn color="primary" :disabled="!isSaveEnabled || isShared" @click="saveSession">
             Save
           </v-btn>
         </div>
@@ -788,7 +788,7 @@ onMounted(async () => {
             required
             :rules="[(v: string) => !!v || 'Name is required']"
             class="mb-4"
-            :disabled="isPublished"
+            :disabled="isShared"
           >
             <template #label>Name <span style="color: red">*</span></template>
           </v-text-field>
@@ -799,7 +799,7 @@ onMounted(async () => {
             label="Description"
             outlined
             class="mb-4"
-            :disabled="isPublished"
+            :disabled="isShared"
           />
 
           <!-- Date / Time -->
@@ -816,7 +816,7 @@ onMounted(async () => {
                 outlined
                 class="mb-4"
                 v-bind="props"
-                :disabled="isPublished"
+                :disabled="isShared"
                 :rules="[
                   (v: string) => formData.is_multiple || !!v || 'Recording Date is required',
                 ]"
@@ -824,7 +824,7 @@ onMounted(async () => {
               >
                 <template #append-inner>
                   <v-icon
-                    v-if="formattedDate && !isPublished"
+                    v-if="formattedDate && !isShared"
                     size="small"
                     class="cursor-pointer"
                     @click.stop="clearDate"
@@ -862,7 +862,7 @@ onMounted(async () => {
             type="number"
             outlined
             class="mb-1"
-            :disabled="isPublished"
+            :disabled="isShared"
           />
 
           <!-- Studies -->
@@ -873,7 +873,7 @@ onMounted(async () => {
 
                 <div
                   class="chip-list d-flex flex-wrap align-center"
-                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                  :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
                 >
                   <v-chip
                     v-for="study in selectedStudiesDisplay"
@@ -922,7 +922,7 @@ onMounted(async () => {
                 outlined
                 clearable
                 density="comfortable"
-                :disabled="isPublished"
+                :disabled="isShared"
               />
             </v-col>
             <v-col cols="12" md="3" class="d-flex justify-end align-center mb-4">
@@ -932,7 +932,7 @@ onMounted(async () => {
                 class="mr-2"
                 title="Add new laboratory"
                 @click="newLabDialog = true"
-                :disabled="isPublished"
+                :disabled="isShared"
               >
                 <v-icon start>mdi-plus</v-icon> Add
               </v-btn>
@@ -941,7 +941,7 @@ onMounted(async () => {
                 variant="flat"
                 title="Edit selected laboratory"
                 @click="openEditLabDialog"
-                :disabled="!formData.laboratory || isPublished"
+                :disabled="!formData.laboratory || isShared"
               >
                 <v-icon start>mdi-pencil</v-icon> Edit
               </v-btn>
@@ -958,7 +958,7 @@ onMounted(async () => {
                     v-model="formData.context.temperature.value"
                     label="Temperature Value"
                     outlined
-                    :disabled="isPublished"
+                    :disabled="isShared"
                   />
                 </v-col>
                 <v-col cols="6">
@@ -967,7 +967,7 @@ onMounted(async () => {
                     :items="['°C', '°F']"
                     label="Temperature Unit"
                     outlined
-                    :disabled="isPublished"
+                    :disabled="isShared"
                   />
                 </v-col>
                 <v-col cols="12">
@@ -976,7 +976,7 @@ onMounted(async () => {
                     label="Brightness (Lux)"
                     type="number"
                     outlined
-                    :disabled="isPublished"
+                    :disabled="isShared"
                   />
                 </v-col>
               </v-row>
@@ -993,7 +993,7 @@ onMounted(async () => {
                 label="Channels"
                 outlined
                 class="mb-4"
-                :disabled="isPublished"
+                :disabled="isShared"
               />
               <v-select
                 v-model="formData.equipment.sound_isolation"
@@ -1001,7 +1001,7 @@ onMounted(async () => {
                 label="Sound Isolation"
                 outlined
                 class="mb-4"
-                :disabled="isPublished"
+                :disabled="isShared"
               />
               <!-- soundcards -->
               <v-card outlined class="pa-3 mb-5">
@@ -1009,7 +1009,7 @@ onMounted(async () => {
 
                 <div
                   class="chip-list d-flex flex-wrap align-center"
-                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                  :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
                 >
                   <!-- Chips -->
                   <v-chip
@@ -1052,7 +1052,7 @@ onMounted(async () => {
 
                 <div
                   class="chip-list d-flex flex-wrap align-center"
-                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                  :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
                 >
                   <v-chip
                     v-for="item in microphonesDisplay"
@@ -1092,7 +1092,7 @@ onMounted(async () => {
 
                 <div
                   class="chip-list d-flex flex-wrap align-center"
-                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                  :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
                 >
                   <v-chip
                     v-for="item in amplifiersDisplay"
@@ -1132,7 +1132,7 @@ onMounted(async () => {
 
                 <div
                   class="chip-list d-flex flex-wrap align-center"
-                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                  :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
                 >
                   <v-chip
                     v-for="item in speakersDisplay"
@@ -1172,7 +1172,7 @@ onMounted(async () => {
 
                 <div
                   class="chip-list d-flex flex-wrap align-center"
-                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                  :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
                 >
                   <v-chip
                     v-for="soft in acquisitionSoftwareDisplay"
@@ -1231,20 +1231,14 @@ onMounted(async () => {
         </v-form>
       </v-card-text>
       <v-card-actions class="d-flex justify-end mt-4">
-        <v-btn
-          color="grey"
-          variant="outlined"
-          @click="resetForm"
-          class="mr-2"
-          :disabled="isPublished"
-        >
+        <v-btn color="grey" variant="outlined" @click="resetForm" class="mr-2" :disabled="isShared">
           Reset
         </v-btn>
 
         <v-btn
           color="primary"
           variant="flat"
-          :disabled="!isSaveEnabled || isPublished"
+          :disabled="!isSaveEnabled || isShared"
           @click="saveSession"
         >
           Save

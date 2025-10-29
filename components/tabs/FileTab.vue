@@ -7,6 +7,7 @@ import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 import { type RecordingSession, useRecordingSessionStore } from '~/stores/recordingSession';
 import { useRepositoryStore } from '~/stores/repository';
 import RepositoryPublishModal from '@/components/modals/RepositoryPublishModal.vue';
+import { useAuth } from '~/composables/useAuth';
 
 const repositoryStore = useRepositoryStore();
 const recordingSessionStore = useRecordingSessionStore();
@@ -42,7 +43,13 @@ const currentPageNumber = ref(1);
 const showPublishModal = ref(false);
 const session = ref<RecordingSession | null>(null);
 
+const { token } = useAuth();
+
 // === FUNCTIONS ===
+
+function getAuthHeaders() {
+  return token.value ? { headers: { Authorization: `Bearer ${token.value}` } } : {};
+}
 
 // ---- PUBLISH SESSION ----
 async function publishSession(payload: any = null) {
@@ -63,15 +70,15 @@ async function publishSession(payload: any = null) {
       data.payload = payload;
     }
 
-    const res = await axios.post(`${apiBaseUrl}/file/publish_session/`, data);
+    const res = await axios.post(`${apiBaseUrl}/file/publish_session/`, data, getAuthHeaders());
 
     publishTaskId.value = res.data.task_id;
     pollPublishTask();
   } catch (err) {
     console.error(err);
-    publishError.value = 'Failed to start publishing.';
+    publishError.value = 'Failed to start sharing.';
     isPublishing.value = false;
-    showSnackbar('❌ Failed to start publishing.', 'error');
+    showSnackbar('❌ Failed to start sharing.', 'error');
   }
 }
 
@@ -98,20 +105,20 @@ async function pollPublishTask() {
 
         await recordingSessionStore.updateSessionStatus(
           props.selectedRecordingSessionId!,
-          'published'
+          'shared'
         );
         const updatedSession = await recordingSessionStore.getSessionById(
           props.selectedRecordingSessionId!
         );
         sessionStatus.value = updatedSession?.status ?? null;
-        publishDone.value = sessionStatus.value === 'published';
+        publishDone.value = sessionStatus.value === 'shared';
 
-        showSnackbar('✅ Session published successfully!', 'success');
+        showSnackbar('✅ Session shared successfully!', 'success');
       } else if (state === 'FAILURE') {
         clearInterval(interval);
         isPublishing.value = false;
-        publishError.value = res.data.error || 'Publishing failed.';
-        showSnackbar('❌ Publishing failed.', 'error');
+        publishError.value = res.data.error || 'Sharing failed.';
+        showSnackbar('❌ Sharing failed.', 'error');
       } else {
         if (publishProgress.value < 90) publishProgress.value += 5;
       }
@@ -191,7 +198,7 @@ watch(
     if (newId) {
       const session = await recordingSessionStore.getSessionById(newId);
       sessionStatus.value = session?.status ?? null;
-      publishDone.value = sessionStatus.value === 'published';
+      publishDone.value = sessionStatus.value === 'shared';
       await fileStore.fetchFilesBySessionId(newId);
     } else {
       fileStore.files.splice(0, fileStore.files.length);
@@ -232,7 +239,7 @@ onMounted(async () => {
     sessionStatus.value = session?.status ?? null;
 
     // 2️⃣ Update button status
-    publishDone.value = sessionStatus.value === 'published';
+    publishDone.value = sessionStatus.value === 'shared';
 
     // 3️⃣ Fetch files and start polling
     await fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId);
@@ -359,7 +366,7 @@ async function deleteFile() {
             </v-menu>
           </div>
 
-          <!-- 🔹 Publish Button + Progress bar -->
+          <!-- 🔹 Share Button + Progress bar -->
           <div class="d-flex flex-row justify-end align-center">
             <v-btn
               :color="
@@ -381,9 +388,9 @@ async function deleteFile() {
                 }}
               </v-icon>
               <span v-if="publishError">Error</span>
-              <span v-else-if="isPublishing">Publishing...</span>
-              <span v-else-if="publishDone">Published</span>
-              <span v-else>Publish</span>
+              <span v-else-if="isPublishing">Sharing...</span>
+              <span v-else-if="publishDone">Shared</span>
+              <span v-else>Share</span>
             </v-btn>
           </div>
 
@@ -482,7 +489,7 @@ async function deleteFile() {
               </v-chip>
 
               <v-chip v-else-if="file.status === 'done' && !publishDone" color="green" label small>
-                ✅ Ready (unpublished)
+                ✅ Ready (unshared)
               </v-chip>
 
               <v-chip v-else-if="file.status === 'done' && publishDone" color="teal" label small>
@@ -493,7 +500,7 @@ async function deleteFile() {
                   class="ml-1 hover:opacity-80"
                   style="text-decoration: none; color: inherit"
                 >
-                  🌍 Published
+                  🌍 Shared
                 </a>
                 <v-icon
                   v-if="file.external_url"
@@ -566,7 +573,7 @@ async function deleteFile() {
         :show="showPublishModal"
         @close="showPublishModal = false"
         @publishConfirmed="
-          (payload) => {
+          (payload: any) => {
             showPublishModal = false;
             publishSession(payload);
           }

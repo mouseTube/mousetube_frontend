@@ -287,9 +287,34 @@ watch(
           </v-window-item>
 
           <!-- Token Tab -->
+          <!-- Token Tab -->
           <v-window-item value="token">
-            <div>
-              <p><strong>Token:</strong> {{ token }}</p>
+            <div class="pa-4">
+              <v-card variant="outlined" class="mb-4">
+                <v-card-title class="text-h6">🔐 Developer Access Token</v-card-title>
+                <v-card-text>
+                  <p>
+                    This token is a <strong>personal access key</strong> that allows external
+                    applications or scripts to authenticate as <strong>you</strong> when
+                    communicating with the mouseTube API.
+                  </p>
+                  <p>
+                    ⚠️ <strong>For developers only</strong>: never share your token publicly or
+                    include it in code that others can see. Anyone with this token can act on your
+                    behalf.
+                  </p>
+                  <p class="text-caption text-grey">
+                    Example usage: accessing the API programmatically from Python, R, or
+                    command-line tools like <code>curl</code>.
+                  </p>
+                </v-card-text>
+              </v-card>
+
+              <p><strong>Your Token:</strong></p>
+              <v-sheet color="grey-lighten-4" rounded class="pa-2 mb-3">
+                <code>{{ token }}</code>
+              </v-sheet>
+
               <v-btn color="primary" @click="refreshToken" class="me-4">Refresh Token</v-btn>
               <v-btn color="primary" @click="copyToken">Copy Token</v-btn>
 
