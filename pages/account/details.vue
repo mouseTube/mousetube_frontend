@@ -304,7 +304,7 @@ watch(
                     behalf.
                   </p>
                   <p class="text-caption text-grey">
-                    Example usage: accessing the API programmatically from Python, R, or
+                    Example usage: accessing the API programmatically from Swagger, Python, or
                     command-line tools like <code>curl</code>.
                   </p>
                 </v-card-text>
