@@ -63,7 +63,21 @@ const canSave = computed(() => {
   }
 });
 
-// ✅ Charger les données en mode édition
+// Regex DOI
+const doiPattern = /^10.\d{4,9}\/[-._;()/:A-Z0-9]+$/i;
+
+// Regex URL
+const urlPattern = /^(https?:\/\/)?([\w-]+(\.[\w-]+)+)(\/[\w-.,@?^=%&:/~+#]*)?$/i;
+
+// Rules
+const doiRules = [(v: string) => !v || doiPattern.test(v) || 'Invalid DOI format'];
+
+const linkRules = [
+  (v: string) => !formData.value.doi || !!v || 'Link is required when DOI is set',
+  (v: string) => !v || urlPattern.test(v) || 'Invalid URL format',
+];
+
+// ✅ Load existing file data into form when in edit mode
 watch(
   () => props.modelValue,
   (file) => {
@@ -140,6 +154,7 @@ async function uploadFileAndCreate() {
     emit('saved', newFile);
     emit('update:modelValue', null);
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error('Erreur upload ou création du fichier:', err);
   } finally {
     uploading.value = false;
@@ -170,6 +185,7 @@ async function handleSubmit() {
     emit('saved', saved);
     emit('update:modelValue', null);
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error(err);
   }
 }
@@ -250,6 +266,7 @@ async function handleSubmit() {
         outlined
         class="mb-3"
         :readonly="isEditMode"
+        :rules="doiRules"
         hint="Editable only when creating a new file"
       />
 
@@ -259,8 +276,8 @@ async function handleSubmit() {
         outlined
         class="mb-3"
         :disabled="isEditMode"
+        :rules="linkRules"
         hint="URL of the file associated with the DOI"
-        :rules="[(v) => !formData.doi || !!v || 'Link is required when DOI is set']"
       />
 
       <v-text-field
