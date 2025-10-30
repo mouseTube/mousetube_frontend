@@ -317,94 +317,119 @@ async function deleteFile() {
   <v-container>
     <v-card class="pa-6" outlined>
       <!-- === HEADER === -->
-      <v-card-title class="d-flex justify-space-between align-center">
-        <h3 class="ma-0 pa-0">Files</h3>
+      <v-card-title class="d-flex flex-column">
+        <!-- 🔹 Repository info box -->
+        <div class="d-flex justify-end w-100 mb-4">
+          <v-sheet
+            color="grey-lighten-4"
+            rounded="lg"
+            class="pa-4"
+            elevation="0"
+            style="border: 1px solid #ddd"
+          >
+            <!-- ✅ Title row: title + button -->
+            <div class="d-flex justify-space-between align-center flex-wrap mb-3" style="gap: 1rem">
+              <div class="text-subtitle-1 font-weight-medium">Repository selection</div>
 
-        <div class="d-flex align-center" style="gap: 1.5rem">
-          <!-- 🔹 Repository Dropdown -->
+              <v-menu>
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    variant="outlined"
+                    color="primary"
+                    class="text-none"
+                    style="min-width: 160px; justify-content: space-between"
+                    :disabled="files.length > 0"
+                  >
+                    <div class="d-flex align-center" style="gap: 0.5rem">
+                      <img
+                        v-if="repositoryStore.selectedRepository?.logo_url"
+                        :src="repositoryStore.selectedRepository.logo_url"
+                        alt="logo"
+                        class="repo-logo"
+                      />
+                      <span>
+                        {{ repositoryStore.selectedRepository?.name || 'Select Repository' }}
+                      </span>
+                    </div>
+                    <v-icon icon="mdi-chevron-down" />
+                  </v-btn>
+                </template>
+
+                <v-list>
+                  <v-list-item
+                    v-for="repo in repositoryStore.repositories"
+                    :key="repo.id"
+                    @click="repositoryStore.selectRepository(repo)"
+                    :active="repo.id === repositoryStore.selectedRepository?.id"
+                    style="cursor: pointer"
+                  >
+                    <template #prepend>
+                      <img v-if="repo.logo_url" :src="repo.logo_url" alt="logo" class="repo-logo" />
+                    </template>
+                    <v-list-item-title>{{ repo.name }}</v-list-item-title>
+                  </v-list-item>
+                </v-list>
+              </v-menu>
+            </div>
+
+            <!-- ✅ Explanatory text below -->
+            <div
+              class="text-body-2"
+              style="color: gray; line-height: 1.5; white-space: normal; word-wrap: break-word"
+            >
+              Files added will be automatically uploaded to the selected repository (e.g. Zenodo),
+              and a DOI will be generated automatically. If you provide a DOI and a download link
+              directly, this automatic deposit process will not apply.
+            </div>
+          </v-sheet>
+        </div>
+
+        <!-- 🔹 Title + Buttons -->
+        <div class="d-flex justify-space-between align-center w-100">
+          <h3 class="ma-0 pa-0">Files</h3>
+
           <div class="d-flex align-center" style="gap: 1.5rem">
-            <!-- 🔹 Repository Dropdown (styled as button) -->
-            <v-menu>
-              <template #activator="{ props }">
-                <v-btn
-                  v-bind="props"
-                  variant="outlined"
-                  color="primary"
-                  class="text-none"
-                  style="min-width: 140px; justify-content: space-between"
-                  :disabled="files.length > 0"
-                >
-                  <div class="d-flex align-center" style="gap: 0.5rem">
-                    <img
-                      v-if="repositoryStore.selectedRepository?.logo_url"
-                      :src="repositoryStore.selectedRepository.logo_url"
-                      alt="logo"
-                      class="repo-logo"
-                    />
-                    <span>
-                      {{ repositoryStore.selectedRepository?.name || 'Select Repository' }}
-                    </span>
-                  </div>
-                  <v-icon icon="mdi-chevron-down" />
-                </v-btn>
-              </template>
+            <!-- 🔹 Share Button -->
+            <div class="d-flex flex-row justify-end align-center">
+              <v-btn
+                :color="
+                  publishError ? 'red' : publishDone ? 'teal' : isPublishing ? 'warning' : 'success'
+                "
+                :disabled="!canPublish || isPublishing || publishDone"
+                @click="showPublishModal = true"
+                style="min-width: 140px"
+              >
+                <v-icon start>
+                  {{
+                    publishError
+                      ? 'mdi-alert-circle'
+                      : isPublishing
+                        ? 'mdi-progress-clock'
+                        : publishDone
+                          ? 'mdi-check'
+                          : 'mdi-upload'
+                  }}
+                </v-icon>
+                <span v-if="publishError">Error</span>
+                <span v-else-if="isPublishing">Sharing...</span>
+                <span v-else-if="publishDone">Shared</span>
+                <span v-else>Share</span>
+              </v-btn>
+            </div>
 
-              <v-list>
-                <v-list-item
-                  v-for="repo in repositoryStore.repositories"
-                  :key="repo.id"
-                  @click="repositoryStore.selectRepository(repo)"
-                  :active="repo.id === repositoryStore.selectedRepository?.id"
-                  style="cursor: pointer"
-                >
-                  <template #prepend>
-                    <img v-if="repo.logo_url" :src="repo.logo_url" alt="logo" class="repo-logo" />
-                  </template>
-                  <v-list-item-title>{{ repo.name }}</v-list-item-title>
-                </v-list-item>
-              </v-list>
-            </v-menu>
-          </div>
-
-          <!-- 🔹 Share Button + Progress bar -->
-          <div class="d-flex flex-row justify-end align-center">
-            <v-btn
-              :color="
-                publishError ? 'red' : publishDone ? 'teal' : isPublishing ? 'warning' : 'success'
-              "
-              :disabled="!canPublish || isPublishing || publishDone"
-              @click="showPublishModal = true"
-              style="min-width: 140px"
-            >
-              <v-icon start>
-                {{
-                  publishError
-                    ? 'mdi-alert-circle'
-                    : isPublishing
-                      ? 'mdi-progress-clock'
-                      : publishDone
-                        ? 'mdi-check'
-                        : 'mdi-upload'
-                }}
-              </v-icon>
-              <span v-if="publishError">Error</span>
-              <span v-else-if="isPublishing">Sharing...</span>
-              <span v-else-if="publishDone">Shared</span>
-              <span v-else>Share</span>
-            </v-btn>
-          </div>
-
-          <!-- 🔹 Add File -->
-          <div class="d-flex align-center" style="height: 100%">
-            <v-btn
-              color="primary"
-              @click="createNewFile"
-              style="min-width: 120px"
-              :disabled="isPublishing || publishDone"
-            >
-              <v-icon start>mdi-plus</v-icon>
-              Add File
-            </v-btn>
+            <!-- 🔹 Add File -->
+            <div class="d-flex align-center" style="height: 100%">
+              <v-btn
+                color="primary"
+                @click="createNewFile"
+                style="min-width: 120px"
+                :disabled="isPublishing || publishDone"
+              >
+                <v-icon start>mdi-plus</v-icon>
+                Add File
+              </v-btn>
+            </div>
           </div>
         </div>
       </v-card-title>
@@ -469,7 +494,7 @@ async function deleteFile() {
                     size="small"
                     color="primary"
                     variant="text"
-                    :disabled="file.status !== 'error'"
+                    :disabled="publishDone"
                     @click="confirmDelete(file.id)"
                   >
                     <v-icon>mdi-delete</v-icon>

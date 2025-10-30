@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import axios, { type AxiosProgressEvent } from 'axios';
 import { type File as StoreFile, useFileStore } from '~/stores/file';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 
@@ -9,8 +8,8 @@ const props = defineProps<{
   recordingSessionId?: number | null;
   repository?: { id: number; name: string; logo_url?: string | null } | null;
 }>();
-const emit = defineEmits(['update:modelValue', 'saved']);
 
+const emit = defineEmits(['update:modelValue', 'saved']);
 const fileStore = useFileStore();
 
 interface FormDataType {
@@ -26,6 +25,7 @@ interface FormDataType {
   number: number | null;
   file: globalThis.File | null;
   uploadedUrl: string | null;
+  link: string | null;
 }
 
 const formData = ref<FormDataType>({
@@ -41,34 +41,29 @@ const formData = ref<FormDataType>({
   number: null,
   file: null,
   uploadedUrl: null,
+  link: null,
 });
 
 const uploading = ref(false);
-
-// ✅ détecte dynamiquement la présence d’un DOI
-const hasDOI = computed(() => !!formData.value.doi?.trim());
-
-// reset des données upload si l’utilisateur ajoute un DOI après un upload
-watch(
-  () => formData.value.doi,
-  (newVal) => {
-    if (newVal && newVal.trim() !== '') {
-      formData.value.file = null;
-      formData.value.uploadedUrl = null;
-    }
-  }
+const isEditMode = computed(() => !!props.modelValue?.id);
+const isDoiOnly = computed(
+  () => !isEditMode.value && (!!formData.value.doi || !!formData.value.link)
 );
 
-// précharger le nom du fichier si aucun nom n'est défini
-watch(
-  () => formData.value.file,
-  (newFile) => {
-    if (newFile && !formData.value.name) {
-      formData.value.name = newFile.name;
-    }
+const canSave = computed(() => {
+  if (isEditMode.value) {
+    // Edition → name obligatoire
+    return !!formData.value.name;
+  } else if (isDoiOnly.value) {
+    // Cas DOI/link → name, doi et link obligatoires
+    return !!formData.value.name && !!formData.value.doi && !!formData.value.link;
+  } else {
+    // Création avec upload → fichier et name
+    return !!formData.value.file && !!formData.value.name;
   }
-);
+});
 
+// ✅ Charger les données en mode édition
 watch(
   () => props.modelValue,
   (file) => {
@@ -83,6 +78,7 @@ watch(
         notes: file.notes || '',
         size: file.size || null,
         doi: file.doi || '',
+        link: file.link || null,
         number: file.number || null,
         file: null,
         uploadedUrl: file.link || null,
@@ -98,6 +94,7 @@ watch(
         notes: '',
         size: null,
         doi: '',
+        link: null,
         number: null,
         file: null,
         uploadedUrl: null,
@@ -107,15 +104,16 @@ watch(
   { immediate: true }
 );
 
-async function uploadFile() {
+// =====================================================
+// Upload and creation (Only in creation)
+// =====================================================
+async function uploadFileAndCreate() {
   if (!formData.value.file) return;
   uploading.value = true;
 
   try {
     const { temp_path, task_id } = await fileStore.uploadFile(formData.value.file);
-    formData.value.uploadedUrl = temp_path;
 
-    // 🧠 Construire l’URL publique à partir du chemin temporaire
     const apiBaseUrl = useApiBaseUrl();
     const baseUrl = apiBaseUrl.replace(/\/api\/?$/, '');
     const filenameSafe = encodeURIComponent(temp_path.replace(/^\/?media\//, ''));
@@ -135,56 +133,53 @@ async function uploadFile() {
       recording_session_id: props.recordingSessionId ?? null,
       repository_id: props.repository?.id ?? null,
       link: publicUrl,
-      status: 'pending',
       celery_task_id: task_id,
     };
 
     const newFile = await fileStore.createFile(payload);
     emit('saved', newFile);
+    emit('update:modelValue', null);
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error('Erreur upload ou création du fichier:', err);
   } finally {
     uploading.value = false;
   }
 }
 
+// =====================================================
+// Save metadata (Edition only)
+// =====================================================
 async function handleSubmit() {
   try {
-    const { file, uploadedUrl, ...rest } = formData.value;
+    const { file, uploadedUrl, doi, ...rest } = formData.value;
     const payload = {
       ...rest,
+      doi: formData.value.doi,
       recording_session_id: props.recordingSessionId ?? null,
       repository_id: props.repository?.id ?? null,
-      link: uploadedUrl ?? null,
-      status: hasDOI.value ? 'shared' : 'pending',
+      link: formData.value.link || uploadedUrl || null,
     };
 
     let saved;
-    if (props.modelValue && props.modelValue.id) {
+    if (isEditMode.value && props.modelValue?.id) {
       saved = await fileStore.updateFile(props.modelValue.id, payload);
     } else {
       saved = await fileStore.createFile(payload);
-      fileStore.addFile(saved);
     }
 
-    emit('update:modelValue', null);
     emit('saved', saved);
+    emit('update:modelValue', null);
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error(err);
   }
 }
-
-const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg|flac)$/i));
 </script>
 
 <template>
   <v-card class="pa-4" max-width="600">
     <v-card-title class="d-flex justify-space-between align-center">
-      <span>{{ props.modelValue ? 'Edit File' : 'Create File' }}</span>
-
-      <div v-if="props.repository" class="d-flex align-center">
+      <span>{{ isEditMode ? 'Edit File' : 'Create File' }}</span>
+      <div v-if="props.repository && !formData.doi" class="d-flex align-center">
         <img
           v-if="props.repository.logo_url"
           :src="props.repository.logo_url"
@@ -198,9 +193,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
     <v-card-text>
       <h3 class="mb-3">File Metadata</h3>
 
-      <v-text-field v-model="formData.name" outlined required class="mb-3">
-        <template #label> File Name <span style="color: red">*</span> </template>
-      </v-text-field>
+      <v-text-field v-model="formData.name" label="File Name *" outlined required class="mb-3" />
 
       <v-text-field
         v-model="formData.date"
@@ -250,7 +243,25 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         class="mb-3"
       />
 
-      <v-text-field v-model="formData.doi" label="DOI" type="url" outlined class="mb-3" />
+      <!-- DOI -->
+      <v-text-field
+        v-model="formData.doi"
+        label="DOI"
+        outlined
+        class="mb-3"
+        :readonly="isEditMode"
+        hint="Editable only when creating a new file"
+      />
+
+      <v-text-field
+        v-model="formData.link"
+        label="External Link (required if DOI is set)"
+        outlined
+        class="mb-3"
+        :disabled="isEditMode"
+        hint="URL of the file associated with the DOI"
+        :rules="[(v) => !formData.doi || !!v || 'Link is required when DOI is set']"
+      />
 
       <v-text-field
         v-model="formData.number"
@@ -262,13 +273,21 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
 
       <v-textarea v-model="formData.notes" label="Notes" outlined class="mb-3" />
 
-      <!-- Section Upload -->
-      <template v-if="!hasDOI">
+      <!-- DOI given -->
+      <v-alert v-if="isDoiOnly" type="info" class="mb-4" border="start" variant="tonal">
+        This file will be linked to an external resource via its DOI and link.
+        <br />
+        No upload will be performed — please ensure that both fields (“DOI” and “External Link”) are
+        correctly filled.
+      </v-alert>
+
+      <!-- upload file -->
+      <template v-else-if="!isEditMode">
         <h3 class="mt-6 mb-3">Upload File</h3>
 
         <v-file-input
           v-model="formData.file"
-          label="Select Audio/Video File"
+          label="Select File"
           prepend-icon="mdi-upload"
           show-size
           accept="audio/*,video/*"
@@ -281,9 +300,9 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
           color="primary"
           block
           class="mb-3"
-          @click="uploadFile"
+          @click="uploadFileAndCreate"
         >
-          {{ uploading ? 'Uploading...' : 'Upload & Add to a Repository' }}
+          {{ uploading ? 'Uploading...' : 'Upload & Create File' }}
         </v-btn>
 
         <v-progress-linear
@@ -292,27 +311,14 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
           height="6"
           color="primary"
           class="mb-3"
-        ></v-progress-linear>
-
-        <div v-if="formData.uploadedUrl" class="mb-3">
-          <v-alert type="success" class="mb-2">File uploaded successfully!</v-alert>
-          <audio v-if="isAudio" controls :src="formData.uploadedUrl" class="w-full" />
-          <video v-else controls :src="formData.uploadedUrl" class="w-full max-h-64" />
-        </div>
-      </template>
-
-      <!-- Alerte DOI -->
-      <template v-else>
-        <v-alert type="info" class="mt-3">
-          DOI specified — file already shared. You can now save the metadata.
-        </v-alert>
+        />
       </template>
     </v-card-text>
 
     <v-card-actions>
       <v-spacer />
-      <v-btn color="primary" @click="handleSubmit">
-        {{ hasDOI ? 'Save Metadata' : 'Save' }}
+      <v-btn color="primary" :disabled="!canSave" @click="handleSubmit">
+        {{ isEditMode ? 'Save Metadata' : 'Save without Upload' }}
       </v-btn>
     </v-card-actions>
   </v-card>

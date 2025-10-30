@@ -356,7 +356,9 @@ export const useFileStore = defineStore('file', {
         await axios.delete(`${apiBaseUrl}/file/${fileId}/`, {
           headers: this.getAuthHeaders(),
         });
+
         this.files = this.files.filter((f) => f.id !== fileId);
+        this.count = this.files.length;
       } catch (err: any) {
         console.error('Failed to delete file:', err);
         this.error = err.message || 'Failed to delete file';
