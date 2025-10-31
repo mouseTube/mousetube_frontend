@@ -272,7 +272,7 @@ async function handleSubmit() {
 
       <v-text-field
         v-model="formData.link"
-        label="External Link (required if DOI is set)"
+        label="Donwload Link (required if DOI is set)"
         outlined
         class="mb-3"
         :disabled="isEditMode"
