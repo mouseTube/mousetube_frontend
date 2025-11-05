@@ -17,6 +17,8 @@ import HardwareSelectionModal from '@/components/modals/HardwareSelectionModal.v
 import { useAuth } from '@/composables/useAuth';
 import { useRouter } from 'vue-router';
 import StudySelectionModal from '@/components/modals/StudySelectionModal.vue';
+import ReferenceSelectionModal from '@/components/modals/ReferenceSelectionModal.vue';
+import { useReferenceStore, type Reference } from '~/stores/reference';
 
 ////////////////////////////////
 // STORES
@@ -28,6 +30,7 @@ const hardwareStore = useHardwareStore();
 const softwareStore = useSoftwareStore();
 const auth = useAuth();
 const router = useRouter();
+const referenceStore = useReferenceStore();
 
 ////////////////////////////////
 // EMITS & PROPS
@@ -66,6 +69,10 @@ const editHardwareDialog = ref(false);
 const editHardwareId = ref<number | null>(null);
 const hardwareTypeForModal = ref<'soundcard' | 'microphone' | 'speaker' | 'amplifier' | ''>('');
 
+const referencesDisplay = ref<{ id: number; label: string }[]>([]);
+const showReferenceSelectionModal = ref(false);
+const selectedReferenceIds = ref<number[]>([]);
+
 const acquisitionSoftwareDisplay = ref<{ id: number; label: string }[]>([]);
 const isExistingSession = ref(false);
 const formData = ref({
@@ -94,6 +101,7 @@ const formData = ref({
   },
   laboratory: null as number | null,
   is_multiple: false,
+  references: [] as number[],
 });
 
 const newStudyDialog = ref(false);
@@ -168,6 +176,82 @@ function removeHardware(field: HardwareArrayKeys, id: number) {
   updateSelectedHardwareIds(field, formData.value.equipment[field]);
 }
 
+function openReferenceSelectionModal() {
+  showReferenceSelectionModal.value = true;
+}
+
+async function onUpdateSelectedReferences(ids: number[], labels?: string[]) {
+  // update ids in form & local state immediately
+  selectedReferenceIds.value = [...ids];
+  formData.value.references = [...ids];
+
+  // prefer provided labels
+  if (labels && labels.length === ids.length) {
+    referencesDisplay.value = ids.map((id, index) => ({
+      id,
+      label: labels[index] || `Reference #${id}`,
+    }));
+    return;
+  }
+
+  // ensure referenceStore has data (fetch if needed) then map ids -> labels
+  try {
+    if (!referenceStore.references.results || referenceStore.references.results.length === 0) {
+      await referenceStore.fetchAllReferences();
+    }
+
+    referencesDisplay.value = ids.map((id) => {
+      const refObj = referenceStore.references.results.find((r) => r.id === id);
+      return { id, label: refObj?.name ?? `Reference #${id}` };
+    });
+  } catch (err) {
+    console.error('[RecordingSessionTab] failed to resolve reference labels', err);
+    // fallback simple labels
+    referencesDisplay.value = ids.map((id) => ({ id, label: `Reference #${id}` }));
+  }
+}
+
+function clearAllReferences() {
+  formData.value.references = [];
+  selectedReferenceIds.value = [];
+  referencesDisplay.value = [];
+}
+
+function removeReference(id: number) {
+  formData.value.references = formData.value.references.filter((r) => r !== id);
+  selectedReferenceIds.value = selectedReferenceIds.value.filter((r) => r !== id);
+  referencesDisplay.value = referencesDisplay.value.filter((r) => r.id !== id);
+}
+
+async function ensureAllReferencesLoaded(ids: number[]) {
+  if (!ids.length) return;
+
+  const knownIds = referenceStore.references.results.map((r) => r.id);
+  const missingIds = ids.filter((id) => !knownIds.includes(id));
+
+  if (missingIds.length > 0) {
+    try {
+      const fetchedRefs = await Promise.all(
+        missingIds.map((id) => referenceStore.getReferenceById(id))
+      );
+
+      fetchedRefs
+        .filter((r): r is Reference => !!r)
+        .forEach((r) => {
+          if (!referenceStore.references.results.find((existing) => existing.id === r.id)) {
+            referenceStore.references.results.push(r);
+          }
+        });
+      referencesDisplay.value = ids.map((id) => {
+        const refObj = referenceStore.references.results.find((r) => r.id === id);
+        return { id, label: refObj?.name ?? `Reference #${id}` };
+      });
+    } catch (error) {
+      console.error('[RecordingSessionTab] failed to fetch missing references', error);
+    }
+  }
+}
+
 /* Show a snackbar notification with the given message and color. */
 function showSnackbar(message: string, color: string) {
   snackbarMessage.value = message;
@@ -200,6 +284,7 @@ function resetForm() {
     },
     laboratory: null,
     is_multiple: false,
+    references: [],
   };
 
   // --- Reset UI mirrors ---
@@ -377,7 +462,7 @@ function updateInitialSnapshot(markInitialized = true) {
   }
 }
 
-function onSessionSelected(session: RecordingSession) {
+async function onSessionSelected(session: RecordingSession) {
   selectedSessionId.value = session.id;
   selectedSessionObject.value = session;
   selectedSessionName.value = session.name ?? '';
@@ -446,6 +531,16 @@ function onSessionSelected(session: RecordingSession) {
         label: `${softwareName}${versionName ? ' – ' + versionName : ''}`,
       };
     }) ?? [];
+
+  formData.value.references = session.references?.map((r) => r.id) ?? [];
+  referencesDisplay.value =
+    session.references?.map((r) => ({
+      id: r.id,
+      label: r.name || `Reference #${r.id}`,
+    })) ?? [];
+  selectedReferenceIds.value = formData.value.references;
+
+  await ensureAllReferencesLoaded(formData.value.references);
 
   updateInitialSnapshot();
 
@@ -558,7 +653,7 @@ watch(
 
 watch(
   () => recordingSessionStore.sessions,
-  (newSessions) => {
+  async (newSessions) => {
     if (!selectedSessionObject.value) return;
     const updated = newSessions.find((s) => s.id === selectedSessionObject.value!.id);
     if (!updated) return;
@@ -570,7 +665,7 @@ watch(
 
     if (!localDirty) {
       // safe: replace whole form
-      onSessionSelected(updated);
+      await onSessionSelected(updated);
     } else {
       // merge only safe fields to avoid clobbering unsaved edits
       formData.value.status = updated.status ?? formData.value.status;
@@ -598,9 +693,9 @@ function handleSessionSelection(newId: 'new' | 'select' | number) {
   } else if (newId === 'new') {
     resetForm();
   } else {
-    recordingSessionStore.getSessionById(Number(newId)).then((session) => {
+    recordingSessionStore.getSessionById(Number(newId)).then(async (session) => {
       if (session) {
-        onSessionSelected(session);
+        await onSessionSelected(session);
       }
     });
   }
@@ -948,6 +1043,49 @@ onMounted(async () => {
             </v-col>
           </v-row>
 
+          <!-- references -->
+          <v-card outlined class="pa-3 mb-5">
+            <v-card-subtitle class="mb-2">References</v-card-subtitle>
+
+            <div
+              class="chip-list d-flex flex-wrap align-center"
+              :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+            >
+              <!-- Affichage des références sélectionnées -->
+              <v-chip
+                v-for="ref in referencesDisplay"
+                :key="ref.id"
+                variant="outlined"
+                closable
+                @click:close="removeReference(ref.id)"
+                class="ma-1"
+              >
+                {{ ref.label }}
+              </v-chip>
+
+              <!-- Bouton Clear All -->
+              <v-chip
+                v-if="referencesDisplay.length > 0"
+                color="primary"
+                variant="outlined"
+                class="ma-1"
+                @click="clearAllReferences"
+              >
+                <v-icon start>mdi-close</v-icon> Clear All
+              </v-chip>
+
+              <!-- Bouton Select -->
+              <v-chip
+                color="primary"
+                variant="flat"
+                class="ma-1"
+                @click="openReferenceSelectionModal"
+              >
+                <v-icon start>mdi-plus</v-icon> Select
+              </v-chip>
+            </div>
+          </v-card>
+
           <!-- Context -->
           <v-card class="pa-4 mb-4" outlined>
             <v-card-title>Context</v-card-title>
@@ -1205,6 +1343,12 @@ onMounted(async () => {
                   </v-chip>
                 </div>
               </v-card>
+
+              <ReferenceSelectionModal
+                v-model="showReferenceSelectionModal"
+                :selectedReferences="selectedReferenceIds"
+                @update:selectedReferences="onUpdateSelectedReferences"
+              />
 
               <StudySelectionModal
                 v-model="showStudySelectionModal"

@@ -36,6 +36,7 @@ const filters = ref({
   animals_sex: null as string | null,
   animals_age: null as string | null,
   animals_housing: null as string | null,
+  context_number_of_animals: null as string | null,
   context_duration: null as string | null,
   context_cage: null as string | null,
   context_bedding: null as string | null,
@@ -45,8 +46,9 @@ const filters = ref({
 
 const options = {
   animals_sex: ['male(s)', 'female(s)', 'male(s) & female(s)'],
-  animals_age: ['pup', 'juvenile', 'adult'],
+  animals_age: ['pup', 'juvenile', 'adult', 'unspecified'],
   animals_housing: ['grouped', 'isolated', 'grouped & isolated'],
+  context_number_of_animals: ['1', '2', '3', '4', '>4'],
   context_duration: ['short term (<1h)', 'mid term (<1day)', 'long term (>=1day)'],
   context_cage: ['unfamiliar test cage', 'familiar test cage', 'home cage'],
   context_bedding: ['bedding', 'no bedding'],
@@ -62,6 +64,7 @@ const headers = [
   { title: 'Sex', key: 'animals_sex', sortable: false },
   { title: 'Age', key: 'animals_age', sortable: false },
   { title: 'Housing', key: 'animals_housing', sortable: false },
+  { title: 'Number of Animals', key: 'context_number_of_animals', sortable: false },
   { title: 'Duration', key: 'context_duration', sortable: false },
   { title: 'Cage', key: 'context_cage', sortable: false },
   { title: 'Bedding', key: 'context_bedding', sortable: false },
@@ -286,13 +289,8 @@ function close() {
                     }}
                   </v-icon>
 
-                  <!-- Name with tooltip -->
-                  <v-tooltip location="top">
-                    <template #activator="{ props: tooltipProps }">
-                      <span v-bind="tooltipProps">{{ item.name }}</span>
-                    </template>
-                    <span>{{ item.description || '—' }}</span>
-                  </v-tooltip>
+                  <!-- Name -->
+                  {{ item.name || '—' }}
                 </div>
               </td>
 
@@ -300,6 +298,7 @@ function close() {
               <td>{{ item.animals?.sex || '—' }}</td>
               <td>{{ item.animals?.age || '—' }}</td>
               <td>{{ item.animals?.housing || '—' }}</td>
+              <td>{{ item.context?.number_of_animals || '—' }}</td>
 
               <!-- Context -->
               <td>{{ item.context?.duration || '—' }}</td>
@@ -382,6 +381,21 @@ function close() {
               flat
               label="Housing"
               class="header-select-2"
+            />
+          </template>
+
+          <template #header.context_number_of_animals>
+            <v-select
+              v-model="filters.context_number_of_animals"
+              :items="['1', '2', '3', '4', '>4']"
+              dense
+              hide-details
+              outlined
+              clearable
+              density="compact"
+              flat
+              label="Number of Animals"
+              class="header-select-1"
             />
           </template>
 

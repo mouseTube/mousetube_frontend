@@ -34,6 +34,14 @@ export interface Laboratory {
   contact?: string | null;
 }
 
+export interface Reference {
+  id: number;
+  name: string;
+  description?: string | null;
+  doi?: string | null;
+  url?: string | null;
+}
+
 export interface RecordingSession {
   id: number;
   name: string;
@@ -63,7 +71,7 @@ export interface RecordingSession {
     | 'soundproof cage'
     | 'no specific sound isolation'
     | null;
-
+  references?: Reference[];
   created_by?: number | null;
   created_at?: string | null;
   modified_at?: string | null;
@@ -94,6 +102,7 @@ export interface RecordingSessionPayload {
     amplifiers?: number[];
     acquisition_software?: number[];
   };
+  references?: number[];
 }
 
 function toDjangoPayload(session: RecordingSessionPayload) {
@@ -124,6 +133,7 @@ function toDjangoPayload(session: RecordingSessionPayload) {
     context_temperature_value: context?.temperature?.value ?? null,
     context_temperature_unit: context?.temperature?.unit ?? null,
     context_brightness: context?.brightness ?? null,
+    references_ids: session.references,
   };
 
   // include protocol_id only when caller explicitly provided a protocol field
@@ -287,6 +297,7 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
           amplifiers: original.equipment_acquisition_hardware_amplifiers?.map((h) => h.id) ?? [],
           acquisition_software: original.equipment_acquisition_software?.map((s) => s.id) ?? [],
         },
+        references: original.references?.map((r) => r.id) ?? [],
       };
       return await this.createSession(payload);
     },

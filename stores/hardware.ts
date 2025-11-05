@@ -86,7 +86,14 @@ export const useHardwareStore = defineStore('hardware', {
       this.error = null;
       try {
         if (!this.api) this.initApi();
-        const res = await this.api!.post(`/hardware/`, data);
+
+        const { references, status, ...rest } = data;
+        const payload = {
+          ...rest,
+          references_ids: references ?? [],
+        };
+
+        const res = await this.api!.post(`/hardware/`, payload);
         this.hardwares.push(res.data);
         return res.data;
       } catch (err: any) {
@@ -99,7 +106,13 @@ export const useHardwareStore = defineStore('hardware', {
       this.error = null;
       try {
         if (!this.api) this.initApi();
-        const res = await this.api!.put(`/hardware/${id}/`, data);
+        const payload = {
+          ...data,
+          references_ids: data.references ?? [],
+        };
+        delete payload.references;
+        console.log('[HardwareStore] updateHardware payload=', payload);
+        const res = await this.api!.put(`/hardware/${id}/`, payload);
         const index = this.hardwares.findIndex((h) => h.id === id);
         if (index !== -1) this.hardwares[index] = res.data;
         return res.data;

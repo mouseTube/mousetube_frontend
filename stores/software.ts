@@ -10,6 +10,7 @@ export interface Software {
   made_by?: string;
   description?: string;
   technical_requirements?: string;
+  references?: number[];
   status: 'draft' | 'waiting validation' | 'validated' | '';
   created_at?: string;
   modified_at?: string;
@@ -105,7 +106,12 @@ export const useSoftwareStore = defineStore('software', {
       this.error = null;
       try {
         const apiBaseUrl = useApiBaseUrl();
-        const res: AxiosResponse<Software> = await axios.post(`${apiBaseUrl}/software/`, data, {
+        const payload = {
+          ...data,
+          references_ids: data.references ?? [],
+        };
+        delete payload.references;
+        const res: AxiosResponse<Software> = await axios.post(`${apiBaseUrl}/software/`, payload, {
           headers: this.getAuthHeaders(),
         });
         this.softwares.push(res.data);
@@ -120,9 +126,14 @@ export const useSoftwareStore = defineStore('software', {
       this.error = null;
       try {
         const apiBaseUrl = useApiBaseUrl();
+        const payload = {
+          ...data,
+          references_ids: data.references ?? [],
+        };
+        delete payload.references;
         const res: AxiosResponse<Software> = await axios.put(
           `${apiBaseUrl}/software/${id}/`,
-          data,
+          payload,
           {
             headers: this.getAuthHeaders(),
           }

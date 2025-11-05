@@ -41,10 +41,9 @@ const initialFormData = ref('');
 
 const formData = ref({
   name: '',
-  description: '',
   animals: { sex: '', age: '', housing: '' },
   context: {
-    number_of_animals: null as number | null,
+    number_of_animals: '',
     duration: '',
     cage: '',
     bedding: '',
@@ -122,10 +121,9 @@ function snapshotFormData(data: typeof formData.value) {
 function resetForm() {
   formData.value = {
     name: '',
-    description: '',
     animals: { sex: '', age: '', housing: '' },
     context: {
-      number_of_animals: null,
+      number_of_animals: '',
       duration: '',
       cage: '',
       bedding: '',
@@ -147,7 +145,6 @@ function resetForm() {
 function mapProtocolToFormData(protocol: Protocol) {
   return {
     name: protocol.name,
-    description: protocol.description ?? '',
     animals: {
       sex: (protocol as any).animals_sex ?? protocol.animals?.sex ?? '',
       age: (protocol as any).animals_age ?? protocol.animals?.age ?? '',
@@ -155,7 +152,7 @@ function mapProtocolToFormData(protocol: Protocol) {
     },
     context: {
       number_of_animals:
-        (protocol as any).context_number_of_animals ?? protocol.context?.number_of_animals ?? null,
+        (protocol as any).context_number_of_animals ?? protocol.context?.number_of_animals ?? '',
       duration: (protocol as any).context_duration ?? protocol.context?.duration ?? '',
       cage: (protocol as any).context_cage ?? protocol.context?.cage ?? '',
       bedding: (protocol as any).context_bedding ?? protocol.context?.bedding ?? '',
@@ -251,7 +248,6 @@ async function onSubmit() {
     const mapped = mapProtocolToFormData(resultProtocol);
     formData.value = {
       name: mapped.name ?? formData.value.name,
-      description: mapped.description ?? formData.value.description,
       animals: {
         sex: mapped.animals?.sex ?? formData.value.animals.sex,
         age: mapped.animals?.age ?? formData.value.animals.age,
@@ -353,14 +349,13 @@ function mapSessionProtocolToForm(protocolFromSession: any): Protocol {
   return {
     id: protocolFromSession.id,
     name: protocolFromSession.name ?? '',
-    description: protocolFromSession.description ?? '',
     animals: {
       sex: protocolFromSession.animals?.sex ?? '',
       age: protocolFromSession.animals?.age ?? '',
       housing: protocolFromSession.animals?.housing ?? '',
     },
     context: {
-      number_of_animals: protocolFromSession.context?.number_of_animals ?? null,
+      number_of_animals: protocolFromSession.context?.number_of_animals ?? '',
       duration: protocolFromSession.context?.duration ?? '',
       cage: protocolFromSession.context?.cage ?? '',
       bedding: protocolFromSession.context?.bedding ?? '',
@@ -386,7 +381,6 @@ function hasEmbeddedDetail(embedded: any) {
 function mergeMappedIntoForm(mapped: ReturnType<typeof mapProtocolToFormData>) {
   formData.value = {
     name: mapped.name ?? formData.value.name,
-    description: mapped.description ?? formData.value.description,
     animals: {
       sex: mapped.animals?.sex ?? formData.value.animals.sex,
       age: mapped.animals?.age ?? formData.value.animals.age,
@@ -528,8 +522,7 @@ watch(
     if (!animals.age) errors.push('Age is required');
     if (!animals.housing) errors.push('Housing is required');
     const ctx = formData.value.context || {};
-    if (ctx.number_of_animals === null || ctx.number_of_animals === undefined)
-      errors.push('Number of animals is required');
+    if (!ctx.number_of_animals) errors.push('Number of animals is required');
     if (!ctx.duration) errors.push('Duration is required');
     if (!ctx.cage) errors.push('Cage Type is required');
     if (!ctx.bedding) errors.push('Bedding is required');
@@ -692,23 +685,17 @@ onMounted(async () => {
           <v-card class="pa-4 mb-4" outlined>
             <v-card-title>Experimental Context</v-card-title>
             <v-card-text>
-              <v-text-field
+              <v-select
                 v-model="formData.context.number_of_animals"
+                :items="['1', '2', '3', '4', '>4']"
                 label="Number of Animals"
-                type="number"
                 outlined
                 class="mb-4"
-                @update:modelValue="
-                  (val: string) =>
-                    (formData.context.number_of_animals = val === '' ? null : Number(val))
-                "
-                :rules="[
-                  (v: number | null) => (v !== null && v > 0) || 'Must be a positive number',
-                ]"
+                :rules="[(v: string) => !!v || 'Number of animals is required']"
                 :disabled="isValidated"
               >
-                <template #label>Number of Animals <span style="color: red">*</span></template>
-              </v-text-field>
+                <template #label> Number of Animals <span style="color: red">*</span> </template>
+              </v-select>
               <v-select
                 v-model="formData.context.duration"
                 :items="['short term (<1h)', 'mid term (<1day)', 'long term (>=1day)']"
@@ -755,15 +742,6 @@ onMounted(async () => {
               </v-select>
             </v-card-text>
           </v-card>
-          <v-textarea
-            v-model="formData.description"
-            label="Note"
-            outlined
-            required
-            class="mb-4"
-            :disabled="isValidated"
-            auto-grow
-          />
         </v-form>
       </v-card-text>
       <v-card-actions class="d-flex justify-end mt-4">
