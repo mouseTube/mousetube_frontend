@@ -20,10 +20,10 @@ const localDialog = computed({
   set: (val: boolean) => emit('update:modelValue', val),
 });
 
-// Internal selected references — tjs number[]
+// Internal selected references — number[]
 const internalSelectedReferences = ref<number[]>([]);
 
-// 🔒 Garde-fou : convertit toute entrée en liste d’IDs
+// 🔒 convert objects to ids list
 function normalizeToIds(val: any): number[] {
   if (!val) return [];
   if (!Array.isArray(val)) return [];

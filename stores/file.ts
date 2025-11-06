@@ -299,9 +299,9 @@ export const useFileStore = defineStore('file', {
           },
         });
 
-        return res.data.temp_path; // ex: "/media/temp/myfile.wav"
+        return res.data.temp_path;
       } catch (err: any) {
-        this.error = err.message || 'Upload vers temp échoué';
+        this.error = err.message || 'Upload to temp failed';
         throw err;
       } finally {
         this.loading = false;
@@ -325,7 +325,7 @@ export const useFileStore = defineStore('file', {
         this.files.unshift(file);
         return file;
       } catch (err: any) {
-        this.error = err.message || 'Erreur création du File';
+        this.error = err.message || 'File creation failed';
         throw err;
       } finally {
         this.loading = false;

@@ -636,22 +636,15 @@ const formInitialized = ref(false);
 watch(
   formData,
   (newVal) => {
-    // --- DÉTECTION DE CHANGEMENTS ---
-    // active dès qu'on tape, mais ignore seulement le snapshot initial
     const dirty = JSON.stringify(newVal) !== initialFormData.value;
     isSaveEnabled.value = dirty;
-
-    // --- NOTIFICATION DE DIRTINESS ---
     emit('session-dirty', { dirty });
-
-    // --- VALIDATION LOGIC ---
     const errors: string[] = [];
 
     if (!newVal.name || !newVal.name.trim()) {
       errors.push('Name is required');
     }
 
-    // Date obligatoire uniquement si session non multiple
     if (!newVal.is_multiple && !newVal.date) {
       errors.push('Date is required for single sessions');
     }
@@ -659,7 +652,6 @@ watch(
     const hasErrors = errors.length > 0;
     emit('validate', { hasErrors, message: hasErrors ? errors[0] : '' });
 
-    // On considère que le formulaire a été initialisé après le premier changement utilisateur
     if (!formInitialized.value) {
       formInitialized.value = true;
     }
@@ -1067,7 +1059,6 @@ onMounted(async () => {
               class="chip-list d-flex flex-wrap align-center"
               :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
             >
-              <!-- Affichage des références sélectionnées -->
               <v-chip
                 v-for="ref in referencesDisplay"
                 :key="ref.id"
@@ -1078,8 +1069,6 @@ onMounted(async () => {
               >
                 {{ ref.label }}
               </v-chip>
-
-              <!-- Bouton Clear All -->
               <v-chip
                 v-if="referencesDisplay.length > 0"
                 color="primary"

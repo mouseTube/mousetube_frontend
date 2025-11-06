@@ -39,7 +39,7 @@ export const useRepositoryStore = defineStore('repository', {
           url_api: r.url_api,
         }));
 
-        // ✅ Pré-sélection automatique du repository id=1
+        // ✅ Pre-select default repository (id=1) if none selected
         if (!this.selectedRepository && this.repositories.length > 0) {
           const defaultRepo = this.repositories.find((r) => r.id === 1) || this.repositories[0];
           this.selectedRepository = defaultRepo;

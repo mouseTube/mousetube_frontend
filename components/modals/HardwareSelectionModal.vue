@@ -318,7 +318,6 @@ onMounted(async () => {
       </v-card-actions>
     </v-card>
 
-    <!-- Création -->
     <HardwareModal
       v-model="showCreateModal"
       :hardware-id="null"
@@ -326,7 +325,6 @@ onMounted(async () => {
       @saved="onHardwareCreated"
     />
 
-    <!-- Édition -->
     <HardwareModal
       v-model="showEditModal"
       :hardware-id="editingHardwareId"

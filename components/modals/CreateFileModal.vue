@@ -52,13 +52,10 @@ const isDoiOnly = computed(
 
 const canSave = computed(() => {
   if (isEditMode.value) {
-    // Edition → name obligatoire
     return !!formData.value.name;
   } else if (isDoiOnly.value) {
-    // Cas DOI/link → name, doi et link obligatoires
     return !!formData.value.name && !!formData.value.doi && !!formData.value.link;
   } else {
-    // Création avec upload → fichier et name
     return !!formData.value.file && !!formData.value.name;
   }
 });
@@ -155,7 +152,7 @@ async function uploadFileAndCreate() {
     emit('update:modelValue', null);
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error('Erreur upload ou création du fichier:', err);
+    console.error('Erreur upload ou file creation:', err);
   } finally {
     uploading.value = false;
   }
