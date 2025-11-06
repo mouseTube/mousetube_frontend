@@ -10,7 +10,6 @@ export interface Laboratory {
   unit?: string | null;
   address?: string | null;
   country?: string | null;
-  contact?: string | null;
   created_at?: string | null;
   modified_at?: string | null;
   created_by?: number | null;
@@ -22,7 +21,6 @@ export interface LaboratoryPayload {
   unit?: string | null;
   address?: string | null;
   country?: string | null;
-  contact?: string | null;
 }
 
 export const useLaboratoryStore = defineStore('laboratory', {

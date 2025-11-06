@@ -36,6 +36,8 @@ const formData = ref({
 
 const selectedReferenceIds = ref<number[]>([]);
 
+const fetchingIds = new Set<number>();
+
 // ✅ Display references
 const selectedReferences = computed(
   () =>
@@ -51,32 +53,30 @@ watch(selectedReferenceIds, (ids) => {
 
 // ✅ Load references
 async function fetchMissingReferences(ids: number[]) {
-  const missing = ids.filter((id) => !referenceStore.references.results.find((r) => r.id === id));
-  if (!missing.length) return;
-  await Promise.all(
-    missing.map((id) =>
-      referenceStore.getReferenceById(id).catch((err) => {
-        return null;
-      })
-    )
+  const missing = ids.filter(
+    (id) => !referenceStore.references.results.find((r) => r.id === id) && !fetchingIds.has(id)
   );
+  if (!missing.length) return;
+
+  missing.forEach((id) => fetchingIds.add(id));
+
+  try {
+    await Promise.all(missing.map((id) => referenceStore.getReferenceById(id).catch(() => null)));
+  } finally {
+    missing.forEach((id) => fetchingIds.delete(id));
+  }
 }
 
-watch(
-  () => formData.value.references,
-  (ids) => {
-    const list = ids ? [...ids] : [];
-    if (list.length) fetchMissingReferences(list).catch(() => {});
-  },
-  { immediate: true }
-);
+// watch(
+//   () => formData.value.references,
+//   (ids) => {
+//     const list = ids ? [...ids] : [];
+//     if (list.length) fetchMissingReferences(list).catch(() => {});
+//   }
+// );
 
 function onReferencesUpdated(ids: number[]) {
   selectedReferenceIds.value = [...ids];
-  fetchMissingReferences(ids).catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error('[SoftwareModal] fetchMissingReferences failed', e);
-  });
 }
 
 const loading = ref(false);
@@ -251,7 +251,7 @@ onMounted(async () => {
         <v-form ref="formRef" lazy-validation>
           <v-text-field
             v-model="formData.name"
-            label="Name"
+            label="Name *"
             outlined
             required
             :rules="[nameRule]"
@@ -262,7 +262,7 @@ onMounted(async () => {
           <v-select
             v-model="formData.type"
             :items="['acquisition', 'analysis', 'acquisition and analysis']"
-            label="Type"
+            label="Type *"
             outlined
             required
             :rules="[typeRule]"

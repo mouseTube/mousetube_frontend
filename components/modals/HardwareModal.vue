@@ -16,7 +16,9 @@ const emit = defineEmits<{
 }>();
 
 const hardwareStore = useHardwareStore();
+const referenceStore = useReferenceStore();
 
+// --- Form data ---
 const formData = ref<Hardware>({
   id: undefined,
   name: '',
@@ -30,12 +32,28 @@ const formData = ref<Hardware>({
   status: '',
 });
 
+// --- Form & validation ---
+const formRef = ref();
+const nameRule = (v: string) => !!v || 'Name is required';
+const typeRule = (v: string | null) =>
+  ['soundcard', 'microphone', 'speaker', 'amplifier'].includes(v || '') || 'Type is required';
+
+// --- Snackbar ---
+const snackbar = ref({
+  show: false,
+  text: '',
+  color: 'success' as 'success' | 'error',
+});
+function showSnackbar(text: string, color: 'success' | 'error' = 'success') {
+  snackbar.value.text = text;
+  snackbar.value.color = color;
+  snackbar.value.show = true;
+}
+
 const isEdit = computed(() => !!props.hardwareId);
-
 const showReferenceModal = ref(false);
-const referenceStore = useReferenceStore();
 
-// single source-of-truth: formData.value.references
+// --- References management ---
 function arraysEqual(a?: number[] | null, b?: number[] | null) {
   if (!a && !b) return true;
   if (!a || !b) return false;
@@ -62,15 +80,10 @@ const selectedReferences = computed(
       .filter(Boolean) as Reference[]
 );
 
-// --- CHANGED: use function to remove instead of inline assignment in template ---
 function removeReference(id: number) {
   selectedReferenceIds.value = selectedReferenceIds.value.filter((x) => x !== id);
 }
 
-// formData -> computed setter already reflects into selectedReferenceIds,
-// keep nothing extra here (existing watcher in props.hardwareId handles initial load)
-
-// helper to open modal and ensure references are loaded
 async function openReferenceSelection() {
   if (!referenceStore.references || referenceStore.references.results.length === 0) {
     await referenceStore.fetchAllReferences();
@@ -80,22 +93,17 @@ async function openReferenceSelection() {
 
 function onReferencesUpdated(ids: number[]) {
   selectedReferenceIds.value = [...ids];
-  // attempt to ensure reference objects exist in the store so selectedReferences computed resolves
   fetchMissingReferences(ids).catch((e) => {
-    // eslint-disable-next-line no-console
     console.warn('[HardwareModal] fetchMissingReferences failed', e);
   });
 }
 
-// fetch any references that are missing from referenceStore so selectedReferences can resolve labels
 async function fetchMissingReferences(ids: number[]) {
   const missing = ids.filter((id) => !referenceStore.references.results.find((r) => r.id === id));
   if (missing.length === 0) return;
-  // sequential or parallel fetch of missing references
   await Promise.all(
     missing.map((id) =>
       referenceStore.getReferenceById(id).catch((err) => {
-        // eslint-disable-next-line no-console
         console.warn('[HardwareModal] failed to fetch reference', id, err);
         return null;
       })
@@ -103,7 +111,6 @@ async function fetchMissingReferences(ids: number[]) {
   );
 }
 
-// ensure when formData is loaded (edit mode) we fetch any missing refs
 watch(
   () => formData.value.references,
   (ids) => {
@@ -124,7 +131,6 @@ watch(
         existing = await hardwareStore.fetchHardwareById(newId);
       }
       if (existing) {
-        // 🔧 explicit conversion: objects → IDs
         const refIds = Array.isArray(existing.references)
           ? existing.references.map((r: any) => (typeof r === 'number' ? r : r.id))
           : [];
@@ -159,6 +165,12 @@ function resetForm() {
 }
 
 async function saveHardware() {
+  const { valid } = await formRef.value?.validate();
+  if (!valid) {
+    showSnackbar('Please fill all required fields.', 'error');
+    return;
+  }
+
   try {
     let createdHardware: Hardware | undefined;
     if (isEdit.value && props.hardwareId !== null && props.hardwareId !== undefined) {
@@ -169,15 +181,18 @@ async function saveHardware() {
 
     if (createdHardware?.id) {
       emit('saved', createdHardware.id);
+      showSnackbar(
+        isEdit.value ? 'Hardware updated successfully!' : 'Hardware created successfully!'
+      );
     } else {
       emit('saved');
+      showSnackbar('Hardware saved.', 'success');
     }
 
     emit('update:modelValue', false);
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error(err);
-    alert('Error saving hardware.');
+    showSnackbar('Error saving hardware.', 'error');
   }
 }
 </script>
@@ -194,43 +209,46 @@ async function saveHardware() {
       </v-card-title>
 
       <v-card-text>
-        <!-- Nom, type, made_by, description existants -->
-        <v-text-field
-          v-model="formData.name"
-          label="Hardware Name"
-          outlined
-          required
-          class="mb-4"
-        />
-        <v-select
-          v-model="formData.type"
-          :items="['soundcard', 'microphone', 'speaker', 'amplifier']"
-          label="Hardware Type"
-          outlined
-          required
-          class="mb-4"
-        />
-        <v-text-field v-model="formData.made_by" label="Made By" outlined class="mb-4" />
-        <v-textarea v-model="formData.description" label="Description" outlined class="mb-4" />
+        <!-- ✅ form encapsulation -->
+        <v-form ref="formRef">
+          <v-text-field
+            v-model="formData.name"
+            label="Name *"
+            outlined
+            required
+            :rules="[nameRule]"
+            class="mb-4"
+          />
+          <v-select
+            v-model="formData.type"
+            :items="['soundcard', 'microphone', 'speaker', 'amplifier']"
+            label="Type *"
+            outlined
+            required
+            :rules="[typeRule]"
+            class="mb-4"
+          />
+          <v-text-field v-model="formData.made_by" label="Made By" outlined class="mb-4" />
+          <v-textarea v-model="formData.description" label="Description" outlined class="mb-4" />
 
-        <!-- === SECTION REFERENCES === -->
-        <v-card-subtitle class="mb-2">References</v-card-subtitle>
-        <div class="chip-list d-flex flex-wrap align-center mb-4">
-          <v-chip
-            v-for="selectedRef in selectedReferences"
-            :key="selectedRef.id"
-            variant="outlined"
-            closable
-            class="ma-1"
-            @click:close="removeReference(selectedRef.id)"
-          >
-            {{ selectedRef.name }}
-          </v-chip>
+          <v-card-subtitle class="mb-2">References</v-card-subtitle>
+          <div class="chip-list d-flex flex-wrap align-center mb-4">
+            <v-chip
+              v-for="selectedRef in selectedReferences"
+              :key="selectedRef.id"
+              variant="outlined"
+              closable
+              class="ma-1"
+              @click:close="removeReference(selectedRef.id)"
+            >
+              {{ selectedRef.name }}
+            </v-chip>
 
-          <v-chip color="primary" variant="flat" class="ma-1" @click="openReferenceSelection">
-            <v-icon start>mdi-plus</v-icon> Select
-          </v-chip>
-        </div>
+            <v-chip color="primary" variant="flat" class="ma-1" @click="openReferenceSelection">
+              <v-icon start>mdi-plus</v-icon> Select
+            </v-chip>
+          </div>
+        </v-form>
       </v-card-text>
 
       <v-card-actions>
@@ -241,17 +259,15 @@ async function saveHardware() {
       </v-card-actions>
     </v-card>
 
-    <!-- Add the ReferenceSelectionModal instance -->
     <ReferenceSelectionModal
       v-model="showReferenceModal"
       :selectedReferences="selectedReferenceIds"
       @update:selectedReferences="onReferencesUpdated"
-      @saved="
-        (ref) => {
-          /* optional */
-        }
-      "
     />
+
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000" location="bottom">
+      {{ snackbar.text }}
+    </v-snackbar>
   </v-dialog>
 </template>
 

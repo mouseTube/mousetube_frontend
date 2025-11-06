@@ -104,9 +104,13 @@ const canEditSelectedLab = computed(() => {
   return lab && lab.created_by === id_user.value;
 });
 
-async function onLabSaved() {
+async function onLabSaved(newLab) {
   showLabModal.value = false;
   await fetchLaboratories();
+  if (newLab?.id) {
+    selectedLabId.value = newLab.id;
+    await saveLaboratory();
+  }
   await fetchUserProfile();
 }
 

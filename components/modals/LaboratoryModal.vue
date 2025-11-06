@@ -2,7 +2,7 @@
 import { ref, onMounted, watch } from 'vue';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 import { useAuth } from '@/composables/useAuth';
-import { useLaboratoryStore } from '@/stores/laboratory';
+import { useLaboratoryStore, type Laboratory } from '@/stores/laboratory';
 
 import countriesList from '@/data/countries';
 
@@ -15,7 +15,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
-  (e: 'saved'): void;
+  (e: 'saved', lab?: Laboratory): void;
 }>();
 
 const labStore = useLaboratoryStore();
@@ -27,7 +27,6 @@ const form = ref({
   unit: '',
   address: '',
   country: '', // ISO code
-  contact: '',
 });
 
 const snackbar = ref(false);
@@ -52,7 +51,6 @@ async function loadLaboratory() {
         unit: lab.unit || '',
         address: lab.address || '',
         country: lab.country || '',
-        contact: lab.contact || '',
       };
     }
   } catch (e) {
@@ -76,14 +74,15 @@ async function save() {
   }
   loading.value = true;
   try {
+    let lab;
     if (props.editId) {
-      await labStore.updateLaboratory(props.editId, form.value);
+      lab = await labStore.updateLaboratory(props.editId, form.value);
       showSnackbar('Laboratory updated successfully.');
     } else {
-      await labStore.createLaboratory(form.value);
+      lab = await labStore.createLaboratory(form.value);
       showSnackbar('Laboratory created successfully.');
     }
-    emit('saved');
+    emit('saved', lab);
     emit('update:modelValue', false);
   } catch (e) {
     showSnackbar('Error saving laboratory.', 'error');
@@ -104,7 +103,6 @@ watch(
         unit: '',
         address: '',
         country: '',
-        contact: '',
       };
     }
   },
@@ -152,8 +150,6 @@ watch(
             required
             :rules="[(v) => !!v || 'Country is required']"
           />
-
-          <v-text-field v-model="form.contact" label="Contact" />
         </v-form>
       </v-card-text>
       <v-card-actions>
