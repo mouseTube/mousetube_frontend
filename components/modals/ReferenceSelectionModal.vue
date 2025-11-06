@@ -6,7 +6,7 @@ import { useFavoriteStore } from '~/stores/favorite';
 
 const props = defineProps<{
   modelValue: boolean;
-  selectedReferences?: (number | { id: number })[]; // 🔧 tolère objets
+  selectedReferences?: (number | { id: number })[];
 }>();
 
 const emit = defineEmits<{
@@ -15,7 +15,6 @@ const emit = defineEmits<{
   (e: 'saved', ref: Reference): void;
 }>();
 
-// v-model du modal
 const localDialog = computed({
   get: () => props.modelValue,
   set: (val: boolean) => emit('update:modelValue', val),
@@ -33,15 +32,14 @@ function normalizeToIds(val: any): number[] {
     .filter((v) => typeof v === 'number' && !isNaN(v));
 }
 
-// ⚡ Initialise proprement internalSelectedReferences
+// ⚡ Initialise internalSelectedReferences
 internalSelectedReferences.value = normalizeToIds(props.selectedReferences);
 
-// 🔄 Quand internal change → envoie au parent (évite doubles émissions)
+// 🔄 When internal change → send to parent
 watch(
   internalSelectedReferences,
   (val, oldVal) => {
     const normalized = normalizeToIds(val);
-    // évite boucle infinie si même contenu
     if (JSON.stringify(normalized) !== JSON.stringify(normalizeToIds(props.selectedReferences))) {
       emit('update:selectedReferences', [...normalized]);
     }
@@ -49,7 +47,7 @@ watch(
   { deep: true }
 );
 
-// 🔄 Quand props changent → maj internal proprement
+// 🔄 When props change → update internal
 watch(
   () => props.selectedReferences,
   (val) => {
@@ -68,11 +66,11 @@ const favoriteStore = useFavoriteStore();
 // Recherche
 const searchQuery = ref('');
 
-// Modal création/édition
+// Modal create edit
 const showCreateReferenceModal = ref(false);
 const editReference: Ref<Reference | undefined> = ref(undefined);
 
-// Fetch references au montage
+// Fetch references on mount
 onMounted(async () => {
   if (referenceStore.references.results.length === 0) {
     await referenceStore.fetchAllReferences();
@@ -92,7 +90,7 @@ const filteredReferences = computed(() => {
     });
 });
 
-// Méthodes
+// functions
 function toggleSelection(id: number) {
   const index = internalSelectedReferences.value.indexOf(id);
   if (index === -1) internalSelectedReferences.value.push(id);
@@ -115,6 +113,7 @@ async function onDeleteReference(ref: Reference) {
     await referenceStore.deleteReference(ref.id);
     internalSelectedReferences.value = internalSelectedReferences.value.filter((i) => i !== ref.id);
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error(err);
     alert('Failed to delete reference');
   }
@@ -138,6 +137,7 @@ async function toggleFavorite(refId: number) {
   try {
     await favoriteStore.toggleFavorite('reference', refId);
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error('Failed to toggle favorite:', err);
   }
 }

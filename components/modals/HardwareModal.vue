@@ -79,7 +79,6 @@ async function openReferenceSelection() {
 }
 
 function onReferencesUpdated(ids: number[]) {
-  console.log('[HardwareModal] onReferencesUpdated ids=', ids);
   selectedReferenceIds.value = [...ids];
   // attempt to ensure reference objects exist in the store so selectedReferences computed resolves
   fetchMissingReferences(ids).catch((e) => {
@@ -162,7 +161,6 @@ function resetForm() {
 async function saveHardware() {
   try {
     let createdHardware: Hardware | undefined;
-    console.log('[HardwareModal] saveHardware, isEdit=', isEdit.value, 'formData=', formData.value);
     if (isEdit.value && props.hardwareId !== null && props.hardwareId !== undefined) {
       createdHardware = await hardwareStore.updateHardware(props.hardwareId, { ...formData.value });
     } else {

@@ -205,6 +205,7 @@ async function onUpdateSelectedReferences(ids: number[], labels?: string[]) {
       return { id, label: refObj?.name ?? `Reference #${id}` };
     });
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error('[RecordingSessionTab] failed to resolve reference labels', err);
     // fallback simple labels
     referencesDisplay.value = ids.map((id) => ({ id, label: `Reference #${id}` }));
@@ -247,6 +248,7 @@ async function ensureAllReferencesLoaded(ids: number[]) {
         return { id, label: refObj?.name ?? `Reference #${id}` };
       });
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('[RecordingSessionTab] failed to fetch missing references', error);
     }
   }
@@ -297,6 +299,9 @@ function resetForm() {
   amplifiersDisplay.value = [];
   speakersDisplay.value = [];
   acquisitionSoftwareDisplay.value = [];
+
+  referencesDisplay.value = [];
+  selectedReferenceIds.value = [];
 
   // --- Reset session selection ---
   selectedSessionObject.value = null;
@@ -463,12 +468,8 @@ function updateInitialSnapshot(markInitialized = true) {
 }
 
 async function onSessionSelected(session: RecordingSession) {
-  selectedSessionId.value = session.id;
-  selectedSessionObject.value = session;
-  selectedSessionName.value = session.name ?? '';
-  isExistingSession.value = true;
-
-  formData.value = {
+  // prepare new form object first
+  const newForm = {
     ...formData.value,
     name: session.name ?? '',
     description: session.description ?? '',
@@ -497,8 +498,24 @@ async function onSessionSelected(session: RecordingSession) {
     },
     laboratory: session.laboratory?.id ?? null,
     is_multiple: session.is_multiple ?? false,
+    references: session.references?.map((r) => r.id) ?? [],
   };
 
+  // set session meta
+  selectedSessionId.value = session.id;
+  selectedSessionObject.value = session;
+  selectedSessionName.value = session.name ?? '';
+  isExistingSession.value = true;
+
+  // snapshot BEFORE assigning to formData so watcher sees identical initial state
+  initialFormData.value = JSON.stringify(newForm);
+  formInitialized.value = true;
+  isSaveEnabled.value = false;
+
+  // now assign the form
+  formData.value = { ...newForm };
+
+  // set date/time UI
   if (session.date) {
     const d = new Date(session.date);
     if (!isNaN(d.getTime())) {
@@ -516,6 +533,7 @@ async function onSessionSelected(session: RecordingSession) {
     formattedDate.value = '';
   }
 
+  // update hardware displays
   (['soundcards', 'microphones', 'amplifiers', 'speakers'] as HardwareArrayKeys[]).forEach(
     (key) => {
       updateSelectedHardwareIds(key, formData.value.equipment[key]);
@@ -532,7 +550,7 @@ async function onSessionSelected(session: RecordingSession) {
       };
     }) ?? [];
 
-  formData.value.references = session.references?.map((r) => r.id) ?? [];
+  // references display + selected ids
   referencesDisplay.value =
     session.references?.map((r) => ({
       id: r.id,
@@ -540,18 +558,16 @@ async function onSessionSelected(session: RecordingSession) {
     })) ?? [];
   selectedReferenceIds.value = formData.value.references;
 
+  // try to ensure any missing refs are loaded (won't affect formData)
   await ensureAllReferencesLoaded(formData.value.references);
 
-  updateInitialSnapshot();
-
-  const firstAnimalProfileId = session.animal_profiles?.[0]?.id ?? null;
-  // const animalProfiles = session.animal_profiles;
-
+  // ensure parent knows this selection (and that form is not dirty)
   emit('session-selected', {
     sessionId: session.id,
     protocolId: session.protocol?.id ?? null,
-    animalProfileId: firstAnimalProfileId,
+    animalProfileId: session.animal_profiles?.[0]?.id ?? null,
   });
+  emit('session-dirty', { dirty: false });
 }
 
 function removeSoftware(softwareId: number) {

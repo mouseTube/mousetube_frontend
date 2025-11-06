@@ -36,7 +36,7 @@ const formData = ref({
 
 const selectedReferenceIds = ref<number[]>([]);
 
-// ✅ On affiche toujours les vraies références via leur ID
+// ✅ Display references
 const selectedReferences = computed(
   () =>
     selectedReferenceIds.value
@@ -44,19 +44,18 @@ const selectedReferences = computed(
       .filter(Boolean) as Reference[]
 );
 
-// ✅ Synchronisation des IDs entre le formulaire et la liste
+// ✅ Synchronise ID and list
 watch(selectedReferenceIds, (ids) => {
   formData.value.references = [...ids];
 });
 
-// ✅ Charge les références manquantes pour éviter les [object Object]
+// ✅ Load references
 async function fetchMissingReferences(ids: number[]) {
   const missing = ids.filter((id) => !referenceStore.references.results.find((r) => r.id === id));
   if (!missing.length) return;
   await Promise.all(
     missing.map((id) =>
       referenceStore.getReferenceById(id).catch((err) => {
-        console.warn('[SoftwareModal] failed to fetch reference', id, err);
         return null;
       })
     )
@@ -75,7 +74,8 @@ watch(
 function onReferencesUpdated(ids: number[]) {
   selectedReferenceIds.value = [...ids];
   fetchMissingReferences(ids).catch((e) => {
-    console.warn('[SoftwareModal] fetchMissingReferences failed', e);
+    // eslint-disable-next-line no-console
+    console.error('[SoftwareModal] fetchMissingReferences failed', e);
   });
 }
 
@@ -97,7 +97,7 @@ const isReadOnly = computed(
 
 const showReferenceModal = ref(false);
 
-// ✅ Chargement complet des données (édition ou création)
+// ✅ Load all data
 async function loadSoftwareData() {
   if (props.softwareId) {
     loading.value = true;

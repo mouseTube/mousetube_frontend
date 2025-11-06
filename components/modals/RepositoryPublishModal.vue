@@ -79,6 +79,7 @@ async function fetchSchemaAndPayload() {
       else payload[key] = '';
     });
   } catch (err: any) {
+    // eslint-disable-next-line no-console
     console.error('Error fetching schema or payload:', err);
     error.value = err.response?.data?.detail || 'Error loading schema/payload.';
   } finally {

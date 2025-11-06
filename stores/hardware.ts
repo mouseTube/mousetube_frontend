@@ -111,7 +111,6 @@ export const useHardwareStore = defineStore('hardware', {
           references_ids: data.references ?? [],
         };
         delete payload.references;
-        console.log('[HardwareStore] updateHardware payload=', payload);
         const res = await this.api!.put(`/hardware/${id}/`, payload);
         const index = this.hardwares.findIndex((h) => h.id === id);
         if (index !== -1) this.hardwares[index] = res.data;

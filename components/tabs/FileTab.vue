@@ -75,6 +75,7 @@ async function publishSession(payload: any = null) {
     publishTaskId.value = res.data.task_id;
     pollPublishTask();
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error(err);
     publishError.value = 'Failed to start sharing.';
     isPublishing.value = false;
