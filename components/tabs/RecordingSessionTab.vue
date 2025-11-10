@@ -450,10 +450,23 @@ async function saveSession() {
     updateInitialSnapshot();
     isSaveEnabled.value = false;
     emit('session-saved', { saved: true });
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('Error saving session', e);
-    showSnackbar('Error saving session.', 'error');
+  } catch (e: any) {
+    let errorMsg = 'Error saving session.';
+
+    if (e?.response?.data) {
+      const data = e.response.data;
+      if (data.name?.[0]) {
+        errorMsg = data.name[0];
+      } else if (data.date?.[0]) {
+        errorMsg = data.date[0];
+      } else if (data.non_field_errors?.[0]) {
+        errorMsg = data.non_field_errors[0];
+      } else if (typeof data === 'string') {
+        errorMsg = data;
+      }
+    }
+
+    showSnackbar(errorMsg, 'error');
   }
 }
 

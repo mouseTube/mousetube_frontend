@@ -226,7 +226,7 @@ function onHardwareSaved(hardwareId) {
             class="nuxt-link nav-item px-2"
             @click="
               drawer = false;
-              router.push('/files/create');
+              router.push('/vocalization/create');
             "
           >
             <template #prepend>

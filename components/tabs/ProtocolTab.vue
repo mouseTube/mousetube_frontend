@@ -278,13 +278,11 @@ async function onSubmit() {
     await nextTick();
 
     if (props.selectedRecordingSessionId !== null) {
-      // <-- ADDED: skip the session-store watcher once to avoid immediate overwrite
       skipNextSessionStoreWatch.value = true;
       await recordingSessionStore.updateSessionProtocol(
         props.selectedRecordingSessionId,
         protocolId
       );
-      // ensure local session reflects the link so isSaveEnabled flips to false immediately
       if (session.value) {
         session.value = { ...session.value, protocol: selectedProtocolObject.value as any };
       }
@@ -323,10 +321,8 @@ async function linkValidatedProtocol() {
       session.value.protocol = selectedProtocolObject.value;
     }
 
-    // Mise à jour du snapshot pour que le formulaire ne soit plus dirty
     initialFormData.value = snapshotFormData(formData.value);
 
-    // Force le dirty à false
     emit('protocol-dirty', { dirty: false });
 
     emit('update:selectedProtocolId', protocolId);
@@ -414,7 +410,7 @@ async function resolveProtocolEmbedded(
   return mapSessionProtocolToForm(embedded);
 }
 
-// --- REPLACED WATCHERS: single selectedRecordingSessionId watcher + sessions watcher ---
+// --- single selectedRecordingSessionId watcher + sessions watcher ---
 watch(
   () => props.selectedRecordingSessionId,
   async (newId) => {
@@ -429,7 +425,6 @@ watch(
       resetForm();
       return;
     }
-    // try to produce a form-safe protocol (prefer full)
     const protocolForForm = await resolveProtocolEmbedded(s.protocol);
     if (!protocolForForm) {
       resetForm();
