@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { debounce } from 'lodash';
+import debounce from 'lodash-es/debounce';
 import { type AnimalProfile, useAnimalProfileStore } from '@/stores/animalProfile';
 import { useFavoriteStore } from '@/stores/favorite';
 import { useSpeciesStore } from '@/stores/species';
@@ -38,6 +38,7 @@ const searchQuery = ref('');
 const selectedSpecies = ref<number | null>(null);
 const selectedStrain = ref<number | null>(null);
 const selectedSex = ref<string | null>(null);
+const selectedAge = ref<string | null>(null);
 const selectedStatus = ref<string | null>(null);
 
 const debouncedSearchQuery = ref(searchQuery.value);
@@ -65,6 +66,7 @@ async function loadProfiles() {
     if (selectedStrain.value) filters.strain = selectedStrain.value;
     if (selectedSex.value) filters.sex = selectedSex.value;
     if (selectedStatus.value) filters.status = selectedStatus.value;
+    if (selectedAge.value) filters.age = selectedAge.value;
 
     const data = await animalProfileStore.fetchAnimalProfilesPage(currentPage.value, filters);
     paginatedProfiles.value = data.results;
@@ -76,10 +78,13 @@ async function loadProfiles() {
 
 const totalPages = computed(() => Math.ceil(totalCount.value / itemsPerPage));
 
-watch([debouncedSearchQuery, selectedSpecies, selectedStrain, selectedSex, selectedStatus], () => {
-  currentPage.value = 1;
-  loadProfiles();
-});
+watch(
+  [debouncedSearchQuery, selectedSpecies, selectedStrain, selectedSex, selectedAge, selectedStatus],
+  () => {
+    currentPage.value = 1;
+    loadProfiles();
+  }
+);
 
 watch(currentPage, () => {
   loadProfiles();
@@ -128,20 +133,37 @@ function toggleFavorite(id: number) {
 
 // ----------------------------
 // CRUD
-function handleCreatedOrUpdated(profile: any) {
-  const index = paginatedProfiles.value.findIndex((p) => p.id === profile.id);
-
-  if (index !== -1) {
-    paginatedProfiles.value[index] = profile;
-    showSnackbar('Profile updated successfully!', 'success');
-  } else {
-    paginatedProfiles.value.unshift(profile);
-    if (!props.selectedAnimalProfiles.some((p) => p.id === profile.id)) {
-      emit('update:selectedAnimalProfiles', [...props.selectedAnimalProfiles, profile]);
-    }
-    showSnackbar('Profile created successfully!', 'success');
-  }
+async function handleCreatedOrUpdated(profile: AnimalProfile) {
   profileToEdit.value = null;
+  showCreateModal.value = false;
+
+  try {
+    const isNew = !props.selectedAnimalProfiles.some((p) => p.id === profile.id);
+
+    if (isNew) {
+      const newSelection = [...props.selectedAnimalProfiles, profile];
+      emit('update:selectedAnimalProfiles', newSelection);
+
+      if (!paginatedProfiles.value.some((p) => p.id === profile.id)) {
+        paginatedProfiles.value = [profile, ...paginatedProfiles.value];
+        totalCount.value += 1;
+      }
+    } else {
+      const index = paginatedProfiles.value.findIndex((p) => p.id === profile.id);
+      if (index !== -1) paginatedProfiles.value[index] = profile;
+    }
+
+    showSnackbar(
+      isNew ? 'Profile created successfully!' : 'Profile updated successfully!',
+      'success'
+    );
+
+    // await loadProfiles();
+  } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to refresh profiles after creation/update:', err);
+    showSnackbar(err.message || 'Failed to refresh profiles', 'error');
+  }
 }
 
 function isSelected(profile: AnimalProfile) {
@@ -150,6 +172,7 @@ function isSelected(profile: AnimalProfile) {
 
 function toggleProfile(profile: AnimalProfile) {
   let newSelection: AnimalProfile[];
+
   if (!isSelected(profile)) {
     newSelection = [...props.selectedAnimalProfiles, profile];
   } else {
@@ -293,7 +316,7 @@ function loadMoreStrains() {
               :return-object="false"
               :auto-select-first="false"
               @update:search-input="onSearch"
-              style="min-width: 140px; max-width: 180px"
+              style="min-width: 130px; max-width: 180px"
             >
               <template v-slot:append-item>
                 <div
@@ -318,11 +341,21 @@ function loadMoreStrains() {
               clearable
               density="comfortable"
               label="Sex"
-              style="min-width: 120px; max-width: 150px"
+              style="min-width: 100px; max-width: 150px"
+            />
+          </v-col>
+          <v-col cols="1" class="d-flex justify-center">
+            <v-select
+              v-model="selectedAge"
+              :items="['pup', 'juvenile', 'adult']"
+              clearable
+              density="comfortable"
+              label="Age"
+              style="min-width: 100px; max-width: 150px"
             />
           </v-col>
           <v-col cols="2" class="d-flex justify-center">Genotype</v-col>
-          <v-col cols="2" class="d-flex justify-center">Treatment</v-col>
+          <v-col cols="1" class="d-flex justify-center">Treatment</v-col>
           <v-col cols="1" class="d-flex justify-center">
             <v-select
               v-model="selectedStatus"
@@ -330,7 +363,6 @@ function loadMoreStrains() {
               clearable
               density="comfortable"
               label="Status"
-              class="select-column"
             />
           </v-col>
           <v-col cols="1" class="d-flex justify-center">Actions</v-col>
@@ -338,7 +370,12 @@ function loadMoreStrains() {
 
         <!-- Liste -->
         <v-list dense>
-          <template v-for="profile in paginatedProfiles" :key="profile.id">
+          <template v-if="paginatedProfiles.length === 0">
+            <v-list-item>
+              <v-list-item-title class="text-center w-100"> No data available </v-list-item-title>
+            </v-list-item>
+          </template>
+          <template v-else v-for="profile in paginatedProfiles" :key="profile.id">
             <v-divider />
             <v-list-item class="align-center fixed-row" @click="toggleProfile(profile)">
               <v-row class="align-center" style="width: 100%" no-gutters>
@@ -376,11 +413,15 @@ function loadMoreStrains() {
                   {{ profile.sex || '-' }}
                 </v-col>
 
+                <v-col cols="1" class="d-flex justify-center align-center">
+                  {{ profile.age || '-' }}
+                </v-col>
+
                 <v-col cols="2" class="d-flex justify-center align-center">
                   {{ profile.genotype || '-' }}
                 </v-col>
 
-                <v-col cols="2" class="d-flex justify-center align-center">
+                <v-col cols="1" class="d-flex justify-center align-center">
                   {{ profile.treatment || '-' }}
                 </v-col>
 

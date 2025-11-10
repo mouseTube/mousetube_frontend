@@ -1,8 +1,12 @@
-import { defineStore } from 'pinia'
-import axios from 'axios'
-import { useApiBaseUrl } from '~/composables/useApiBaseUrl'
+import { defineStore } from 'pinia';
+import axios, { type AxiosProgressEvent } from 'axios';
+import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 
-interface File {
+// =====================================================
+// Types
+// =====================================================
+
+export interface File {
   id: number;
   name: string;
   link: string;
@@ -17,6 +21,10 @@ interface File {
   number: number | null;
   is_valid_link: boolean;
   downloads: number;
+  external_id: number | null;
+  external_url: string | null;
+  status: string;
+  celery_task_id?: string | null;
   created_at: string;
   modified_at: string;
   created_by: number | null;
@@ -83,100 +91,278 @@ interface File {
   }>;
 }
 
+export interface UploadFile extends globalThis.File {
+  previewUrl?: string;
+}
+
 export const useFileStore = defineStore('file', {
   state: () => ({
     files: [] as File[],
     loading: false,
     error: null as string | null,
+    uploadProgress: 0,
+    nextPageUrl: null as string | null,
+    previousPageUrl: null as string | null,
+    count: 0,
   }),
+
   actions: {
-    async fetchFiles() {
-      this.loading = true
-      this.error = null
+    // -------------------------------------------------
+    // Headers with auth token
+    // -------------------------------------------------
+    getAuthHeaders() {
+      return token.value ? { Authorization: `Bearer ${token.value}` } : {};
+    },
+
+    // -------------------------------------------------
+    // Get files
+    // -------------------------------------------------
+    async fetchFiles(pageUrl?: string) {
+      this.loading = true;
+      this.error = null;
       try {
-        const apiBaseUrl = useApiBaseUrl()
-        const res = await axios.get(`${apiBaseUrl}/file/`)
-        this.files = res.data.results
+        const apiBaseUrl = useApiBaseUrl();
+        const url = pageUrl || `${apiBaseUrl}/file/`;
+        const res = await axios.get(url, { headers: this.getAuthHeaders() });
+
+        this.files = res.data.results;
+        this.nextPageUrl = res.data.next;
+        this.previousPageUrl = res.data.previous;
+        this.count = res.data.count;
       } catch (err: any) {
-        this.error = err.message || 'Failed to fetch files'
+        this.error = err.message || 'Failed to fetch files';
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
-    async fetchFilesBySessionId(sessionId: number | string) {
-      if (!sessionId) {
-        this.files = []
-        return []
-      }
-      this.loading = true
-      this.error = null
+    async fetchFilesBySessionId(sessionId: number | string, page: number = 1) {
+      if (!sessionId) return [];
+
+      this.loading = true;
+      this.error = null;
       try {
-        const apiBaseUrl = useApiBaseUrl()
-        const res = await axios.get(`${apiBaseUrl}/file/`, {
-          params: {
-            recording_session: sessionId,
-          },
-        })
-        this.files = res.data.results
-        return this.files
+        const apiBaseUrl = useApiBaseUrl();
+        const url = `${apiBaseUrl}/file/?recording_session=${sessionId}&page=${page}`;
+        const res = await axios.get(url, { headers: this.getAuthHeaders() });
+
+        this.files = res.data.results;
+        this.nextPageUrl = res.data.next;
+        this.previousPageUrl = res.data.previous;
+        this.count = res.data.count;
+
+        return this.files;
       } catch (err: any) {
-        this.error = err.message || 'Failed to fetch files by session id'
-        this.files = []
-        return []
+        this.error = err.message || 'Failed to fetch files by session id';
+        this.files = [];
+        this.nextPageUrl = null;
+        this.previousPageUrl = null;
+        return [];
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
     getFileById(id: number) {
-      return this.files.find(f => f.id === id) || null
+      return this.files.find((f) => f.id === id) || null;
     },
 
     async fetchFileById(id: number) {
-      this.loading = true
-      this.error = null
+      this.loading = true;
+      this.error = null;
       try {
-        const apiBaseUrl = useApiBaseUrl()
-        const res = await axios.get(`${apiBaseUrl}/file/${id}/`)
-        return res.data
+        const apiBaseUrl = useApiBaseUrl();
+        const res = await axios.get(`${apiBaseUrl}/file/${id}/`, {
+          headers: this.getAuthHeaders(),
+        });
+        return res.data;
       } catch (err: any) {
-        this.error = err.message || 'Failed to fetch file'
-        throw err
+        this.error = err.message || 'Failed to fetch file';
+        throw err;
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
+    // -------------------------------------------------
+    // Created entry file
+    // -------------------------------------------------
     async createFile(data: any) {
-      this.error = null
+      this.error = null;
       try {
-        const apiBaseUrl = useApiBaseUrl()
+        const apiBaseUrl = useApiBaseUrl();
         const res = await axios.post(`${apiBaseUrl}/file/`, data, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
-        this.files.push(res.data)
-        return res.data
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.getAuthHeaders(),
+          },
+        });
+        this.addFile(res.data);
+        return res.data;
       } catch (err: any) {
-        this.error = err.message || 'Failed to create file'
-        throw err
+        this.error = err.message || 'Failed to create file';
+        throw err;
       }
     },
 
-    async updateFile(id: number, data: any) {
-      this.error = null
+    // -------------------------------------------------
+    // ✅ Temporary upload to MEDIA_ROOT/temp
+    // -------------------------------------------------
+    async uploadFile(file: UploadFile): Promise<{ temp_path: string; task_id: string }> {
+      this.error = null;
+      this.loading = true;
+      this.uploadProgress = 0;
+
       try {
-        const apiBaseUrl = useApiBaseUrl()
-        const res = await axios.put(`${apiBaseUrl}/file/${id}/`, data, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
-        const index = this.files.findIndex(f => f.id === id)
-        if (index !== -1) this.files[index] = res.data
-        return res.data
+        const apiBaseUrl = useApiBaseUrl();
+        const formData = new FormData();
+        formData.append('file', file, file.name);
+
+        const res = await axios.post(`${apiBaseUrl}/file/upload_async/`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            ...this.getAuthHeaders(),
+          },
+          onUploadProgress: (ev: AxiosProgressEvent) => {
+            if (ev.total) {
+              this.uploadProgress = Math.round((ev.loaded * 100) / ev.total);
+            }
+          },
+        });
+
+        // Exemple backend : { temp_path, task_id }
+        return res.data;
       } catch (err: any) {
-        this.error = err.message || 'Failed to update file'
-        throw err
+        console.error('Upload failed:', err);
+        this.error = err.message || 'File upload failed';
+        throw err;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // -------------------------------------------------
+    // Update metadata
+    // -------------------------------------------------
+    async updateFile(id: number, data: any) {
+      this.error = null;
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        const res = await axios.put(`${apiBaseUrl}/file/${id}/`, data, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.getAuthHeaders(),
+          },
+        });
+        const index = this.files.findIndex((f) => f.id === id);
+        if (index !== -1) this.files[index] = res.data;
+        return res.data;
+      } catch (err: any) {
+        this.error = err.message || 'Failed to update file';
+        throw err;
+      }
+    },
+
+    // -------------------------------------------------
+    // Helpers
+    // -------------------------------------------------
+    addFile(file: File) {
+      this.files.unshift(file);
+    },
+
+    updateFileStatus(fileId: number, data: Partial<File>) {
+      const index = this.files.findIndex((f) => f.id === fileId);
+      if (index !== -1) {
+        this.files[index] = { ...this.files[index], ...data };
+      }
+    },
+    // =====================================================
+    // Upload to MEDIA_ROOT/temp (synchronous)
+    // =====================================================
+    async uploadToTemp(file: UploadFile) {
+      this.loading = true;
+      this.uploadProgress = 0;
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        const formData = new FormData();
+        formData.append('file', file, file.name);
+
+        const res = await axios.post(`${apiBaseUrl}/file/upload_async/`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            ...this.getAuthHeaders(),
+          },
+          onUploadProgress: (ev: AxiosProgressEvent) => {
+            if (ev.total) {
+              this.uploadProgress = Math.round((ev.loaded * 100) / ev.total);
+            }
+          },
+        });
+
+        return res.data.temp_path;
+      } catch (err: any) {
+        this.error = err.message || 'Upload to temp failed';
+        throw err;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // =====================================================
+    // Create file and start Celery
+    // =====================================================
+    async createFileAsync(data: any) {
+      this.loading = true;
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        const res = await axios.post(`${apiBaseUrl}/file/`, data, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            ...this.getAuthHeaders(),
+          },
+        });
+        const file = res.data;
+        this.files.unshift(file);
+        return file;
+      } catch (err: any) {
+        this.error = err.message || 'File creation failed';
+        throw err;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // =====================================================
+    // Check status task Celery (polling)
+    // =====================================================
+    async fetchFileTaskStatus(fileId: number) {
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        const res = await axios.get(`${apiBaseUrl}/file/task_status/${fileId}/`, {
+          headers: this.getAuthHeaders(),
+        });
+        this.updateFileStatus(fileId, {
+          status: res.data.status,
+        });
+        return res.data;
+      } catch (err: any) {
+        console.error('Erreur statut tâche:', err);
+      }
+    },
+
+    async deleteFile(fileId: number) {
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        await axios.delete(`${apiBaseUrl}/file/${fileId}/`, {
+          headers: this.getAuthHeaders(),
+        });
+
+        this.files = this.files.filter((f) => f.id !== fileId);
+        this.count = this.files.length;
+      } catch (err: any) {
+        console.error('Failed to delete file:', err);
+        this.error = err.message || 'Failed to delete file';
       }
     },
   },
-})
+});

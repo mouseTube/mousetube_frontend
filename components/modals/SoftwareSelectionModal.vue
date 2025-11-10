@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useSoftwareStore } from '@/stores/software';
+import { useFavoriteStore } from '@/stores/favorite';
 import SoftwareEditModal from '@/components/modals/SoftwareModal.vue';
 import CreateSoftwareVersionModal from '@/components/modals/CreateSoftwareVersionModal.vue';
 import { useAuth } from '@/composables/useAuth';
@@ -36,6 +37,8 @@ const itemsPerPage = ref(6);
 
 const selectedVersionBySoftware = ref<Record<number, number>>({});
 const selectedSoftwareIds = ref<number[]>([]);
+
+const favoriteStore = useFavoriteStore();
 
 const localDialog = computed({
   get: () => props.modelValue,
@@ -267,6 +270,28 @@ function onDuplicateSoftware(data: any) {
   }, 0);
 }
 
+function toggleFavorite(softwareId: number) {
+  favoriteStore.toggleFavorite('software', softwareId);
+}
+
+const truncate = (text: string, length = 40) => {
+  if (!text) return '';
+  return text.length > length ? text.slice(0, length - 1) + '…' : text;
+};
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'draft':
+      return 'grey';
+    case 'waiting validation':
+      return 'orange';
+    case 'validated':
+      return 'green';
+    default:
+      return 'grey';
+  }
+}
+
 // Watchers
 watch(localDialog, handleDialogOpen, { immediate: true });
 
@@ -279,6 +304,12 @@ watch(
   },
   { immediate: true }
 );
+
+onMounted(async () => {
+  await softwareStore.fetchAllSoftware();
+  await softwareStore.fetchAllSoftwareVersions();
+  await favoriteStore.fetchAllFavorites();
+});
 </script>
 
 <template>
@@ -317,22 +348,64 @@ watch(
             >
               <!-- Card header -->
               <v-card-title class="d-flex justify-space-between align-center pa-2">
-                {{ group.software.name }}
-                <div class="d-flex align-center gap-1" v-if="group.software.created_by === id_user">
+                <div class="d-flex align-center flex-grow-1" style="min-width: 0">
+                  <v-btn
+                    variant="text"
+                    size="small"
+                    :icon="
+                      favoriteStore.isFavorite('software', group.software.id)
+                        ? 'mdi-star'
+                        : 'mdi-star-outline'
+                    "
+                    :color="
+                      favoriteStore.isFavorite('software', group.software.id) ? 'warning' : 'grey'
+                    "
+                    @click.stop="toggleFavorite(group.software.id)"
+                    title="Toggle favorite"
+                    class="favorite-btn me-2"
+                  />
+
+                  <v-tooltip location="top">
+                    <template #activator="{ props }">
+                      <div
+                        v-bind="props"
+                        class="font-weight-medium text-truncate"
+                        style="
+                          display: block;
+                          overflow: hidden;
+                          text-overflow: ellipsis;
+                          white-space: nowrap;
+                          min-width: 0;
+                          flex: 1;
+                        "
+                      >
+                        {{ truncate(group.software.name, 40) }}
+                      </div>
+                    </template>
+                    <span>{{ group.software.name }}</span>
+                  </v-tooltip>
+                </div>
+
+                <div
+                  class="d-flex align-center gap-1 flex-shrink-0"
+                  v-if="group.software.created_by === id_user"
+                >
                   <v-icon
                     small
                     color="primary"
                     class="hover-icon"
                     @click.stop="onEditSoftware(group.software.id)"
-                    >mdi-pencil</v-icon
                   >
+                    mdi-pencil
+                  </v-icon>
                   <v-icon
                     small
                     color="primary"
                     class="hover-icon"
                     @click.stop="onDeleteSoftware(group.software.id, group.software.name)"
-                    >mdi-delete</v-icon
                   >
+                    mdi-delete
+                  </v-icon>
                 </div>
               </v-card-title>
 
@@ -351,20 +424,29 @@ watch(
               </v-card-text>
 
               <!-- Card actions -->
-              <v-card-actions class="justify-between align-center">
-                <div
-                  class="selection-box"
-                  :class="{ selected: selectedSoftwareIds.includes(group.software.id) }"
-                  @click.stop="toggleCardSelection(group)"
+              <v-card-actions class="justify-space-between align-center">
+                <v-chip
+                  v-if="group.software.status"
+                  :color="getStatusColor(group.software.status)"
+                  size="small"
+                  class="ms-2 text-white"
+                  label
                 >
-                  <v-icon
-                    v-if="selectedSoftwareIds.includes(group.software.id)"
-                    small
-                    color="primary"
-                    >mdi-check</v-icon
+                  {{ group.software.status }}
+                </v-chip>
+                <div class="d-flex align-center" style="gap: 4px">
+                  <div
+                    class="selection-box"
+                    :class="{ selected: selectedSoftwareIds.includes(group.software.id) }"
+                    @click.stop="toggleCardSelection(group)"
                   >
-                </div>
-                <div class="d-flex gap-1">
+                    <v-icon
+                      v-if="selectedSoftwareIds.includes(group.software.id)"
+                      small
+                      color="primary"
+                      >mdi-check</v-icon
+                    >
+                  </div>
                   <v-icon
                     small
                     color="primary"
@@ -511,13 +593,21 @@ watch(
   width: 20px;
   height: 20px;
   border: 2px solid #ccc;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: all 0.2s;
 }
+
 .selection-box.selected {
   border-color: #c62828;
   background-color: #ffe6e6;
+  color: #c62828;
+}
+
+.selection-box v-icon {
+  font-size: 16px;
 }
 </style>

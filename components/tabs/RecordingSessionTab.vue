@@ -17,6 +17,8 @@ import HardwareSelectionModal from '@/components/modals/HardwareSelectionModal.v
 import { useAuth } from '@/composables/useAuth';
 import { useRouter } from 'vue-router';
 import StudySelectionModal from '@/components/modals/StudySelectionModal.vue';
+import ReferenceSelectionModal from '@/components/modals/ReferenceSelectionModal.vue';
+import { useReferenceStore, type Reference } from '~/stores/reference';
 
 ////////////////////////////////
 // STORES
@@ -28,11 +30,17 @@ const hardwareStore = useHardwareStore();
 const softwareStore = useSoftwareStore();
 const auth = useAuth();
 const router = useRouter();
+const referenceStore = useReferenceStore();
 
 ////////////////////////////////
-// EMITS
+// EMITS & PROPS
 ////////////////////////////////
-const emit = defineEmits(['validate', 'session-selected']);
+const emit = defineEmits(['validate', 'session-selected', 'session-saved', 'session-dirty']);
+
+const props = defineProps<{
+  selectedRecordingSessionId?: number;
+  onGoToProtocol?: () => void;
+}>();
 
 ////////////////////////////////
 // DATA & STATE
@@ -53,7 +61,6 @@ const selectedSessionName = ref<string>('');
 const formattedDate = ref('');
 
 const laboratoriesOptions = ref<any[]>([]);
-const studiesOptions = ref<any[]>([]);
 const hardwareOptions = ref<any[]>([]);
 const softwareOptions = ref<any[]>([]);
 const showSoftwareSelectionModal = ref(false);
@@ -62,13 +69,17 @@ const editHardwareDialog = ref(false);
 const editHardwareId = ref<number | null>(null);
 const hardwareTypeForModal = ref<'soundcard' | 'microphone' | 'speaker' | 'amplifier' | ''>('');
 
+const referencesDisplay = ref<{ id: number; label: string }[]>([]);
+const showReferenceSelectionModal = ref(false);
+const selectedReferenceIds = ref<number[]>([]);
+
 const acquisitionSoftwareDisplay = ref<{ id: number; label: string }[]>([]);
 const isExistingSession = ref(false);
 const formData = ref({
   name: '',
   description: '',
   date: null as string | null,
-  status: 'draft' as 'draft' | 'published' | null,
+  status: 'draft' as 'draft' | 'shared' | null,
   duration: null as number | null,
   studies: [] as number[],
   context: {
@@ -90,6 +101,7 @@ const formData = ref({
   },
   laboratory: null as number | null,
   is_multiple: false,
+  references: [] as number[],
 });
 
 const newStudyDialog = ref(false);
@@ -128,7 +140,7 @@ const selectItems = computed(() => {
   return items;
 });
 
-const isPublished = computed(() => formData.value.status === 'published');
+const isShared = computed(() => formData.value.status === 'shared');
 
 ////////////////////////////////
 // METHODS
@@ -164,6 +176,84 @@ function removeHardware(field: HardwareArrayKeys, id: number) {
   updateSelectedHardwareIds(field, formData.value.equipment[field]);
 }
 
+function openReferenceSelectionModal() {
+  showReferenceSelectionModal.value = true;
+}
+
+async function onUpdateSelectedReferences(ids: number[], labels?: string[]) {
+  // update ids in form & local state immediately
+  selectedReferenceIds.value = [...ids];
+  formData.value.references = [...ids];
+
+  // prefer provided labels
+  if (labels && labels.length === ids.length) {
+    referencesDisplay.value = ids.map((id, index) => ({
+      id,
+      label: labels[index] || `Reference #${id}`,
+    }));
+    return;
+  }
+
+  // ensure referenceStore has data (fetch if needed) then map ids -> labels
+  try {
+    if (!referenceStore.references.results || referenceStore.references.results.length === 0) {
+      await referenceStore.fetchAllReferences();
+    }
+
+    referencesDisplay.value = ids.map((id) => {
+      const refObj = referenceStore.references.results.find((r) => r.id === id);
+      return { id, label: refObj?.name ?? `Reference #${id}` };
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[RecordingSessionTab] failed to resolve reference labels', err);
+    // fallback simple labels
+    referencesDisplay.value = ids.map((id) => ({ id, label: `Reference #${id}` }));
+  }
+}
+
+function clearAllReferences() {
+  formData.value.references = [];
+  selectedReferenceIds.value = [];
+  referencesDisplay.value = [];
+}
+
+function removeReference(id: number) {
+  formData.value.references = formData.value.references.filter((r) => r !== id);
+  selectedReferenceIds.value = selectedReferenceIds.value.filter((r) => r !== id);
+  referencesDisplay.value = referencesDisplay.value.filter((r) => r.id !== id);
+}
+
+async function ensureAllReferencesLoaded(ids: number[]) {
+  if (!ids.length) return;
+
+  const knownIds = referenceStore.references.results.map((r) => r.id);
+  const missingIds = ids.filter((id) => !knownIds.includes(id));
+
+  if (missingIds.length > 0) {
+    try {
+      const fetchedRefs = await Promise.all(
+        missingIds.map((id) => referenceStore.getReferenceById(id))
+      );
+
+      fetchedRefs
+        .filter((r): r is Reference => !!r)
+        .forEach((r) => {
+          if (!referenceStore.references.results.find((existing) => existing.id === r.id)) {
+            referenceStore.references.results.push(r);
+          }
+        });
+      referencesDisplay.value = ids.map((id) => {
+        const refObj = referenceStore.references.results.find((r) => r.id === id);
+        return { id, label: refObj?.name ?? `Reference #${id}` };
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[RecordingSessionTab] failed to fetch missing references', error);
+    }
+  }
+}
+
 /* Show a snackbar notification with the given message and color. */
 function showSnackbar(message: string, color: string) {
   snackbarMessage.value = message;
@@ -196,6 +286,7 @@ function resetForm() {
     },
     laboratory: null,
     is_multiple: false,
+    references: [],
   };
 
   // --- Reset UI mirrors ---
@@ -209,12 +300,17 @@ function resetForm() {
   speakersDisplay.value = [];
   acquisitionSoftwareDisplay.value = [];
 
+  referencesDisplay.value = [];
+  selectedReferenceIds.value = [];
+
   // --- Reset session selection ---
   selectedSessionObject.value = null;
   selectedSessionName.value = '';
   selectedSessionId.value = 'new';
 
-  updateInitialSnapshot();
+  updateInitialSnapshot(false);
+  emit('session-saved', { saved: false });
+  emit('session-dirty', { dirty: false });
 
   emit('session-selected', null);
 }
@@ -267,7 +363,6 @@ async function fetchSelectableData() {
     ]);
     hardwareOptions.value = hardwareStore.hardwares;
     softwareOptions.value = softwareStore.softwares;
-    studiesOptions.value = studyStore.studies;
     laboratoriesOptions.value = laboratoryStore.laboratories;
   } catch (e) {
     showSnackbar('Error loading selectable data.', 'error');
@@ -287,7 +382,10 @@ function openEditLabDialog() {
 
 /* Save or update the session using the store. Handles both 'new' and existing sessions. */
 async function saveSession() {
-  const isValid = await formRef.value?.validate?.();
+  if (!formRef.value?.validate) return;
+
+  const result = await formRef.value.validate();
+  const isValid = typeof result === 'boolean' ? result : result.valid;
   if (!isValid) {
     showSnackbar('Please fill in all required fields.', 'error');
     return;
@@ -325,9 +423,11 @@ async function saveSession() {
       selectedSessionObject.value = created as RecordingSession;
       selectedSessionName.value = created.name ?? '';
 
+      const firstAnimalProfileId = created.animal_profiles?.[0]?.id ?? null;
       emit('session-selected', {
         sessionId: created.id,
         protocolId: created.protocol?.id || null,
+        animalProfileId: firstAnimalProfileId,
       });
     } else {
       await recordingSessionStore.updateSession(Number(selectedSessionId.value), formData.value);
@@ -340,31 +440,49 @@ async function saveSession() {
       }
 
       const session = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
+      const firstAnimalProfileId = session?.animal_profiles?.[0]?.id ?? null;
       emit('session-selected', {
         sessionId: Number(selectedSessionId.value),
         protocolId: session?.protocol?.id || null,
+        animalProfileId: firstAnimalProfileId,
       });
     }
     updateInitialSnapshot();
     isSaveEnabled.value = false;
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('Error saving session', e);
-    showSnackbar('Error saving session.', 'error');
+    emit('session-saved', { saved: true });
+  } catch (e: any) {
+    let errorMsg = 'Error saving session.';
+
+    if (e?.response?.data) {
+      const data = e.response.data;
+      if (data.name?.[0]) {
+        errorMsg = data.name[0];
+      } else if (data.date?.[0]) {
+        errorMsg = data.date[0];
+      } else if (data.non_field_errors?.[0]) {
+        errorMsg = data.non_field_errors[0];
+      } else if (typeof data === 'string') {
+        errorMsg = data;
+      }
+    }
+
+    showSnackbar(errorMsg, 'error');
   }
 }
 
-function updateInitialSnapshot() {
+function updateInitialSnapshot(markInitialized = true) {
   initialFormData.value = JSON.stringify(formData.value);
+  isSaveEnabled.value = false;
+  if (markInitialized) {
+    formInitialized.value = true;
+  } else {
+    formInitialized.value = false;
+  }
 }
 
-function onSessionSelected(session: RecordingSession) {
-  selectedSessionId.value = session.id;
-  selectedSessionObject.value = session;
-  selectedSessionName.value = session.name ?? '';
-  isExistingSession.value = true;
-
-  formData.value = {
+async function onSessionSelected(session: RecordingSession) {
+  // prepare new form object first
+  const newForm = {
     ...formData.value,
     name: session.name ?? '',
     description: session.description ?? '',
@@ -393,8 +511,24 @@ function onSessionSelected(session: RecordingSession) {
     },
     laboratory: session.laboratory?.id ?? null,
     is_multiple: session.is_multiple ?? false,
+    references: session.references?.map((r) => r.id) ?? [],
   };
 
+  // set session meta
+  selectedSessionId.value = session.id;
+  selectedSessionObject.value = session;
+  selectedSessionName.value = session.name ?? '';
+  isExistingSession.value = true;
+
+  // snapshot BEFORE assigning to formData so watcher sees identical initial state
+  initialFormData.value = JSON.stringify(newForm);
+  formInitialized.value = true;
+  isSaveEnabled.value = false;
+
+  // now assign the form
+  formData.value = { ...newForm };
+
+  // set date/time UI
   if (session.date) {
     const d = new Date(session.date);
     if (!isNaN(d.getTime())) {
@@ -412,6 +546,7 @@ function onSessionSelected(session: RecordingSession) {
     formattedDate.value = '';
   }
 
+  // update hardware displays
   (['soundcards', 'microphones', 'amplifiers', 'speakers'] as HardwareArrayKeys[]).forEach(
     (key) => {
       updateSelectedHardwareIds(key, formData.value.equipment[key]);
@@ -428,12 +563,24 @@ function onSessionSelected(session: RecordingSession) {
       };
     }) ?? [];
 
-  updateInitialSnapshot();
+  // references display + selected ids
+  referencesDisplay.value =
+    session.references?.map((r) => ({
+      id: r.id,
+      label: r.name || `Reference #${r.id}`,
+    })) ?? [];
+  selectedReferenceIds.value = formData.value.references;
 
+  // try to ensure any missing refs are loaded (won't affect formData)
+  await ensureAllReferencesLoaded(formData.value.references);
+
+  // ensure parent knows this selection (and that form is not dirty)
   emit('session-selected', {
     sessionId: session.id,
     protocolId: session.protocol?.id ?? null,
+    animalProfileId: session.animal_profiles?.[0]?.id ?? null,
   });
+  emit('session-dirty', { dirty: false });
 }
 
 function removeSoftware(softwareId: number) {
@@ -459,9 +606,9 @@ function clearSoftware() {
 // STUDIES HANDLING
 ////////////////////////////////
 
-const selectedStudiesDisplay = computed(() => {
+const selectedStudiesDisplay = computed((): { id: number; name: string }[] => {
   return formData.value.studies
-    .map((id) => studiesOptions.value.find((s) => s.id === id))
+    .map((id: number) => studyStore.studies.find((s) => s.id === id))
     .filter((s): s is { id: number; name: string } => !!s);
 });
 
@@ -497,10 +644,65 @@ watch(selectedSessionId, (newId, oldId) => {
   const idNum = Number(newId);
 });
 
+const formInitialized = ref(false);
+
 watch(
   formData,
   (newVal) => {
-    isSaveEnabled.value = JSON.stringify(newVal) !== initialFormData.value;
+    const dirty = JSON.stringify(newVal) !== initialFormData.value;
+    isSaveEnabled.value = dirty;
+    emit('session-dirty', { dirty });
+    const errors: string[] = [];
+
+    if (!newVal.name || !newVal.name.trim()) {
+      errors.push('Name is required');
+    }
+
+    if (!newVal.is_multiple && !newVal.date) {
+      errors.push('Date is required for single sessions');
+    }
+
+    const hasErrors = errors.length > 0;
+    emit('validate', { hasErrors, message: hasErrors ? errors[0] : '' });
+
+    if (!formInitialized.value) {
+      formInitialized.value = true;
+    }
+  },
+  { deep: true, immediate: true }
+);
+
+watch(
+  () => recordingSessionStore.sessions,
+  async (newSessions) => {
+    if (!selectedSessionObject.value) return;
+    const updated = newSessions.find((s) => s.id === selectedSessionObject.value!.id);
+    if (!updated) return;
+
+    // update cached ref
+    selectedSessionObject.value = updated;
+
+    const localDirty = JSON.stringify(formData.value) !== initialFormData.value;
+
+    if (!localDirty) {
+      // safe: replace whole form
+      await onSessionSelected(updated);
+    } else {
+      // merge only safe fields to avoid clobbering unsaved edits
+      formData.value.status = updated.status ?? formData.value.status;
+      // update session-level derived UI like date/status
+      if (updated.date) {
+        const d = new Date(updated.date);
+        if (!isNaN(d.getTime())) {
+          date.value = d;
+          time.value = d.toTimeString().slice(0, 5);
+          formattedDate.value = `${d.toISOString().slice(0, 10)} ${time.value}`;
+          formData.value.date = d.toISOString();
+        }
+      }
+      // optionally notify user
+      showSnackbar('Session updated remotely — some fields merged.', 'info');
+    }
   },
   { deep: true }
 );
@@ -512,9 +714,9 @@ function handleSessionSelection(newId: 'new' | 'select' | number) {
   } else if (newId === 'new') {
     resetForm();
   } else {
-    recordingSessionStore.getSessionById(Number(newId)).then((session) => {
+    recordingSessionStore.getSessionById(Number(newId)).then(async (session) => {
       if (session) {
-        onSessionSelected(session);
+        await onSessionSelected(session);
       }
     });
   }
@@ -534,6 +736,12 @@ function onUpdateSelectedSoftwareVersions(val: number[]) {
     .filter(Boolean) as { id: number; label: string }[];
 }
 
+const clearDate = () => {
+  date.value = null;
+  time.value = null;
+  formattedDate.value = '';
+};
+
 ////////////////////////////////
 // LIFECYCLE
 ////////////////////////////////
@@ -544,6 +752,7 @@ onMounted(async () => {
     router.push('/account/login');
     return;
   }
+  resetForm();
   await fetchSelectableData();
   // Prefetch first page for modal convenience (modal also fetches on open)
   await recordingSessionStore.fetchSessionsPage(1);
@@ -557,9 +766,9 @@ onMounted(async () => {
         <p class="text--secondary mb-4">
           A <strong>Recording Session</strong> represents a set of audio recordings made under the
           same experimental conditions. It can be <strong>single</strong> or
-          <strong>multiple</strong>
-          . Recording sessions are used to organize and link recorded data, the laboratory, studies,
-          animal subjects, and equipment used, ensuring that all metadata is properly tracked.
+          <strong>multiple</strong>. Recording sessions are used to organize and link recorded data,
+          the laboratory, studies, animal subjects, and equipment used, ensuring that all metadata
+          is properly tracked.
         </p>
       </v-col>
     </v-row>
@@ -570,8 +779,8 @@ onMounted(async () => {
       border="start"
       class="mb-6 position-relative"
     >
-      <template v-if="formData.status === 'published'">
-        A published recording session cannot be edited or deleted.
+      <template v-if="formData.status === 'shared'">
+        A shared recording session cannot be edited or deleted.
       </template>
       <template v-else>
         Files could be linked to this recording session. Editing this session will affect those
@@ -613,7 +822,7 @@ onMounted(async () => {
           class="status-card blue"
           :class="{ active: !formData.is_multiple }"
           @click="formData.is_multiple = false"
-          :style="isPublished ? 'pointer-events: none; opacity: 0.6;' : ''"
+          :style="isShared ? 'pointer-events: none; opacity: 0.6;' : ''"
         >
           <div class="status-text">
             <strong>Single</strong>
@@ -635,7 +844,7 @@ onMounted(async () => {
           :color="formData.is_multiple ? '#ff9800' : '#1976d2'"
           :track-color="formData.is_multiple ? '#ffcc80' : '#90caf9'"
           class="toggle-switch"
-          :disabled="isPublished"
+          :disabled="isShared"
         ></v-switch>
       </v-col>
 
@@ -645,7 +854,7 @@ onMounted(async () => {
           class="status-card orange"
           :class="{ active: formData.is_multiple }"
           @click="formData.is_multiple = true"
-          :style="isPublished ? 'pointer-events: none; opacity: 0.6;' : ''"
+          :style="isShared ? 'pointer-events: none; opacity: 0.6;' : ''"
         >
           <div class="status-text">
             <strong>Multiple</strong>
@@ -665,7 +874,7 @@ onMounted(async () => {
       <v-card-title class="d-flex justify-space-between align-center mb-4">
         <div class="d-flex align-center" style="gap: 12px">
           <h3 class="m-0">Recording Session Metadata</h3>
-          <v-chip :color="formData.status === 'published' ? 'green' : 'grey'" dark small>
+          <v-chip :color="formData.status === 'shared' ? 'green' : 'grey'" dark small>
             {{ formData.status }}
           </v-chip>
         </div>
@@ -676,11 +885,11 @@ onMounted(async () => {
             variant="outlined"
             @click="resetForm"
             class="mr-2"
-            :disabled="isPublished"
+            :disabled="isShared"
           >
             Reset
           </v-btn>
-          <v-btn color="primary" :disabled="!isSaveEnabled || isPublished" @click="saveSession">
+          <v-btn color="primary" :disabled="!isSaveEnabled || isShared" @click="saveSession">
             Save
           </v-btn>
         </div>
@@ -695,7 +904,7 @@ onMounted(async () => {
             required
             :rules="[(v: string) => !!v || 'Name is required']"
             class="mb-4"
-            :disabled="isPublished"
+            :disabled="isShared"
           >
             <template #label>Name <span style="color: red">*</span></template>
           </v-text-field>
@@ -706,7 +915,7 @@ onMounted(async () => {
             label="Description"
             outlined
             class="mb-4"
-            :disabled="isPublished"
+            :disabled="isShared"
           />
 
           <!-- Date / Time -->
@@ -722,12 +931,24 @@ onMounted(async () => {
                 readonly
                 outlined
                 class="mb-4"
+                v-bind="props"
+                :disabled="isShared"
                 :rules="[
                   (v: string) => formData.is_multiple || !!v || 'Recording Date is required',
                 ]"
-                v-bind="props"
-                :disabled="isPublished"
+                label="Recording Date"
               >
+                <template #append-inner>
+                  <v-icon
+                    v-if="formattedDate && !isShared"
+                    size="small"
+                    class="cursor-pointer"
+                    @click.stop="clearDate"
+                  >
+                    mdi-close
+                  </v-icon>
+                </template>
+
                 <template #label>
                   Recording Date <span style="color: red" v-if="!formData.is_multiple">*</span>
                 </template>
@@ -757,7 +978,7 @@ onMounted(async () => {
             type="number"
             outlined
             class="mb-1"
-            :disabled="isPublished"
+            :disabled="isShared"
           />
 
           <!-- Studies -->
@@ -768,7 +989,7 @@ onMounted(async () => {
 
                 <div
                   class="chip-list d-flex flex-wrap align-center"
-                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                  :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
                 >
                   <v-chip
                     v-for="study in selectedStudiesDisplay"
@@ -817,7 +1038,7 @@ onMounted(async () => {
                 outlined
                 clearable
                 density="comfortable"
-                :disabled="isPublished"
+                :disabled="isShared"
               />
             </v-col>
             <v-col cols="12" md="3" class="d-flex justify-end align-center mb-4">
@@ -827,7 +1048,7 @@ onMounted(async () => {
                 class="mr-2"
                 title="Add new laboratory"
                 @click="newLabDialog = true"
-                :disabled="isPublished"
+                :disabled="isShared"
               >
                 <v-icon start>mdi-plus</v-icon> Add
               </v-btn>
@@ -836,12 +1057,52 @@ onMounted(async () => {
                 variant="flat"
                 title="Edit selected laboratory"
                 @click="openEditLabDialog"
-                :disabled="!formData.laboratory || isPublished"
+                :disabled="!formData.laboratory || isShared"
               >
                 <v-icon start>mdi-pencil</v-icon> Edit
               </v-btn>
             </v-col>
           </v-row>
+
+          <!-- references -->
+          <v-card outlined class="pa-3 mb-5">
+            <v-card-subtitle class="mb-2">References</v-card-subtitle>
+
+            <div
+              class="chip-list d-flex flex-wrap align-center"
+              :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+            >
+              <v-chip
+                v-for="ref in referencesDisplay"
+                :key="ref.id"
+                variant="outlined"
+                closable
+                @click:close="removeReference(ref.id)"
+                class="ma-1"
+              >
+                {{ ref.label }}
+              </v-chip>
+              <v-chip
+                v-if="referencesDisplay.length > 0"
+                color="primary"
+                variant="outlined"
+                class="ma-1"
+                @click="clearAllReferences"
+              >
+                <v-icon start>mdi-close</v-icon> Clear All
+              </v-chip>
+
+              <!-- Bouton Select -->
+              <v-chip
+                color="primary"
+                variant="flat"
+                class="ma-1"
+                @click="openReferenceSelectionModal"
+              >
+                <v-icon start>mdi-plus</v-icon> Select
+              </v-chip>
+            </div>
+          </v-card>
 
           <!-- Context -->
           <v-card class="pa-4 mb-4" outlined>
@@ -853,7 +1114,7 @@ onMounted(async () => {
                     v-model="formData.context.temperature.value"
                     label="Temperature Value"
                     outlined
-                    :disabled="isPublished"
+                    :disabled="isShared"
                   />
                 </v-col>
                 <v-col cols="6">
@@ -862,7 +1123,7 @@ onMounted(async () => {
                     :items="['°C', '°F']"
                     label="Temperature Unit"
                     outlined
-                    :disabled="isPublished"
+                    :disabled="isShared"
                   />
                 </v-col>
                 <v-col cols="12">
@@ -871,7 +1132,7 @@ onMounted(async () => {
                     label="Brightness (Lux)"
                     type="number"
                     outlined
-                    :disabled="isPublished"
+                    :disabled="isShared"
                   />
                 </v-col>
               </v-row>
@@ -888,7 +1149,7 @@ onMounted(async () => {
                 label="Channels"
                 outlined
                 class="mb-4"
-                :disabled="isPublished"
+                :disabled="isShared"
               />
               <v-select
                 v-model="formData.equipment.sound_isolation"
@@ -896,7 +1157,7 @@ onMounted(async () => {
                 label="Sound Isolation"
                 outlined
                 class="mb-4"
-                :disabled="isPublished"
+                :disabled="isShared"
               />
               <!-- soundcards -->
               <v-card outlined class="pa-3 mb-5">
@@ -904,7 +1165,7 @@ onMounted(async () => {
 
                 <div
                   class="chip-list d-flex flex-wrap align-center"
-                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                  :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
                 >
                   <!-- Chips -->
                   <v-chip
@@ -947,7 +1208,7 @@ onMounted(async () => {
 
                 <div
                   class="chip-list d-flex flex-wrap align-center"
-                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                  :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
                 >
                   <v-chip
                     v-for="item in microphonesDisplay"
@@ -987,7 +1248,7 @@ onMounted(async () => {
 
                 <div
                   class="chip-list d-flex flex-wrap align-center"
-                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                  :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
                 >
                   <v-chip
                     v-for="item in amplifiersDisplay"
@@ -1027,7 +1288,7 @@ onMounted(async () => {
 
                 <div
                   class="chip-list d-flex flex-wrap align-center"
-                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                  :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
                 >
                   <v-chip
                     v-for="item in speakersDisplay"
@@ -1067,7 +1328,7 @@ onMounted(async () => {
 
                 <div
                   class="chip-list d-flex flex-wrap align-center"
-                  :style="isPublished ? { pointerEvents: 'none', opacity: 0.6 } : {}"
+                  :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
                 >
                   <v-chip
                     v-for="soft in acquisitionSoftwareDisplay"
@@ -1101,6 +1362,12 @@ onMounted(async () => {
                 </div>
               </v-card>
 
+              <ReferenceSelectionModal
+                v-model="showReferenceSelectionModal"
+                :selectedReferences="selectedReferenceIds"
+                @update:selectedReferences="onUpdateSelectedReferences"
+              />
+
               <StudySelectionModal
                 v-model="showStudySelectionModal"
                 :selectedStudies="formData.studies"
@@ -1125,7 +1392,31 @@ onMounted(async () => {
           </v-card>
         </v-form>
       </v-card-text>
+      <v-card-actions class="d-flex justify-end mt-4">
+        <v-btn color="grey" variant="outlined" @click="resetForm" class="mr-2" :disabled="isShared">
+          Reset
+        </v-btn>
+
+        <v-btn
+          color="primary"
+          variant="flat"
+          :disabled="!isSaveEnabled || isShared"
+          @click="saveSession"
+        >
+          Save
+        </v-btn>
+      </v-card-actions>
     </v-card>
+    <v-btn
+      color="primary"
+      variant="text"
+      class="mt-2"
+      :disabled="!props.selectedRecordingSessionId"
+      @click="props.onGoToProtocol?.()"
+    >
+      Go to Protocol
+      <v-icon end>mdi-arrow-right</v-icon>
+    </v-btn>
 
     <!-- Session selection modal (modal handles its own pagination/search using the store) -->
     <SelectSessionModal v-model="showSessionSelectModal" @selected="onSessionSelected" />

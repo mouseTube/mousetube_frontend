@@ -14,11 +14,12 @@ Code under GPL v3.0 licence
 
 import { ref, onMounted, watch, computed } from 'vue';
 import axios from 'axios';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce.js';
 import { AudioLines } from 'lucide-vue-next';
 import { useAuth } from '@/composables/useAuth';
+import { useRouter } from 'vue-router';
 
-const { token, id_user, fetchUser } = useAuth();
+const { currentUser, token, id_user, fetchUser } = useAuth();
 
 ////////////////////////////////
 // DATA
@@ -41,6 +42,7 @@ const showFiltersMobile = ref(false);
 const showFiltersDesktop = ref(false);
 const isDesktop = ref(window.innerWidth >= 960);
 const userProfile = ref(null);
+const router = useRouter();
 
 ////////////////////////////////
 // METHODS
@@ -233,11 +235,22 @@ onBeforeUnmount(() => {
         </v-sheet>
         <v-col>
           <v-card variant="flat" class="mx-auto" max-width="1000">
-            <div class="d-flex align-center mt-1 mb-4">
-              <h1><AudioLines /> Vocalizations</h1>
-              <v-chip v-if="count > 0" class="me-1 my-1 mx-2">
-                {{ count }}
-              </v-chip>
+            <div class="d-flex align-center justify-space-between mt-1 mb-4">
+              <div class="d-flex align-center">
+                <h1><AudioLines /> Vocalizations</h1>
+                <v-chip v-if="count > 0" class="ms-2">{{ count }}</v-chip>
+              </div>
+              <div v-if="currentUser">
+                <v-btn
+                  variant="outlined"
+                  size="small"
+                  class="nav-icon audio-hover-icon"
+                  @click="router.push('/vocalization/create')"
+                >
+                  <Plus size="20" class="nav-icon audio-hover-icon" />
+                  Add
+                </v-btn>
+              </div>
             </div>
             <!-- Search bar  -->
             <v-toolbar rounded="lg" class="px-2 border-sm">
@@ -429,12 +442,12 @@ onBeforeUnmount(() => {
                       {{ file.name ? file.name : file.link.split('/').pop() }}
                     </v-card-title>
                     <v-card-subtitle>
-                      {{ file.recording_session.protocol.user.first_name_user }}
-                      {{ file.recording_session.protocol.user.name_user }}
+                      {{ file.recording_session?.protocol?.user?.first_name_user || '' }}
+                      {{ file.recording_session?.protocol?.user?.name_user || '' }}
                     </v-card-subtitle>
                     <v-card-item class="bg-surface-light pt-4">
                       <v-label class="mr-2">Protocol: </v-label>
-                      {{ file.recording_session.protocol.name || 'N/A' }}<br />
+                      {{ file.recording_session?.protocol?.name || 'N/A' }}<br />
                       <v-label class="mr-2">Animal profile: </v-label>
                       <span
                         v-if="
@@ -479,7 +492,11 @@ onBeforeUnmount(() => {
                     <v-expansion-panels>
                       <v-expansion-panel title="More information" bg-color="grey-lighten-2">
                         <v-expansion-panel-text>
-                          <v-card class="mx-auto my-2 pt-2 pl-2" title="Subjects">
+                          <v-card
+                            v-if="file.subjects && file.subjects.length"
+                            class="mx-auto my-2 pt-2 pl-2"
+                            title="Subjects"
+                          >
                             <v-card-item>
                               <v-card-text>
                                 <template
@@ -509,35 +526,36 @@ onBeforeUnmount(() => {
                           <v-card class="mx-auto my-2 pt-2 pl-2" title="Protocol">
                             <v-card-text>
                               <v-label class="mr-2">Name: </v-label>
-                              {{ file.recording_session.protocol.name }}<br />
+                              {{ file.recording_session?.protocol?.name || 'N/A' }}<br />
                               <v-label class="mr-2">Description: </v-label>
-                              {{ file.recording_session.protocol.description }}<br />
+                              {{ file.recording_session?.protocol?.description || 'N/A' }}<br />
                               <v-label class="mr-2">Animals sex: </v-label>
-                              {{ file.recording_session.protocol.animals_sex || 'N/A' }}<br />
+                              {{ file.recording_session.protocol?.animals_sex || 'N/A' }}<br />
                               <v-label class="mr-2">Animals age: </v-label>
-                              {{ file.recording_session.protocol.animals_age || 'N/A' }}<br />
+                              {{ file.recording_session.protocol?.animals_age || 'N/A' }}<br />
                               <v-label class="mr-2">Animals housing: </v-label>
-                              {{ file.recording_session.protocol.animals_housing || 'N/A' }}<br />
+                              {{ file.recording_session.protocol?.animals_housing || 'N/A' }}<br />
                               <v-label class="mr-2">Number of animals: </v-label>
-                              {{ file.recording_session.protocol.context_number_of_animals || 'N/A'
+                              {{
+                                file.recording_session.protocol?.context_number_of_animals || 'N/A'
                               }}<br />
                               <v-label class="mr-2">Duration: </v-label>
-                              {{ file.recording_session.protocol.context_duration || 'N/A' }}<br />
+                              {{ file.recording_session.protocol?.context_duration || 'N/A' }}<br />
                               <v-label class="mr-2">Cage: </v-label>
-                              {{ file.recording_session.protocol.context_cage || 'N/A' }}<br />
+                              {{ file.recording_session.protocol?.context_cage || 'N/A' }}<br />
                               <v-label class="mr-2">Bedding: </v-label>
-                              {{ file.recording_session.protocol.context_bedding || 'N/A' }}<br />
+                              {{ file.recording_session.protocol?.context_bedding || 'N/A' }}<br />
                               <v-label class="mr-2">Light cycle: </v-label>
-                              {{ file.recording_session.protocol.context_light_cycle || 'N/A'
+                              {{ file.recording_session.protocol?.context_light_cycle || 'N/A'
                               }}<br />
                               <v-label class="mr-2">Temperature: </v-label>
                               {{
-                                file.recording_session.protocol.context_temperature_value || 'N/A'
+                                file.recording_session.protocol?.context_temperature_value || 'N/A'
                               }}
-                              {{ file.recording_session.protocol.context_temperature_unit || ''
+                              {{ file.recording_session.protocol?.context_temperature_unit || ''
                               }}<br />
                               <v-label class="mr-2">Brightness: </v-label>
-                              {{ file.recording_session.protocol.context_brightness || 'N/A' }}
+                              {{ file.recording_session.protocol?.context_brightness || 'N/A' }}
                             </v-card-text>
                           </v-card>
 

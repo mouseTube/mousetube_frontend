@@ -2,7 +2,7 @@
 ////////////////////////////////
 // IMPORTS
 ////////////////////////////////
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useProtocolStore, type Protocol } from '@/stores/protocol';
 import { type RecordingSession, useRecordingSessionStore } from '@/stores/recordingSession';
 import ProtocolSelectModal from '@/components/modals/ProtocolSelectModal.vue';
@@ -13,11 +13,15 @@ import ProtocolSelectModal from '@/components/modals/ProtocolSelectModal.vue';
 const props = defineProps<{
   selectedProtocolId: number | null;
   selectedRecordingSessionId: number | null;
+  onGoToAnimalProfile?: () => void;
 }>();
 
 const emit = defineEmits<{
   (e: 'update:selectedProtocolId', value: number | null): void;
   (e: 'protocol-selected', value: Protocol | null): void;
+  (e: 'protocol-saved', value: { saved: boolean }): void;
+  (e: 'protocol-dirty', value: { dirty: boolean }): void;
+  (e: 'validate', value: { hasErrors: boolean; message?: string }): void;
 }>();
 
 ////////////////////////////////
@@ -33,15 +37,13 @@ const selectedProtocolIdRef = ref<'new' | number>(props.selectedProtocolId ?? 'n
 const selectedProtocolObject = ref<Protocol | null>(null);
 
 const showProtocolSelectModal = ref(false);
-const isSaveEnabled = ref(false);
 const initialFormData = ref('');
 
 const formData = ref({
   name: '',
-  description: '',
   animals: { sex: '', age: '', housing: '' },
   context: {
-    number_of_animals: null as number | null,
+    number_of_animals: '',
     duration: '',
     cage: '',
     bedding: '',
@@ -54,6 +56,14 @@ const snackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('');
 const session = ref<RecordingSession | null>(null);
+
+const skipNextProtocolPropWatch = ref(false);
+const skipNextSessionStoreWatch = ref(false);
+
+const isSaving = ref(false);
+
+const formRef = ref();
+const isFormValid = ref(false);
 
 ////////////////////////////////
 // COMPUTED
@@ -74,9 +84,36 @@ const selectItems = computed(() => {
 
 const isValidated = computed(() => formData.value.status === 'validated');
 
+const isSaveEnabled = computed(() => {
+  const formChanged = snapshotFormData(formData.value) !== initialFormData.value;
+  const protocolSelectedButNotLinked =
+    selectedProtocolObject.value &&
+    props.selectedRecordingSessionId !== null &&
+    session.value?.protocol?.id !== selectedProtocolObject.value.id;
+
+  return formChanged || protocolSelectedButNotLinked;
+});
+
+const canLinkValidatedProtocol = computed(() => {
+  return (
+    selectedProtocolObject.value !== null &&
+    selectedProtocolObject.value.status === 'validated' &&
+    session.value?.status !== 'shared' &&
+    session.value?.protocol?.id !== selectedProtocolObject.value.id
+  );
+});
+
+const isLinking = ref(false);
 ////////////////////////////////
 // FUNCTIONS
 ////////////////////////////////
+/* Show a snackbar notification with the given message and color. */
+function showSnackbar(message: string, color: string) {
+  snackbarMessage.value = message;
+  snackbarColor.value = color;
+  snackbar.value = true;
+}
+
 function snapshotFormData(data: typeof formData.value) {
   return JSON.stringify(JSON.parse(JSON.stringify(data)));
 }
@@ -84,10 +121,9 @@ function snapshotFormData(data: typeof formData.value) {
 function resetForm() {
   formData.value = {
     name: '',
-    description: '',
     animals: { sex: '', age: '', housing: '' },
     context: {
-      number_of_animals: null,
+      number_of_animals: '',
       duration: '',
       cage: '',
       bedding: '',
@@ -100,12 +136,15 @@ function resetForm() {
   selectedProtocolIdRef.value = 'new';
   emit('update:selectedProtocolId', null);
   emit('protocol-selected', null);
+  // notify parent
+  emit('protocol-saved', { saved: false });
+  emit('protocol-dirty', { dirty: false });
+  emit('validate', { hasErrors: false, message: '' });
 }
 
 function mapProtocolToFormData(protocol: Protocol) {
   return {
     name: protocol.name,
-    description: protocol.description ?? '',
     animals: {
       sex: (protocol as any).animals_sex ?? protocol.animals?.sex ?? '',
       age: (protocol as any).animals_age ?? protocol.animals?.age ?? '',
@@ -113,7 +152,7 @@ function mapProtocolToFormData(protocol: Protocol) {
     },
     context: {
       number_of_animals:
-        (protocol as any).context_number_of_animals ?? protocol.context?.number_of_animals ?? null,
+        (protocol as any).context_number_of_animals ?? protocol.context?.number_of_animals ?? '',
       duration: (protocol as any).context_duration ?? protocol.context?.duration ?? '',
       cage: (protocol as any).context_cage ?? protocol.context?.cage ?? '',
       bedding: (protocol as any).context_bedding ?? protocol.context?.bedding ?? '',
@@ -128,8 +167,15 @@ async function loadProtocol(protocolId: number) {
   if (protocol) {
     selectedProtocolObject.value = protocol;
     selectedProtocolIdRef.value = protocol.id;
-    formData.value = mapProtocolToFormData(protocol);
+
+    const mapped = mapProtocolToFormData(protocol);
+    formData.value = mapped;
     initialFormData.value = snapshotFormData(formData.value);
+
+    if (session.value?.protocol?.id === protocol.id) {
+      emit('update:selectedProtocolId', protocol.id);
+    }
+
     emit('protocol-selected', protocol);
   } else {
     resetForm();
@@ -139,10 +185,18 @@ async function loadProtocol(protocolId: number) {
 function onProtocolSelected(protocol: Protocol) {
   selectedProtocolObject.value = protocol;
   selectedProtocolIdRef.value = protocol.id;
-  formData.value = mapProtocolToFormData(protocol);
-  initialFormData.value = snapshotFormData(formData.value);
+
+  const mapped = mapProtocolToFormData(protocol);
+  formData.value = mapped;
+  // initialFormData.value = snapshotFormData(formData.value);
   showProtocolSelectModal.value = false;
+
+  if (session.value?.protocol?.id === protocol.id) {
+    emit('update:selectedProtocolId', protocol.id);
+  }
+
   emit('protocol-selected', protocol);
+  emit('protocol-dirty', { dirty: true });
 }
 
 function handleProtocolSelection(newId: 'new' | 'select' | number) {
@@ -157,77 +211,325 @@ function handleProtocolSelection(newId: 'new' | 'select' | number) {
 }
 
 async function onSubmit() {
+  if (!formRef.value?.validate) return;
+
+  const result = await formRef.value.validate();
+  const isValid = typeof result === 'boolean' ? result : result.valid;
+  if (!isValid) {
+    showSnackbar('Please fill in all required fields.', 'error');
+    return;
+  }
+  if (isSaving.value) return;
+  isSaving.value = true;
   try {
     let protocolId: number;
     const payload = { ...formData.value, animals: { ...formData.value.animals } };
 
+    let resultProtocol: Protocol;
+
     if (typeof selectedProtocolIdRef.value === 'number') {
       const updated = await protocolStore.updateProtocol(selectedProtocolIdRef.value, payload);
       protocolId = updated.id;
-      selectedProtocolObject.value = updated;
-      formData.value = mapProtocolToFormData(updated);
-      initialFormData.value = snapshotFormData(formData.value);
+      resultProtocol = updated;
       snackbarMessage.value = 'Protocol updated successfully.';
       snackbarColor.value = 'success';
     } else {
       const created = await protocolStore.createProtocol(payload);
       protocolId = created.id;
-      selectedProtocolObject.value = created;
-      selectedProtocolIdRef.value = created.id;
-      formData.value = mapProtocolToFormData(created);
-      initialFormData.value = snapshotFormData(formData.value);
+      resultProtocol = created;
       snackbarMessage.value = 'Protocol created successfully.';
       snackbarColor.value = 'success';
     }
 
-    snackbar.value = true;
+    selectedProtocolObject.value = resultProtocol;
+    selectedProtocolIdRef.value = protocolId;
+
+    // --- CHANGED: merge server response with local form to avoid losing user-entered fields
+    const mapped = mapProtocolToFormData(resultProtocol);
+    formData.value = {
+      name: mapped.name ?? formData.value.name,
+      animals: {
+        sex: mapped.animals?.sex ?? formData.value.animals.sex,
+        age: mapped.animals?.age ?? formData.value.animals.age,
+        housing: mapped.animals?.housing ?? formData.value.animals.housing,
+      },
+      context: {
+        number_of_animals:
+          mapped.context?.number_of_animals ?? formData.value.context.number_of_animals,
+        duration: mapped.context?.duration ?? formData.value.context.duration,
+        cage: mapped.context?.cage ?? formData.value.context.cage,
+        bedding: mapped.context?.bedding ?? formData.value.context.bedding,
+        light_cycle: mapped.context?.light_cycle ?? formData.value.context.light_cycle,
+      },
+      status: mapped.status ?? formData.value.status,
+    };
+    initialFormData.value = snapshotFormData(formData.value);
+
+    // notify parent about saved
+    emit('protocol-saved', { saved: true });
+    emit('protocol-dirty', { dirty: false });
+    emit('validate', { hasErrors: false, message: '' });
+
+    // prevent the immediate prop-watcher from reloading/resetting the form
+    skipNextProtocolPropWatch.value = true;
+    emit('update:selectedProtocolId', protocolId);
+    emit('protocol-selected', resultProtocol);
+
+    await nextTick();
 
     if (props.selectedRecordingSessionId !== null) {
+      skipNextSessionStoreWatch.value = true;
       await recordingSessionStore.updateSessionProtocol(
         props.selectedRecordingSessionId,
         protocolId
       );
+      if (session.value) {
+        session.value = { ...session.value, protocol: selectedProtocolObject.value as any };
+      }
       snackbarMessage.value += ' Linked to recording session.';
     }
+
+    snackbar.value = true;
   } catch (err: any) {
     snackbarMessage.value = 'Error saving protocol.';
     snackbarColor.value = 'error';
     snackbar.value = true;
     // eslint-disable-next-line no-console
     console.error(err);
+  } finally {
+    isSaving.value = false;
   }
 }
 
-////////////////////////////////
-// WATCHERS
-////////////////////////////////
+async function linkValidatedProtocol() {
+  if (
+    !props.selectedRecordingSessionId ||
+    !selectedProtocolObject.value ||
+    typeof selectedProtocolObject.value.id !== 'number'
+  ) {
+    return;
+  }
+
+  try {
+    isLinking.value = true;
+    const protocolId = selectedProtocolObject.value.id;
+
+    skipNextSessionStoreWatch.value = true;
+    await recordingSessionStore.updateSessionProtocol(props.selectedRecordingSessionId, protocolId);
+
+    if (session.value) {
+      session.value.protocol = selectedProtocolObject.value;
+    }
+
+    initialFormData.value = snapshotFormData(formData.value);
+
+    emit('protocol-dirty', { dirty: false });
+
+    emit('update:selectedProtocolId', protocolId);
+    emit('protocol-selected', selectedProtocolObject.value);
+    snackbarMessage.value = 'Validated protocol linked to recording session.';
+    snackbarColor.value = 'success';
+    snackbar.value = true;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(err);
+    snackbarMessage.value = 'Error linking validated protocol.';
+    snackbarColor.value = 'error';
+    snackbar.value = true;
+  } finally {
+    isLinking.value = false;
+  }
+}
+
+function mapSessionProtocolToForm(protocolFromSession: any): Protocol {
+  return {
+    id: protocolFromSession.id,
+    name: protocolFromSession.name ?? '',
+    animals: {
+      sex: protocolFromSession.animals?.sex ?? '',
+      age: protocolFromSession.animals?.age ?? '',
+      housing: protocolFromSession.animals?.housing ?? '',
+    },
+    context: {
+      number_of_animals: protocolFromSession.context?.number_of_animals ?? '',
+      duration: protocolFromSession.context?.duration ?? '',
+      cage: protocolFromSession.context?.cage ?? '',
+      bedding: protocolFromSession.context?.bedding ?? '',
+      light_cycle: protocolFromSession.context?.light_cycle ?? '',
+    },
+    status: protocolFromSession.status ?? 'draft',
+  };
+}
+
+// --- HELPERS: detect detail / merge / resolve ---
+function hasEmbeddedDetail(embedded: any) {
+  if (!embedded) return false;
+  const animalsHasValues =
+    !!embedded.animals &&
+    (Boolean(embedded.animals.sex) ||
+      Boolean(embedded.animals.age) ||
+      Boolean(embedded.animals.housing));
+  const contextHasValues =
+    !!embedded.context && Object.values(embedded.context).some((v: any) => v !== null && v !== '');
+  return animalsHasValues || contextHasValues;
+}
+
+function mergeMappedIntoForm(mapped: ReturnType<typeof mapProtocolToFormData>) {
+  formData.value = {
+    name: mapped.name ?? formData.value.name,
+    animals: {
+      sex: mapped.animals?.sex ?? formData.value.animals.sex,
+      age: mapped.animals?.age ?? formData.value.animals.age,
+      housing: mapped.animals?.housing ?? formData.value.animals.housing,
+    },
+    context: {
+      number_of_animals:
+        mapped.context?.number_of_animals ?? formData.value.context.number_of_animals,
+      duration: mapped.context?.duration ?? formData.value.context.duration,
+      cage: mapped.context?.cage ?? formData.value.context.cage,
+      bedding: mapped.context?.bedding ?? formData.value.context.bedding,
+      light_cycle: mapped.context?.light_cycle ?? formData.value.context.light_cycle,
+    },
+    status: mapped.status ?? formData.value.status,
+  };
+}
+
+async function resolveProtocolEmbedded(
+  embedded: Partial<Protocol> | null
+): Promise<Protocol | null> {
+  if (!embedded) return null;
+
+  if (hasEmbeddedDetail(embedded)) {
+    return mapSessionProtocolToForm(embedded);
+  }
+  if (embedded.id) {
+    const protocol = await protocolStore.getProtocolById(embedded.id);
+    if (protocol) return protocol;
+  }
+
+  return mapSessionProtocolToForm(embedded);
+}
+
+// --- single selectedRecordingSessionId watcher + sessions watcher ---
 watch(
-  () => props.selectedProtocolId,
-  (newId) => {
-    if (newId !== null) loadProtocol(newId);
-    else resetForm();
+  () => props.selectedRecordingSessionId,
+  async (newId) => {
+    if (!newId) {
+      session.value = null;
+      resetForm();
+      return;
+    }
+    const s = await recordingSessionStore.getSessionById(newId);
+    session.value = s;
+    if (!s?.protocol) {
+      resetForm();
+      return;
+    }
+    const protocolForForm = await resolveProtocolEmbedded(s.protocol);
+    if (!protocolForForm) {
+      resetForm();
+      return;
+    }
+    selectedProtocolObject.value = protocolForForm;
+    mergeMappedIntoForm(mapProtocolToFormData(protocolForForm));
+    initialFormData.value = snapshotFormData(formData.value);
+    selectedProtocolIdRef.value = protocolForForm.id;
+    emit('protocol-selected', protocolForForm);
   },
   { immediate: true }
 );
 
 watch(
-  () => props.selectedRecordingSessionId,
-  async (newId) => {
-    if (newId !== null) {
-      const s = await recordingSessionStore.getSessionById(newId);
-      session.value = s;
-      if (s?.protocol?.id) await loadProtocol(s.protocol.id);
+  () => recordingSessionStore.sessions,
+  (newSessions) => {
+    if (skipNextSessionStoreWatch.value) {
+      skipNextSessionStoreWatch.value = false;
+      return;
+    }
+    if (!props.selectedRecordingSessionId) return;
+    const updated = newSessions.find((s) => s.id === props.selectedRecordingSessionId);
+    if (!updated) return;
+
+    session.value = updated;
+
+    const embedded = (updated as any).protocol;
+    const immediateProtocolStatus = embedded?.status ?? updated.status ?? null;
+    if (immediateProtocolStatus) {
+      formData.value.status = immediateProtocolStatus;
+      if (selectedProtocolObject.value)
+        (selectedProtocolObject.value as any).status = immediateProtocolStatus;
+    }
+
+    const localDirty = snapshotFormData(formData.value) !== initialFormData.value;
+
+    if (!localDirty) {
+      if (!embedded) {
+        resetForm();
+        return;
+      }
+      if (!hasEmbeddedDetail(embedded)) {
+        if (
+          selectedProtocolObject.value &&
+          typeof embedded.id === 'number' &&
+          selectedProtocolObject.value.id === embedded.id
+        ) {
+          (selectedProtocolObject.value as any).status =
+            immediateProtocolStatus ?? (selectedProtocolObject.value as any).status;
+        }
+        return;
+      }
+      // embedded has details -> resolve & merge safely (async inlined)
+      (async () => {
+        const protocolForForm = await resolveProtocolEmbedded(embedded);
+        if (!protocolForForm) {
+          resetForm();
+          return;
+        }
+        protocolForForm.status = protocolForForm.status ?? immediateProtocolStatus ?? 'draft';
+        selectedProtocolObject.value = protocolForForm;
+        mergeMappedIntoForm(mapProtocolToFormData(protocolForForm));
+        initialFormData.value = snapshotFormData(formData.value);
+        selectedProtocolIdRef.value = protocolForForm.id;
+        emit('protocol-selected', protocolForForm);
+      })();
+    } else {
+      // form dirty: only sync minimal safe fields
+      if (embedded) {
+        const proto = mapSessionProtocolToForm(embedded);
+        selectedProtocolObject.value = proto;
+        formData.value.status = proto.status ?? formData.value.status;
+        initialFormData.value = snapshotFormData(formData.value);
+        session.value = updated;
+      }
     }
   },
-  { immediate: true }
+  { deep: true }
 );
 
 watch(
   formData,
-  (newVal) => {
-    isSaveEnabled.value = snapshotFormData(newVal) !== initialFormData.value;
+  () => {
+    // compute validation (same rules as template)
+    const errors: string[] = [];
+    // if (!formData.value.name || !formData.value.name.trim()) errors.push('Name is required');
+    const animals = formData.value.animals || {};
+    if (!animals.sex) errors.push('Sex is required');
+    if (!animals.age) errors.push('Age is required');
+    if (!animals.housing) errors.push('Housing is required');
+    const ctx = formData.value.context || {};
+    if (!ctx.number_of_animals) errors.push('Number of animals is required');
+    if (!ctx.duration) errors.push('Duration is required');
+    if (!ctx.cage) errors.push('Cage Type is required');
+    if (!ctx.bedding) errors.push('Bedding is required');
+    if (!ctx.light_cycle) errors.push('Light Cycle is required');
+
+    const hasErrors = errors.length > 0;
+    emit('validate', { hasErrors, message: hasErrors ? errors[0] : '' });
+
+    const dirty = snapshotFormData(formData.value) !== initialFormData.value;
+    emit('protocol-dirty', { dirty });
   },
-  { deep: true }
+  { deep: true, immediate: true }
 );
 
 ////////////////////////////////
@@ -257,7 +559,7 @@ onMounted(async () => {
       dense
       :value-comparator="(a: any, b: any) => a === b"
       @update:modelValue="handleProtocolSelection"
-      :disabled="isValidated && session?.status === 'published'"
+      :disabled="isValidated && session?.status === 'shared'"
     >
       <template #selection="{ item, index }">
         <span>
@@ -289,148 +591,198 @@ onMounted(async () => {
           </v-chip>
         </div>
         <div>
-          <v-btn
-            color="grey"
-            variant="outlined"
-            @click="resetForm"
-            class="mr-2"
-            :disabled="isValidated"
-            >Reset</v-btn
-          >
-          <v-btn color="primary" @click="onSubmit" :disabled="!isSaveEnabled || isValidated"
-            >Save</v-btn
-          >
+          <!-- Boutons dynamiques -->
+          <template v-if="canLinkValidatedProtocol">
+            <v-btn
+              :loading="isLinking"
+              :disabled="isLinking"
+              color="primary"
+              @click="linkValidatedProtocol"
+            >
+              Link this protocol
+            </v-btn>
+          </template>
+          <template v-else>
+            <v-btn
+              color="grey"
+              variant="outlined"
+              @click="resetForm"
+              class="mr-2"
+              :disabled="isValidated"
+            >
+              Reset
+            </v-btn>
+            <v-btn
+              color="primary"
+              @click="onSubmit"
+              :disabled="!isSaveEnabled || isValidated || isSaving"
+            >
+              Save
+            </v-btn>
+          </template>
         </div>
       </v-card-title>
 
       <v-card-text>
-        <v-text-field
-          v-model="formData.name"
-          outlined
-          required
-          class="mb-4"
-          :rules="[(v: any) => !!v || 'Name is required']"
-          :disabled="isValidated"
-        >
-          <template #label>Name <span style="color: red">*</span></template>
-        </v-text-field>
+        <v-form ref="formRef" v-model="isFormValid">
+          <!-- <v-text-field
+            v-model="formData.name"
+            outlined
+            required
+            class="mb-4"
+            :rules="[(v: any) => !!v || 'Name is required']"
+            :disabled="isValidated"
+          >
+            <template #label>Name <span style="color: red">*</span></template>
+          </v-text-field> -->
 
-        <!-- Animal Information -->
-        <v-card class="pa-4 mb-4" outlined>
-          <v-card-title>Animal Information</v-card-title>
-          <v-card-text>
-            <v-select
-              v-model="formData.animals.sex"
-              :items="['male(s)', 'female(s)', 'male(s) & female(s)']"
-              label="Sex"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Sex is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Sex <span style="color: red">*</span></template>
-            </v-select>
-            <v-select
-              v-model="formData.animals.age"
-              :items="['pup', 'juvenile', 'adult']"
-              label="Age"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Age is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Age <span style="color: red">*</span></template>
-            </v-select>
-            <v-select
-              v-model="formData.animals.housing"
-              :items="['grouped', 'isolated', 'grouped & isolated']"
-              label="Housing"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Housing is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Housing <span style="color: red">*</span></template>
-            </v-select>
-          </v-card-text>
-        </v-card>
+          <!-- Animal Information -->
+          <v-card class="pa-4 mb-4" outlined>
+            <v-card-title>Animal Information</v-card-title>
+            <v-card-text>
+              <v-select
+                v-model="formData.animals.sex"
+                :items="['male(s)', 'female(s)', 'male(s) & female(s)']"
+                label="Sex"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Sex is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Sex <span style="color: red">*</span></template>
+              </v-select>
+              <v-select
+                v-model="formData.animals.age"
+                :items="['pup', 'juvenile', 'adult', 'unspecified']"
+                label="Age"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Age is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Age <span style="color: red">*</span></template>
+              </v-select>
+              <v-select
+                v-model="formData.animals.housing"
+                :items="['grouped', 'isolated', 'grouped & isolated']"
+                label="Housing"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Housing is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Housing <span style="color: red">*</span></template>
+              </v-select>
+            </v-card-text>
+          </v-card>
 
-        <!-- Experimental Context -->
-        <v-card class="pa-4 mb-4" outlined>
-          <v-card-title>Experimental Context</v-card-title>
-          <v-card-text>
-            <v-text-field
-              v-model="formData.context.number_of_animals"
-              label="Number of Animals"
-              type="number"
-              outlined
-              class="mb-4"
-              @update:modelValue="
-                (val: string) =>
-                  (formData.context.number_of_animals = val === '' ? null : Number(val))
-              "
-              :rules="[(v: number | null) => v === null || v > 0 || 'Must be a positive number']"
-              :disabled="isValidated"
-            >
-              <template #label>Number of Animals <span style="color: red">*</span></template>
-            </v-text-field>
-            <v-select
-              v-model="formData.context.duration"
-              :items="['short term (<1h)', 'mid term (<1day)', 'long term (>=1day)']"
-              label="Duration"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Duration is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Duration <span style="color: red">*</span></template>
-            </v-select>
-            <v-select
-              v-model="formData.context.cage"
-              :items="['unfamiliar test cage', 'familiar test cage', 'home cage']"
-              label="Cage Type"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Cage Type is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Cage Type <span style="color: red">*</span></template>
-            </v-select>
-            <v-select
-              v-model="formData.context.bedding"
-              :items="['bedding', 'no bedding']"
-              label="Bedding"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Bedding is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Bedding <span style="color: red">*</span></template>
-            </v-select>
-            <v-select
-              v-model="formData.context.light_cycle"
-              :items="['day', 'night', 'both']"
-              label="Light Cycle"
-              outlined
-              class="mb-4"
-              :rules="[(v: any) => !!v || 'Light Cycle is required']"
-              :disabled="isValidated"
-            >
-              <template #label>Light Cycle <span style="color: red">*</span></template>
-            </v-select>
-          </v-card-text>
-        </v-card>
-        <v-textarea
-          v-model="formData.description"
-          label="Note"
-          outlined
-          required
-          class="mb-4"
-          :disabled="isValidated"
-          auto-grow
-        />
+          <!-- Experimental Context -->
+          <v-card class="pa-4 mb-4" outlined>
+            <v-card-title>Experimental Context</v-card-title>
+            <v-card-text>
+              <v-select
+                v-model="formData.context.number_of_animals"
+                :items="['1', '2', '3', '4', '>4']"
+                label="Number of Animals"
+                outlined
+                class="mb-4"
+                :rules="[(v: string) => !!v || 'Number of animals is required']"
+                :disabled="isValidated"
+              >
+                <template #label> Number of Animals <span style="color: red">*</span> </template>
+              </v-select>
+              <v-select
+                v-model="formData.context.duration"
+                :items="['short term (<1h)', 'mid term (<1day)', 'long term (>=1day)']"
+                label="Duration"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Duration is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Duration <span style="color: red">*</span></template>
+              </v-select>
+              <v-select
+                v-model="formData.context.cage"
+                :items="['unfamiliar test cage', 'familiar test cage', 'home cage']"
+                label="Cage Type"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Cage Type is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Cage Type <span style="color: red">*</span></template>
+              </v-select>
+              <v-select
+                v-model="formData.context.bedding"
+                :items="['bedding', 'no bedding']"
+                label="Bedding"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Bedding is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Bedding <span style="color: red">*</span></template>
+              </v-select>
+              <v-select
+                v-model="formData.context.light_cycle"
+                :items="['day', 'night', 'both']"
+                label="Light Cycle"
+                outlined
+                class="mb-4"
+                :rules="[(v: any) => !!v || 'Light Cycle is required']"
+                :disabled="isValidated"
+              >
+                <template #label>Light Cycle <span style="color: red">*</span></template>
+              </v-select>
+            </v-card-text>
+          </v-card>
+        </v-form>
       </v-card-text>
+      <v-card-actions class="d-flex justify-end mt-4">
+        <div>
+          <template v-if="canLinkValidatedProtocol">
+            <v-btn
+              :loading="isLinking"
+              :disabled="isLinking"
+              color="primary"
+              @click="linkValidatedProtocol"
+            >
+              Link this protocol
+            </v-btn>
+          </template>
+          <template v-else>
+            <v-btn
+              color="grey"
+              variant="outlined"
+              @click="resetForm"
+              class="mr-2"
+              :disabled="isValidated"
+            >
+              Reset
+            </v-btn>
+            <v-btn
+              color="primary"
+              variant="flat"
+              @click="onSubmit"
+              :disabled="!isSaveEnabled || isValidated || isSaving"
+            >
+              Save
+            </v-btn>
+          </template>
+        </div>
+      </v-card-actions>
     </v-card>
+    <v-btn
+      color="primary"
+      variant="text"
+      class="mt-2"
+      :disabled="!props.selectedProtocolId"
+      @click="props.onGoToAnimalProfile?.()"
+    >
+      Go to Animal Profile
+      <v-icon end>mdi-arrow-right</v-icon>
+    </v-btn>
 
     <!-- Snackbar -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000" location="top right">

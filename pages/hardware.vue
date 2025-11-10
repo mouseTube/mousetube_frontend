@@ -13,11 +13,13 @@ Code under GPL v3.0 licence
 ////////////////////////////
 import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce.js';
 import { Mic, MicVocal, Speaker, BoomBox, Microchip } from 'lucide-vue-next';
 import { useAuth } from '@/composables/useAuth';
+import { useRouter } from 'vue-router';
+import HardwareModal from '@/components/modals/HardwareModal.vue';
 
-const { token, id_user, fetchUser } = useAuth();
+const { currentUser, token, id_user, fetchUser } = useAuth();
 ////////////////////////////
 // DATA
 ////////////////////////////
@@ -38,10 +40,27 @@ const showFiltersMobile = ref(false);
 const showFiltersDesktop = ref(false);
 const isDesktop = ref(window.innerWidth >= 960);
 const userProfile = ref(null);
+const router = useRouter();
+const showHardwareModal = ref(false);
+const newHardwareFromHardware = ref(false);
 
 ////////////////////////////
 // METHODS
 ////////////////////////////
+
+function openHardwareModal() {
+  newHardwareFromHardware.value = true;
+  showHardwareModal.value = true;
+}
+
+function onHardwareSaved(hardwareId) {
+  showHardwareModal.value = false;
+
+  if (newHardwareFromHardware.value) {
+    router.push({ path: '/account/details', query: { tab: 'hardware' } });
+    newHardwareFromHardware.value = false;
+  }
+}
 
 function updateIsDesktop() {
   isDesktop.value = window.innerWidth >= 960;
@@ -55,7 +74,7 @@ function updateIsDesktop() {
  * @param {string} url - The URL to fetch hardware data from
  */
 const fetchHardware = async (
-  url = `${apiBaseUrl}/hardware/?page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`
+  url = `${apiBaseUrl}/hardware/?page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}&status=validated`
 ) => {
   dataLoaded.value = false;
   try {
@@ -202,11 +221,24 @@ onBeforeUnmount(() => {
         </v-sheet>
         <v-col>
           <v-card variant="flat" class="mx-auto" max-width="1000">
-            <div class="d-flex align-center mt-1 mb-4">
-              <h1><Mic /> Hardware</h1>
-              <v-chip v-if="count > 0" class="me-1 my-1 mx-2">
-                {{ count }}
-              </v-chip>
+            <div class="d-flex align-center justify-space-between mt-1 mb-4">
+              <div class="d-flex align-center">
+                <h1><Mic /> Hardware</h1>
+                <v-chip v-if="count > 0" class="me-1 my-1 mx-2">
+                  {{ count }}
+                </v-chip>
+              </div>
+              <div v-if="currentUser">
+                <v-btn
+                  variant="outlined"
+                  size="small"
+                  class="nav-icon audio-hover-icon"
+                  @click="openHardwareModal"
+                >
+                  <Plus size="20" class="nav-icon audio-hover-icon" />
+                  Add
+                </v-btn>
+              </div>
             </div>
             <v-card class="mt-5 mb-5" color="grey-lighten-4">
               <v-card-text>
@@ -497,6 +529,7 @@ onBeforeUnmount(() => {
       </v-row>
     </v-container>
   </v-main>
+  <HardwareModal v-model="showHardwareModal" @saved="onHardwareSaved" />
 </template>
 
 <style scoped>

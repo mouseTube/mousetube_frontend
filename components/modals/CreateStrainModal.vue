@@ -26,16 +26,31 @@ const formData = ref({
   species: null as number | null,
 });
 
+const formRef = ref();
+const snackbar = ref(false);
+const snackbarMessage = ref('');
+const snackbarColor = ref('');
+
+// Snackbar helper
+function showSnackbar(message: string, color: string) {
+  snackbarMessage.value = message;
+  snackbarColor.value = color;
+  snackbar.value = true;
+}
+
 // Species options
 const speciesOptions = ref<{ label: string; value: number }[]>([]);
 const speciesLoading = ref(true);
 
-// Load species
+// Fetch species
 async function fetchSpecies() {
   try {
     speciesLoading.value = true;
     await speciesStore.fetchSpecies();
-    speciesOptions.value = speciesStore.species.map((s) => ({ label: s.name, value: s.id })) || [];
+    speciesOptions.value = speciesStore.species.map((s) => ({
+      label: s.name,
+      value: s.id,
+    }));
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Error fetching species:', err);
@@ -45,6 +60,12 @@ async function fetchSpecies() {
   }
 }
 
+// Reset form data
+function resetForm() {
+  formData.value = { name: '', background: '', bibliography: '', species: null };
+}
+
+// Watch props
 watch(
   () => props.strain,
   (strain) => {
@@ -56,7 +77,7 @@ watch(
         species: strain.species?.id ?? null,
       };
     } else {
-      formData.value = { name: '', background: '', bibliography: '', species: null };
+      resetForm();
     }
   },
   { immediate: true }
@@ -73,14 +94,22 @@ watch(localShow, async (val) => {
   emit('update:show', val);
   if (!val) {
     await nextTick();
-    formData.value = { name: '', background: '', bibliography: '', species: null };
+    resetForm();
   }
 });
 
-//submit form
+// Submit form
 async function submit() {
+  const result = await formRef.value?.validate();
+  const isValid = typeof result === 'boolean' ? result : result?.valid;
+
+  if (!isValid) {
+    showSnackbar('Please fill in all required fields.', 'error');
+    return;
+  }
+
   if (!formData.value.species) {
-    alert('Please select a species.');
+    showSnackbar('Please select a species.', 'error');
     return;
   }
 
@@ -104,7 +133,7 @@ async function submit() {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(err);
-    alert('Error saving strain.');
+    showSnackbar('Error saving strain.', 'error');
   }
 }
 
@@ -124,32 +153,61 @@ onMounted(() => {
         </template>
 
         <template v-else>
-          <v-text-field v-model="formData.name" outlined required class="mb-4"
-            ><template #label>Name <span style="color: red">*</span></template>
-          </v-text-field>
-          <v-text-field v-model="formData.background" outlined required class="mb-4"
-            ><template #label>Genetic Background <span style="color: red">*</span></template>
-          </v-text-field>
-          <v-textarea v-model="formData.bibliography" label="Bibliography" outlined class="mb-4" />
-          <v-select
-            v-model="formData.species"
-            :items="speciesOptions"
-            item-title="label"
-            item-value="value"
-            label="Species"
-            outlined
-            required
-            class="mb-4"
-          >
-            <template #label>Species <span style="color: red">*</span></template>
-          </v-select>
+          <v-form ref="formRef">
+            <v-text-field
+              v-model="formData.name"
+              outlined
+              required
+              class="mb-4"
+              :rules="[(v) => !!v || 'Name is required']"
+            >
+              <template #label>Name <span style="color: red">*</span></template>
+            </v-text-field>
+
+            <v-text-field
+              v-model="formData.background"
+              outlined
+              required
+              class="mb-4"
+              :rules="[(v) => !!v || 'Background is required']"
+            >
+              <template #label>Genetic Background <span style="color: red">*</span></template>
+            </v-text-field>
+
+            <v-textarea
+              v-model="formData.bibliography"
+              label="Bibliography"
+              outlined
+              class="mb-4"
+            />
+
+            <v-select
+              v-model="formData.species"
+              :items="speciesOptions"
+              item-title="label"
+              item-value="value"
+              label="Species"
+              outlined
+              required
+              class="mb-4"
+              :rules="[(v) => !!v || 'Species is required']"
+            >
+              <template #label>Species <span style="color: red">*</span></template>
+            </v-select>
+          </v-form>
         </template>
       </v-card-text>
 
       <v-card-actions v-if="!speciesLoading">
         <v-btn text @click="localShow = false">Close</v-btn>
-        <v-btn color="primary" @click="submit">{{ props.strain ? 'Save' : 'Create' }}</v-btn>
+        <v-btn color="primary" @click="submit">
+          {{ props.strain ? 'Save' : 'Create' }}
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000" location="top right">
+    {{ snackbarMessage }}
+  </v-snackbar>
 </template>

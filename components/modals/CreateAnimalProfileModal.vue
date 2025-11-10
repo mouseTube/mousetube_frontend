@@ -3,8 +3,8 @@ import { ref, watch, onMounted } from 'vue';
 import { useAnimalProfileStore } from '~/stores/animalProfile';
 import { useStrainStore, type Strain } from '~/stores/strain';
 import CreateStrainModal from '@/components/modals/CreateStrainModal.vue';
-import type { AnimalProfile } from '~/stores/animalProfile';
 import SelectStrainModal from '@/components/modals/StrainSelectionModal.vue';
+import type { AnimalProfile } from '~/stores/animalProfile';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -14,13 +14,29 @@ const emit = defineEmits(['update:modelValue', 'created', 'updated']);
 
 const animalProfileStore = useAnimalProfileStore();
 const strainStore = useStrainStore();
+
 const showStrainSelectModal = ref(false);
+const showCreateStrainModal = ref(false);
+
+const formRef = ref<any>(null);
+const formValid = ref(false);
+
+const snackbar = ref(false);
+const snackbarText = ref('');
+const snackbarColor = ref<'success' | 'error'>('success');
+
+function showSnackbar(message: string, color: 'success' | 'error') {
+  snackbarText.value = message;
+  snackbarColor.value = color;
+  snackbar.value = true;
+}
 
 const formData = ref<Partial<AnimalProfile>>({
   name: '',
   description: '',
   strain: null,
   sex: '',
+  age: '',
   genotype: '',
   treatment: '',
   status: 'draft',
@@ -32,6 +48,7 @@ function resetForm() {
     description: '',
     strain: null,
     sex: '',
+    age: '',
     genotype: '',
     treatment: '',
     status: 'draft',
@@ -39,7 +56,6 @@ function resetForm() {
 }
 
 const strainOptions = ref<Strain[]>([]);
-const showCreateStrainModal = ref(false);
 
 async function fetchStrains() {
   if (strainStore.strains.length === 0) {
@@ -60,6 +76,7 @@ watch(
         description: profile.description ?? '',
         strain: profile.strain ?? null,
         sex: profile.sex ?? '',
+        age: profile.age ?? '',
         genotype: profile.genotype ?? '',
         treatment: profile.treatment ?? '',
         status: profile.status ?? 'draft',
@@ -70,6 +87,7 @@ watch(
   },
   { immediate: true }
 );
+
 watch(
   () => props.modelValue,
   (open) => {
@@ -80,6 +98,21 @@ watch(
 );
 
 async function handleSubmit() {
+  if (!formRef.value?.validate) return;
+
+  const result = await formRef.value.validate();
+  const isValid = typeof result === 'boolean' ? result : result.valid;
+
+  if (!isValid) {
+    showSnackbar('Please fill in all required fields.', 'error');
+    return;
+  }
+
+  if (!formData.value.strain) {
+    showSnackbar('Strain is required', 'error');
+    return;
+  }
+
   try {
     if (props.profileToEdit) {
       const updated = await animalProfileStore.updateAnimalProfile(
@@ -93,19 +126,21 @@ async function handleSubmit() {
         name: formData.value.name ?? '',
         description: formData.value.description ?? '',
         sex: formData.value.sex ?? '',
+        age: formData.value.age ?? '',
         genotype: formData.value.genotype ?? '',
         treatment: formData.value.treatment ?? '',
         status: formData.value.status ?? 'draft',
-        strain: formData.value.strain ?? null,
+        strain: formData.value.strain,
       });
       emit('created', created);
     }
+
     emit('update:modelValue', false);
     resetForm();
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error(e);
-    alert('Error saving animal profile.');
+    showSnackbar('Error saving animal profile', 'error');
   }
 }
 
@@ -123,50 +158,84 @@ function handleStrainCreated(newStrain: Strain) {
     max-width="600"
   >
     <v-card>
-      <v-card-title>{{
-        props.profileToEdit ? 'Edit Animal Profile' : 'Create Animal Profile'
-      }}</v-card-title>
+      <v-card-title>
+        {{ props.profileToEdit ? 'Edit Animal Profile' : 'Create Animal Profile' }}
+      </v-card-title>
+
       <v-card-text>
-        <v-text-field v-model="formData.name" outlined required class="mb-4">
-          <template #label>Name <span style="color: red">*</span></template>
-        </v-text-field>
+        <v-form ref="formRef" v-model="formValid">
+          <!-- Name -->
+          <v-text-field
+            v-model="formData.name"
+            outlined
+            required
+            :rules="[(v) => !!v || 'Name is required']"
+            class="mb-4"
+          >
+            <template #label>Name <span style="color: red">*</span></template>
+          </v-text-field>
 
-        <v-textarea v-model="formData.description" outlined class="mb-4">
-          <template #label>Description</template>
-        </v-textarea>
+          <!-- Description -->
+          <v-textarea v-model="formData.description" outlined class="mb-4">
+            <template #label>Description</template>
+          </v-textarea>
 
-        <v-text-field
-          :model-value="formData.strain ? formData.strain.name : ''"
-          label="Strain"
-          outlined
-          required
-          readonly
-          class="mb-4"
-          @click="showStrainSelectModal = true"
-        >
-          <template #append>
-            <v-btn text @click.stop="showStrainSelectModal = true"> Select </v-btn>
-          </template>
-        </v-text-field>
+          <!-- Strain -->
+          <v-text-field
+            :model-value="formData.strain ? formData.strain.name : ''"
+            outlined
+            readonly
+            required
+            :rules="[(v) => !!formData.strain || 'Strain is required']"
+            class="mb-4"
+            @click="showStrainSelectModal = true"
+          >
+            <template #label>Strain <span style="color: red">*</span></template>
+            <template #append>
+              <v-btn text @click.stop="showStrainSelectModal = true">Select</v-btn>
+            </template>
+          </v-text-field>
 
-        <v-select
-          v-model="formData.sex"
-          :items="['male', 'female']"
-          label="Sex"
-          outlined
-          required
-          class="mb-4"
-        >
-          <template #label>Sex <span style="color: red">*</span></template>
-        </v-select>
+          <!-- Sex -->
+          <v-select
+            v-model="formData.sex"
+            :items="['male', 'female']"
+            outlined
+            required
+            :rules="[(v) => !!v || 'Sex is required']"
+            class="mb-4"
+          >
+            <template #label>Sex <span style="color: red">*</span></template>
+          </v-select>
 
-        <v-text-field v-model="formData.genotype" outlined required class="mb-4">
-          <template #label>Genotype <span style="color: red">*</span></template>
-        </v-text-field>
+          <!-- Age -->
+          <v-select
+            v-model="formData.age"
+            :items="['pup', 'juvenile', 'adult']"
+            outlined
+            required
+            :rules="[(v) => !!v || 'Age is required']"
+            class="mb-4"
+          >
+            <template #label>Age <span style="color: red">*</span></template>
+          </v-select>
 
-        <v-text-field v-model="formData.treatment" outlined class="mb-4">
-          <template #label>Treatment</template>
-        </v-text-field>
+          <!-- Genotype -->
+          <v-text-field
+            v-model="formData.genotype"
+            outlined
+            required
+            :rules="[(v) => !!v || 'Genotype is required']"
+            class="mb-4"
+          >
+            <template #label>Genotype <span style="color: red">*</span></template>
+          </v-text-field>
+
+          <!-- Treatment -->
+          <v-text-field v-model="formData.treatment" outlined class="mb-4">
+            <template #label>Treatment</template>
+          </v-text-field>
+        </v-form>
       </v-card-text>
 
       <v-card-actions>
@@ -178,39 +247,21 @@ function handleStrainCreated(newStrain: Strain) {
       </v-card-actions>
     </v-card>
 
+    <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000">
+      {{ snackbarText }}
+    </v-snackbar>
+
     <CreateStrainModal
       :show="showCreateStrainModal"
       @update:show="showCreateStrainModal = $event"
       @created="handleStrainCreated"
     />
+
     <SelectStrainModal
       :show="showStrainSelectModal"
       @update:show="showStrainSelectModal = $event"
       @selected="
-        (
-          strain:
-            | {
-                id: number;
-                name: string;
-                background?: string | null | undefined;
-                species?:
-                  | {
-                      id: number;
-                      name: string;
-                      created_at?: string | null | undefined;
-                      modified_at?: string | null | undefined;
-                      created_by?: number | null | undefined;
-                    }
-                  | null
-                  | undefined;
-                bibliography?: string | null | undefined;
-                created_at?: string | null | undefined;
-                created_by?: number | null | undefined;
-                modified_at?: string | null | undefined;
-              }
-            | null
-            | undefined
-        ) => {
+        (strain) => {
           formData.strain = strain;
           showStrainSelectModal = false;
         }

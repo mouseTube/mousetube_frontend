@@ -2,10 +2,11 @@
 import { ref, onMounted, watch } from 'vue';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 import { useAuth } from '@/composables/useAuth';
-import { useLaboratoryStore } from '@/stores/laboratory';
+import { useLaboratoryStore, type Laboratory } from '@/stores/laboratory';
 
-// Liste des pays en format { label, value } pour v-select
-import countriesList from '@/data/countries'; // voir ci-dessous pour le fichier
+import countriesList from '@/data/countries';
+
+const formRef = ref<any>(null);
 
 const props = defineProps<{
   modelValue: boolean;
@@ -14,7 +15,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
-  (e: 'saved'): void;
+  (e: 'saved', lab?: Laboratory): void;
 }>();
 
 const labStore = useLaboratoryStore();
@@ -26,7 +27,6 @@ const form = ref({
   unit: '',
   address: '',
   country: '', // ISO code
-  contact: '',
 });
 
 const snackbar = ref(false);
@@ -51,7 +51,6 @@ async function loadLaboratory() {
         unit: lab.unit || '',
         address: lab.address || '',
         country: lab.country || '',
-        contact: lab.contact || '',
       };
     }
   } catch (e) {
@@ -64,20 +63,26 @@ async function loadLaboratory() {
 }
 
 async function save() {
+  const { valid } = await formRef.value?.validate();
+  if (!valid) {
+    showSnackbar('Please fill all required fields.', 'error');
+    return;
+  }
   if (!form.value.name.trim()) {
     showSnackbar('Name is required.', 'error');
     return;
   }
   loading.value = true;
   try {
+    let lab;
     if (props.editId) {
-      await labStore.updateLaboratory(props.editId, form.value);
+      lab = await labStore.updateLaboratory(props.editId, form.value);
       showSnackbar('Laboratory updated successfully.');
     } else {
-      await labStore.createLaboratory(form.value);
+      lab = await labStore.createLaboratory(form.value);
       showSnackbar('Laboratory created successfully.');
     }
-    emit('saved');
+    emit('saved', lab);
     emit('update:modelValue', false);
   } catch (e) {
     showSnackbar('Error saving laboratory.', 'error');
@@ -98,7 +103,6 @@ watch(
         unit: '',
         address: '',
         country: '',
-        contact: '',
       };
     }
   },
@@ -124,8 +128,13 @@ watch(
     <v-card>
       <v-card-title>{{ props.editId ? 'Edit Laboratory' : 'Create Laboratory' }}</v-card-title>
       <v-card-text>
-        <v-form>
-          <v-text-field v-model="form.name" label="Name *" required />
+        <v-form ref="formRef" v-slot="{ validate }">
+          <v-text-field
+            v-model="form.name"
+            label="Name *"
+            required
+            :rules="[(v) => !!v || 'Name is required']"
+          />
           <v-text-field v-model="form.institution" label="Institution" />
           <v-text-field v-model="form.unit" label="Unit" />
           <v-text-field v-model="form.address" label="Address" />
@@ -134,13 +143,13 @@ watch(
           <v-select
             v-model="form.country"
             :items="countriesList"
-            label="Country"
+            label="Country *"
             item-title="label"
             item-value="value"
             clearable
+            required
+            :rules="[(v) => !!v || 'Country is required']"
           />
-
-          <v-text-field v-model="form.contact" label="Contact" />
         </v-form>
       </v-card-text>
       <v-card-actions>

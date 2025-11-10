@@ -1,83 +1,112 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue';
-import axios from 'axios';
-import { useFileStore } from '~/stores/file';
-import { useSubjectStore } from '~/stores/subject';
+import { ref, computed, watch } from 'vue';
+import { type File as StoreFile, useFileStore } from '~/stores/file';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
-import CreateSubjectModal from '~/components/modals/CreateSubjectModal.vue';
 
 const props = defineProps<{
-  modelValue: any;
+  modelValue: StoreFile | null;
   recordingSessionId?: number | null;
+  repository?: { id: number; name: string; logo_url?: string | null } | null;
 }>();
 
 const emit = defineEmits(['update:modelValue', 'saved']);
-
 const fileStore = useFileStore();
-const subjectStore = useSubjectStore();
-const apiBaseUrl = useApiBaseUrl();
 
-const showCreateSubject = ref(false);
+interface FormDataType {
+  name: string;
+  date: string | null;
+  duration: number | null;
+  format: string | null;
+  sampling_rate: number | null;
+  bit_depth: number | null;
+  notes: string;
+  size: number | null;
+  doi: string;
+  number: number | null;
+  file: globalThis.File | null;
+  uploadedUrl: string | null;
+  link: string | null;
+}
 
-const subjectOptions = ref<{ label: string; value: number }[]>([]);
-
-const formData = ref({
+const formData = ref<FormDataType>({
   name: '',
-  date: '',
+  date: null,
   duration: null,
-  format: '',
+  format: null,
   sampling_rate: null,
   bit_depth: null,
   notes: '',
   size: null,
   doi: '',
   number: null,
-  subjects: [] as number[],
-  file: null as File | null,
-  uploadedUrl: '' as string | null,
+  file: null,
+  uploadedUrl: null,
+  link: null,
 });
 
-function fetchSubjects() {
-  subjectStore.fetchSubjects().then(() => {
-    subjectOptions.value = subjectStore.subjects.map((s) => ({
-      label: s.name,
-      value: s.id,
-    }));
-  });
-}
+const uploading = ref(false);
+const isEditMode = computed(() => !!props.modelValue?.id);
+const isDoiOnly = computed(
+  () => !isEditMode.value && (!!formData.value.doi || !!formData.value.link)
+);
 
+const canSave = computed(() => {
+  if (isEditMode.value) {
+    return !!formData.value.name;
+  } else if (isDoiOnly.value) {
+    return !!formData.value.name && !!formData.value.doi && !!formData.value.link;
+  } else {
+    return !!formData.value.file && !!formData.value.name;
+  }
+});
+
+// Regex DOI
+const doiPattern = /^10.\d{4,9}\/[-._;()/:A-Z0-9]+$/i;
+
+// Regex URL
+const urlPattern = /^(https?:\/\/)?([\w-]+(\.[\w-]+)+)(\/[\w-.,@?^=%&:/~+#]*)?$/i;
+
+// Rules
+const doiRules = [(v: string) => !v || doiPattern.test(v) || 'Invalid DOI format'];
+
+const linkRules = [
+  (v: string) => !formData.value.doi || !!v || 'Link is required when DOI is set',
+  (v: string) => !v || urlPattern.test(v) || 'Invalid URL format',
+];
+
+// ✅ Load existing file data into form when in edit mode
 watch(
   () => props.modelValue,
-  (newVal) => {
-    if (newVal) {
+  (file) => {
+    if (file) {
       formData.value = {
-        name: newVal.name || '',
-        date: newVal.date || '',
-        duration: newVal.duration || null,
-        format: newVal.format || '',
-        sampling_rate: newVal.sampling_rate || null,
-        bit_depth: newVal.bit_depth || null,
-        notes: newVal.notes || '',
-        size: newVal.size || null,
-        doi: newVal.doi || '',
-        number: newVal.number || null,
-        subjects: (newVal.subjects || []).map((s: any) => s.id),
+        name: file.name || '',
+        date: file.date || null,
+        duration: file.duration || null,
+        format: file.format || null,
+        sampling_rate: file.sampling_rate || null,
+        bit_depth: file.bit_depth || null,
+        notes: file.notes || '',
+        size: file.size || null,
+        doi: file.doi || '',
+        link: file.link || null,
+        number: file.number || null,
         file: null,
-        uploadedUrl: newVal.link || null,
+        uploadedUrl: file.link || null,
       };
     } else {
       formData.value = {
         name: '',
-        date: '',
+        date: null,
         duration: null,
-        format: '',
+        format: null,
         sampling_rate: null,
         bit_depth: null,
         notes: '',
         size: null,
         doi: '',
+        link: null,
         number: null,
-        subjects: [],
         file: null,
         uploadedUrl: null,
       };
@@ -86,65 +115,99 @@ watch(
   { immediate: true }
 );
 
-onMounted(fetchSubjects);
-
-// Upload the file, then associate the URL in formData.uploadedUrl
-async function uploadFile() {
+// =====================================================
+// Upload and creation (Only in creation)
+// =====================================================
+async function uploadFileAndCreate() {
   if (!formData.value.file) return;
-
-  const uploadData = new FormData();
-  uploadData.append('file', formData.value.file);
+  uploading.value = true;
 
   try {
-    const response = await axios.post(`${apiBaseUrl}/file-upload/`, uploadData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    formData.value.uploadedUrl = response.data.file_url || response.data.url || null;
-  } catch (error) {
+    const { temp_path, task_id } = await fileStore.uploadFile(formData.value.file);
+
+    const apiBaseUrl = useApiBaseUrl();
+    const baseUrl = apiBaseUrl.replace(/\/api\/?$/, '');
+    const filenameSafe = encodeURIComponent(temp_path.replace(/^\/?media\//, ''));
+    const publicUrl = `${baseUrl}/media/${filenameSafe}`;
+
+    const payload = {
+      name: formData.value.name || formData.value.file.name,
+      date: formData.value.date,
+      duration: formData.value.duration,
+      format: formData.value.format,
+      sampling_rate: formData.value.sampling_rate,
+      bit_depth: formData.value.bit_depth,
+      notes: formData.value.notes,
+      size: formData.value.file.size,
+      doi: formData.value.doi,
+      number: formData.value.number,
+      recording_session_id: props.recordingSessionId ?? null,
+      repository_id: props.repository?.id ?? null,
+      link: publicUrl,
+      celery_task_id: task_id,
+    };
+
+    const newFile = await fileStore.createFile(payload);
+    emit('saved', newFile);
+    emit('update:modelValue', null);
+  } catch (err) {
     // eslint-disable-next-line no-console
-    console.error('Upload failed:', error);
+    console.error('Erreur upload ou file creation:', err);
+  } finally {
+    uploading.value = false;
   }
 }
 
-// Save the file data
+// =====================================================
+// Save metadata (Edition only)
+// =====================================================
 async function handleSubmit() {
   try {
-    const { file, uploadedUrl, ...rest } = formData.value;
-
+    const { file, uploadedUrl, doi, ...rest } = formData.value;
     const payload = {
       ...rest,
-      recording_session: props.recordingSessionId ?? null,
-      link: uploadedUrl ?? null,
+      doi: formData.value.doi,
+      recording_session_id: props.recordingSessionId ?? null,
+      repository_id: props.repository?.id ?? null,
+      link: formData.value.link || uploadedUrl || null,
     };
 
     let saved;
-    if (props.modelValue && props.modelValue.id) {
+    if (isEditMode.value && props.modelValue?.id) {
       saved = await fileStore.updateFile(props.modelValue.id, payload);
     } else {
       saved = await fileStore.createFile(payload);
     }
 
-    emit('update:modelValue', null);
     emit('saved', saved);
+    emit('update:modelValue', null);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(err);
   }
 }
-
-const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg|flac|aiff)$/i));
 </script>
 
 <template>
   <v-card class="pa-4" max-width="600">
-    <v-card-title>
-      <span>{{ props.modelValue ? 'Edit File' : 'Create File' }}</span>
+    <v-card-title class="d-flex justify-space-between align-center">
+      <span>{{ isEditMode ? 'Edit File' : 'Create File' }}</span>
+      <div v-if="props.repository && !formData.doi" class="d-flex align-center">
+        <img
+          v-if="props.repository.logo_url"
+          :src="props.repository.logo_url"
+          alt="logo"
+          style="width: 32px; height: 32px; margin-left: 8px; object-fit: contain"
+        />
+        <span class="ml-2">{{ props.repository.name }}</span>
+      </div>
     </v-card-title>
 
     <v-card-text>
-      <v-text-field v-model="formData.name" outlined required class="mb-3">
-        <template #label> File Name <span style="color: red">*</span> </template>
-      </v-text-field>
+      <h3 class="mb-3">File Metadata</h3>
+
+      <v-text-field v-model="formData.name" label="File Name *" outlined required class="mb-3" />
+
       <v-text-field
         v-model="formData.date"
         label="Recording Date"
@@ -152,6 +215,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         outlined
         class="mb-3"
       />
+
       <v-text-field
         v-model="formData.duration"
         label="Duration (seconds)"
@@ -159,6 +223,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         outlined
         class="mb-3"
       />
+
       <v-select
         v-model="formData.format"
         :items="['WAV', 'MP3', 'FLAC', 'OGG', 'AIFF', 'AVI', 'MP4', 'MOV', 'MKV']"
@@ -166,6 +231,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         outlined
         class="mb-3"
       />
+
       <v-text-field
         v-model="formData.sampling_rate"
         label="Sampling Rate (Hz)"
@@ -173,6 +239,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         outlined
         class="mb-3"
       />
+
       <v-select
         v-model="formData.bit_depth"
         :items="[8, 16, 24, 32]"
@@ -180,7 +247,7 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         outlined
         class="mb-3"
       />
-      <v-textarea v-model="formData.notes" label="Notes" outlined class="mb-3" />
+
       <v-text-field
         v-model="formData.size"
         label="File Size (bytes)"
@@ -188,59 +255,85 @@ const isAudio = computed(() => formData.value.uploadedUrl?.match(/\.(mp3|wav|ogg
         outlined
         class="mb-3"
       />
-      <v-text-field v-model="formData.doi" label="DOI" type="url" outlined class="mb-3" />
+
+      <!-- DOI -->
+      <v-text-field
+        v-model="formData.doi"
+        label="DOI"
+        outlined
+        class="mb-3"
+        :readonly="isEditMode"
+        :rules="doiRules"
+        hint="Editable only when creating a new file"
+      />
+
+      <v-text-field
+        v-model="formData.link"
+        label="Donwload Link (required if DOI is set)"
+        outlined
+        class="mb-3"
+        :disabled="isEditMode"
+        :rules="linkRules"
+        hint="URL of the file associated with the DOI"
+      />
+
       <v-text-field
         v-model="formData.number"
-        label="Vocalization Number"
+        label="File Number"
         type="number"
         outlined
         class="mb-3"
       />
 
-      <!-- Subject selector -->
-      <v-select
-        v-model="formData.subjects"
-        :items="subjectOptions"
-        item-title="label"
-        item-value="value"
-        label="Subjects"
-        multiple
-        chips
-        outlined
-        class="mb-3"
-      />
+      <v-textarea v-model="formData.notes" label="Notes" outlined class="mb-3" />
 
-      <v-btn color="primary" @click="showCreateSubject = true" class="mb-3">
-        <v-icon start>mdi-plus</v-icon> Add Subject
-      </v-btn>
+      <!-- DOI given -->
+      <v-alert v-if="isDoiOnly" type="info" class="mb-4" border="start" variant="tonal">
+        This file will be linked to an external resource via its DOI and link.
+        <br />
+        No upload will be performed — please ensure that both fields (“DOI” and “External Link”) are
+        correctly filled.
+      </v-alert>
 
-      <!-- Upload file -->
-      <v-file-input
-        v-model="formData.file"
-        label="Upload File"
-        prepend-icon="mdi-upload"
-        show-size
-        accept="audio/*,video/*"
-        outlined
-        class="mb-3"
-      />
+      <!-- upload file -->
+      <template v-else-if="!isEditMode">
+        <h3 class="mt-6 mb-3">Upload File</h3>
 
-      <v-btn :disabled="!formData.file" color="primary" block class="mb-3" @click="uploadFile">
-        Upload File
-      </v-btn>
+        <v-file-input
+          v-model="formData.file"
+          label="Select File"
+          prepend-icon="mdi-upload"
+          show-size
+          accept="audio/*,video/*"
+          outlined
+          class="mb-3"
+        />
 
-      <div v-if="formData.uploadedUrl" class="mb-3">
-        <v-alert type="success" class="mb-2">File uploaded successfully!</v-alert>
-        <audio v-if="isAudio" controls :src="formData.uploadedUrl" class="w-full" />
-        <video v-else controls :src="formData.uploadedUrl" class="w-full max-h-64" />
-      </div>
+        <v-btn
+          :disabled="!formData.file || uploading"
+          color="primary"
+          block
+          class="mb-3"
+          @click="uploadFileAndCreate"
+        >
+          {{ uploading ? 'Uploading...' : 'Upload & Create File' }}
+        </v-btn>
+
+        <v-progress-linear
+          v-if="uploading"
+          :model-value="fileStore.uploadProgress"
+          height="6"
+          color="primary"
+          class="mb-3"
+        />
+      </template>
     </v-card-text>
 
     <v-card-actions>
       <v-spacer />
-      <v-btn color="primary" @click="handleSubmit">Save</v-btn>
+      <v-btn color="primary" :disabled="!canSave" @click="handleSubmit">
+        {{ isEditMode ? 'Save Metadata' : 'Save without Upload' }}
+      </v-btn>
     </v-card-actions>
-
-    <CreateSubjectModal v-model="showCreateSubject" @created="fetchSubjects()" />
   </v-card>
 </template>

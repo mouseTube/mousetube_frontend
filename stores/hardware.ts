@@ -1,7 +1,7 @@
-import { defineStore } from 'pinia'
-import axios, { type AxiosInstance } from 'axios'
-import { useApiBaseUrl } from '~/composables/useApiBaseUrl'
-import { token } from '@/composables/useAuth'
+import { defineStore } from 'pinia';
+import axios, { type AxiosInstance } from 'axios';
+import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
+import { token } from '@/composables/useAuth';
 
 export interface Hardware {
   id?: number;
@@ -10,6 +10,7 @@ export interface Hardware {
   made_by: string;
   description: string;
   references?: number[];
+  status: 'draft' | 'waiting validation' | 'validated' | '';
   created_at?: string;
   modified_at?: string;
   created_by?: number | null;
@@ -28,9 +29,7 @@ export const useHardwareStore = defineStore('hardware', {
       const apiBaseUrl = useApiBaseUrl();
       this.api = axios.create({
         baseURL: apiBaseUrl,
-        headers: token.value
-          ? { Authorization: `Bearer ${token.value}` }
-          : {}
+        headers: token.value ? { Authorization: `Bearer ${token.value}` } : {},
       });
     },
 
@@ -46,9 +45,7 @@ export const useHardwareStore = defineStore('hardware', {
         while (nextPage) {
           const res = await this.api!.get(nextPage);
           allHardwares.push(...res.data.results);
-          nextPage = res.data.next
-            ? res.data.next.replace(this.api!.defaults.baseURL!, '')
-            : null;
+          nextPage = res.data.next ? res.data.next.replace(this.api!.defaults.baseURL!, '') : null;
         }
 
         this.hardwares = allHardwares;
@@ -82,14 +79,21 @@ export const useHardwareStore = defineStore('hardware', {
     },
 
     getHardwareById(id: number) {
-      return this.hardwares.find(h => h.id === id) || null;
+      return this.hardwares.find((h) => h.id === id) || null;
     },
 
     async createHardware(data: Hardware) {
       this.error = null;
       try {
         if (!this.api) this.initApi();
-        const res = await this.api!.post(`/hardware/`, data);
+
+        const { references, status, ...rest } = data;
+        const payload = {
+          ...rest,
+          references_ids: references ?? [],
+        };
+
+        const res = await this.api!.post(`/hardware/`, payload);
         this.hardwares.push(res.data);
         return res.data;
       } catch (err: any) {
@@ -102,8 +106,13 @@ export const useHardwareStore = defineStore('hardware', {
       this.error = null;
       try {
         if (!this.api) this.initApi();
-        const res = await this.api!.put(`/hardware/${id}/`, data);
-        const index = this.hardwares.findIndex(h => h.id === id);
+        const payload = {
+          ...data,
+          references_ids: data.references ?? [],
+        };
+        delete payload.references;
+        const res = await this.api!.put(`/hardware/${id}/`, payload);
+        const index = this.hardwares.findIndex((h) => h.id === id);
         if (index !== -1) this.hardwares[index] = res.data;
         return res.data;
       } catch (err: any) {
@@ -117,7 +126,7 @@ export const useHardwareStore = defineStore('hardware', {
       try {
         if (!this.api) this.initApi();
         await this.api!.delete(`/hardware/${id}/`);
-        this.hardwares = this.hardwares.filter(h => h.id !== id);
+        this.hardwares = this.hardwares.filter((h) => h.id !== id);
       } catch (err: any) {
         this.error = err.message || 'Failed to delete hardware';
         throw err;
