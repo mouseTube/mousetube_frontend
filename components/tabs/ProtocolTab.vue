@@ -511,7 +511,7 @@ watch(
   () => {
     // compute validation (same rules as template)
     const errors: string[] = [];
-    if (!formData.value.name || !formData.value.name.trim()) errors.push('Name is required');
+    // if (!formData.value.name || !formData.value.name.trim()) errors.push('Name is required');
     const animals = formData.value.animals || {};
     if (!animals.sex) errors.push('Sex is required');
     if (!animals.age) errors.push('Age is required');
@@ -625,7 +625,7 @@ onMounted(async () => {
 
       <v-card-text>
         <v-form ref="formRef" v-model="isFormValid">
-          <v-text-field
+          <!-- <v-text-field
             v-model="formData.name"
             outlined
             required
@@ -634,7 +634,7 @@ onMounted(async () => {
             :disabled="isValidated"
           >
             <template #label>Name <span style="color: red">*</span></template>
-          </v-text-field>
+          </v-text-field> -->
 
           <!-- Animal Information -->
           <v-card class="pa-4 mb-4" outlined>
