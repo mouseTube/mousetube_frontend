@@ -293,7 +293,7 @@ onBeforeUnmount(() => {
                 { title: 'Type', value: 'type' },
                 { title: 'Made by', value: 'made_by' },
                 { title: 'References', value: 'references' },
-                { title: 'Contact', value: 'users' },
+                { title: 'Contact', value: 'contacts' },
               ]"
               :items-per-page="perPage"
               class="elevation-1 mt-5"
@@ -371,7 +371,7 @@ onBeforeUnmount(() => {
               </template>
 
               <!-- Contact with tooltip and ellipsis -->
-              <template #item.users="{ item }">
+              <template #item.contacts="{ item }">
                 <v-tooltip location="top">
                   <template #activator="{ props }">
                     <span
@@ -385,15 +385,15 @@ onBeforeUnmount(() => {
                         cursor: help;
                       "
                     >
-                      <template v-if="item.users && item.users.length">
-                        {{ item.users.map((u) => u.email_user).join(', ') }}
+                      <template v-if="item.contacts && item.contacts.length">
+                        {{ item.contacts.map((u) => u.email).join(', ') }}
                       </template>
                       <template v-else>-</template>
                     </span>
                   </template>
                   <span>
-                    <template v-if="item.users && item.users.length">
-                      {{ item.users.map((u) => u.email_user).join(', ') }}
+                    <template v-if="item.contacts && item.contacts.length">
+                      {{ item.contacts.map((u) => u.email).join(', ') }}
                     </template>
                     <template v-else>-</template>
                   </span>
@@ -486,22 +486,25 @@ onBeforeUnmount(() => {
 
                     <v-divider class="mx-4"></v-divider>
 
-                    <v-card-actions v-if="software.users && software.users.length" class="pl-4">
+                    <v-card-actions
+                      v-if="software.contacts && software.contacts.length"
+                      class="pl-4"
+                    >
                       <div class="d-flex flex-wrap align-center ga-4">
                         <div
-                          v-for="user in software.users"
-                          :key="user.id"
+                          v-for="contact in software.contacts"
+                          :key="contact.id"
                           class="d-flex align-center"
                           style="white-space: nowrap"
                         >
                           <a
-                            :href="`mailto:${user.email_user}`"
+                            :href="`mailto:${contact.email}`"
                             class="d-flex align-center text-decoration-none"
                           >
                             <v-icon size="18" class="me-1" icon="mdi-email" />
                             <span>{{
-                              user.name_user
-                                ? `${user.first_name_user} ${user.name_user}`
+                              contact.last_name
+                                ? `${contact.first_name} ${contact.last_name}`
                                 : software.made_by
                             }}</span>
                           </a>
