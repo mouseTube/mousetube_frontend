@@ -11,7 +11,8 @@ export interface Favorite {
     | 'animalprofile'
     | 'strain'
     | 'species'
-    | 'reference';
+    | 'reference'
+    | 'contact';
   object_id: number;
   created_at: string | null;
 }
