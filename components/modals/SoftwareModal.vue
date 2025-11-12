@@ -4,6 +4,8 @@ import { useSoftwareStore } from '@/stores/software';
 import { useReferenceStore, type Reference } from '~/stores/reference';
 import type { VForm } from 'vuetify/components';
 import ReferenceSelectionModal from '@/components/modals/ReferenceSelectionModal.vue';
+import { useContactStore, type Contact } from '@/stores/contact';
+import ContactSelectionModal from './ContactSelectionModal.vue';
 import { useFavoriteStore } from '@/stores/favorite';
 
 const props = defineProps<{
@@ -16,6 +18,7 @@ const props = defineProps<{
     description: string;
     technical_requirements: string;
     references: number[];
+    contacts: number[];
   }> | null;
 }>();
 
@@ -23,6 +26,7 @@ const emit = defineEmits(['update:modelValue', 'saved', 'duplicate']);
 
 const store = useSoftwareStore();
 const referenceStore = useReferenceStore();
+const contactStore = useContactStore();
 const favoriteStore = useFavoriteStore();
 
 const formData = ref({
@@ -32,11 +36,14 @@ const formData = ref({
   description: '',
   technical_requirements: '',
   references: [] as number[],
+  contacts: [] as number[], // <-- added contacts field
 });
 
 const selectedReferenceIds = ref<number[]>([]);
+const selectedContactIds = ref<number[]>([]);
 
-const fetchingIds = new Set<number>();
+const fetchingReferenceIds = new Set<number>();
+const fetchingContactIds = new Set<number>();
 
 // ✅ Display references
 const selectedReferences = computed(
@@ -46,37 +53,61 @@ const selectedReferences = computed(
       .filter(Boolean) as Reference[]
 );
 
+// ✅ Display contacts (similar to references)
+const selectedContacts = computed(
+  () =>
+    selectedContactIds.value
+      .map((id) => contactStore.contacts.find((c) => c.id === id))
+      .filter(Boolean) as Contact[]
+);
+
 // ✅ Synchronise ID and list
 watch(selectedReferenceIds, (ids) => {
   formData.value.references = [...ids];
+});
+watch(selectedContactIds, (ids) => {
+  formData.value.contacts = [...ids];
 });
 
 // ✅ Load references
 async function fetchMissingReferences(ids: number[]) {
   const missing = ids.filter(
-    (id) => !referenceStore.references.results.find((r) => r.id === id) && !fetchingIds.has(id)
+    (id) =>
+      !referenceStore.references.results.find((r) => r.id === id) && !fetchingReferenceIds.has(id)
   );
   if (!missing.length) return;
 
-  missing.forEach((id) => fetchingIds.add(id));
+  missing.forEach((id) => fetchingReferenceIds.add(id));
 
   try {
     await Promise.all(missing.map((id) => referenceStore.getReferenceById(id).catch(() => null)));
   } finally {
-    missing.forEach((id) => fetchingIds.delete(id));
+    missing.forEach((id) => fetchingReferenceIds.delete(id));
   }
 }
 
-// watch(
-//   () => formData.value.references,
-//   (ids) => {
-//     const list = ids ? [...ids] : [];
-//     if (list.length) fetchMissingReferences(list).catch(() => {});
-//   }
-// );
+// ✅ Load contacts (new, mirrors fetchMissingReferences)
+async function fetchMissingContacts(ids: number[]) {
+  const missing = ids.filter(
+    (id) => !contactStore.contacts.find((c) => c.id === id) && !fetchingContactIds.has(id)
+  );
+  if (!missing.length) return;
+
+  missing.forEach((id) => fetchingContactIds.add(id));
+
+  try {
+    await Promise.all(missing.map((id) => contactStore.getContactById(id).catch(() => null)));
+  } finally {
+    missing.forEach((id) => fetchingContactIds.delete(id));
+  }
+}
 
 function onReferencesUpdated(ids: number[]) {
   selectedReferenceIds.value = [...ids];
+}
+
+function onContactsUpdated(ids: number[]) {
+  selectedContactIds.value = [...ids];
 }
 
 const loading = ref(false);
@@ -96,6 +127,7 @@ const isReadOnly = computed(
 );
 
 const showReferenceModal = ref(false);
+const showContactModal = ref(false); // <-- added
 
 // ✅ Load all data
 async function loadSoftwareData() {
@@ -107,6 +139,10 @@ async function loadSoftwareData() {
         const referenceIds = Array.isArray(data.references)
           ? data.references.map((r: any) => (typeof r === 'object' ? r.id : r))
           : [];
+        const contactIds = Array.isArray(data.contacts)
+          ? data.contacts.map((c: any) => (typeof c === 'object' ? c.id : c))
+          : [];
+
         formData.value = {
           name: data.name || '',
           type: data.type ?? null,
@@ -114,11 +150,14 @@ async function loadSoftwareData() {
           description: data.description || '',
           technical_requirements: data.technical_requirements || '',
           references: referenceIds,
+          contacts: contactIds,
         };
         selectedReferenceIds.value = [...referenceIds];
+        selectedContactIds.value = [...contactIds];
         linkedSessionsCount.value = data.linked_sessions_count ?? 0;
         linkedSessionsFromOthers.value = data.linked_sessions_from_other_users ?? 0;
         await fetchMissingReferences(referenceIds);
+        await fetchMissingContacts(contactIds);
       }
     } catch {
       snackbarMessage.value = 'Failed to load software data';
@@ -128,6 +167,8 @@ async function loadSoftwareData() {
     }
   } else if (props.initialData) {
     const referenceIds = props.initialData.references ?? [];
+    const contactIds = props.initialData.contacts ?? [];
+
     formData.value = {
       name: props.initialData.name ?? '',
       type: props.initialData.type ?? null,
@@ -135,11 +176,14 @@ async function loadSoftwareData() {
       description: props.initialData.description ?? '',
       technical_requirements: props.initialData.technical_requirements ?? '',
       references: referenceIds,
+      contacts: contactIds,
     };
     selectedReferenceIds.value = [...referenceIds];
+    selectedContactIds.value = [...contactIds];
     linkedSessionsCount.value = 0;
     linkedSessionsFromOthers.value = 0;
     await fetchMissingReferences(referenceIds);
+    await fetchMissingContacts(contactIds);
   } else {
     resetForm();
   }
@@ -163,8 +207,10 @@ function resetForm() {
     description: '',
     technical_requirements: '',
     references: [],
+    contacts: [], // <-- reset contacts
   };
   selectedReferenceIds.value = [];
+  selectedContactIds.value = []; // <-- reset selected contacts
   linkedSessionsCount.value = 0;
   linkedSessionsFromOthers.value = 0;
 }
@@ -247,7 +293,6 @@ onMounted(async () => {
           it will affect all linked sessions.
         </v-alert>
 
-        <!-- Formulaire principal -->
         <v-form ref="formRef" lazy-validation>
           <v-text-field
             v-model="formData.name"
@@ -317,10 +362,35 @@ onMounted(async () => {
             </v-chip>
           </div>
 
+          <!-- === Contacts (new) === -->
+          <v-card-subtitle class="mb-2">Contacts</v-card-subtitle>
+          <div class="chip-list d-flex flex-wrap align-center mb-4">
+            <v-chip
+              v-for="c in selectedContacts"
+              :key="c.id"
+              variant="outlined"
+              closable
+              class="ma-1"
+              @click:close="selectedContactIds = selectedContactIds.filter((id) => id !== c.id)"
+            >
+              {{ c.first_name }} {{ c.last_name }}
+            </v-chip>
+
+            <v-chip color="primary" variant="flat" class="ma-1" @click="showContactModal = true">
+              <v-icon start>mdi-plus</v-icon> Select
+            </v-chip>
+          </div>
+
           <ReferenceSelectionModal
             v-model="showReferenceModal"
             v-model:selectedReferences="selectedReferenceIds"
             @update:selectedReferences="onReferencesUpdated"
+          />
+
+          <ContactSelectionModal
+            v-model="showContactModal"
+            v-model:selectedContacts="selectedContactIds"
+            @update:selectedContacts="onContactsUpdated"
           />
         </v-form>
       </v-card-text>
