@@ -350,8 +350,8 @@ onBeforeUnmount(() => {
 
               <!-- Author -->
               <template #item.author="{ item }">
-                {{ item.recording_session?.protocol?.user?.first_name_user }}
-                {{ item.recording_session?.protocol?.user?.name_user }}
+                {{ item.created_by?.first_name }}
+                {{ item.created_by?.last_name }}
               </template>
 
               <template #item.downloads="{ item }">
@@ -442,8 +442,8 @@ onBeforeUnmount(() => {
                       {{ file.name ? file.name : file.link.split('/').pop() }}
                     </v-card-title>
                     <v-card-subtitle>
-                      {{ file.recording_session?.protocol?.user?.first_name_user || '' }}
-                      {{ file.recording_session?.protocol?.user?.name_user || '' }}
+                      {{ file.created_by?.first_name || '' }}
+                      {{ file.created_by?.last_name || '' }}
                     </v-card-subtitle>
                     <v-card-item class="bg-surface-light pt-4">
                       <v-label class="mr-2">Protocol: </v-label>
