@@ -82,11 +82,8 @@ onMounted(() => fetchDatasets());
             <!-- INFO BLOC (reprend ta page actuelle) -->
             <v-card class="mt-5 mb-5" color="grey-lighten-4">
               <v-card-text>
-                In this page, you will find reference datasets to train, test or compare
-                vocalization analysis software.<br /><br />
-
-                These datasets include multiple recording sessions, curated and annotated for
-                practical use in research and benchmarking.<br />
+                Datasets include multiple recording sessions, curated and annotated for practical
+                use in research and benchmarking.<br />
                 You can download the original dataset, inspect metadata, or explore associated DOI
                 links when available.
               </v-card-text>
