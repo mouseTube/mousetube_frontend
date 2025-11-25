@@ -199,6 +199,15 @@ async function handleSubmit() {
   }
 }
 
+watch(
+  () => formData.value.file,
+  (file) => {
+    if (file && !formData.value.name) {
+      formData.value.name = file.name;
+    }
+  }
+);
+
 onMounted(async () => {
   try {
     const user = await fetchUser();
