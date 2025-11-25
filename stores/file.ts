@@ -207,6 +207,24 @@ export const useFileStore = defineStore('file', {
       }
     },
 
+    async createFileMultipart(formData: FormData) {
+      this.error = null;
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        const res = await axios.post(`${apiBaseUrl}/file/`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            ...this.getAuthHeaders(),
+          },
+        });
+        this.addFile(res.data);
+        return res.data;
+      } catch (err: any) {
+        this.error = err.message || 'Failed to create file (multipart)';
+        throw err;
+      }
+    },
+
     // -------------------------------------------------
     // ✅ Temporary upload to MEDIA_ROOT/temp
     // -------------------------------------------------

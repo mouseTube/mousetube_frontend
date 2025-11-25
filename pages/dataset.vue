@@ -1,26 +1,41 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import axios from 'axios';
 import debounce from 'lodash/debounce.js';
 import { Database } from 'lucide-vue-next';
+import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
+
+interface FileType {
+  id: number;
+  name: string;
+  doi?: string | null;
+  link?: string | null;
+  spectrogram_url?: string | null;
+  plot_url?: string | null;
+}
+
+interface DatasetType {
+  id: number;
+  name: string;
+  description?: string;
+  created_at: string;
+  files: FileType[];
+}
 
 const loading = ref(true);
 const dataLoaded = ref(false);
 const search = ref('');
-const datasetList = ref([]);
-const next = ref(null);
-const previous = ref(null);
+const datasetList = ref<DatasetType[]>([]);
+const next = ref<string | null>(null);
+const previous = ref<string | null>(null);
 const count = ref(0);
-const currentPage = ref(1);
 const perPage = ref(10);
 
 const apiBaseUrl = useApiBaseUrl();
-const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
 
 ////////////////////////////////
 // FETCH DATASETS
 ////////////////////////////////
-
 const fetchDatasets = async (url = `${apiBaseUrl}/dataset/?page_size=${perPage.value}`) => {
   dataLoaded.value = false;
   try {
@@ -29,9 +44,8 @@ const fetchDatasets = async (url = `${apiBaseUrl}/dataset/?page_size=${perPage.v
     next.value = response.data.next;
     previous.value = response.data.previous;
     count.value = response.data.count;
-    currentPage.value = new URL(url).searchParams.get('page') || 1;
   } catch (error) {
-    console.error('error while loading datasets :', error);
+    console.error('Error while loading datasets:', error);
   } finally {
     dataLoaded.value = true;
   }
@@ -40,16 +54,12 @@ const fetchDatasets = async (url = `${apiBaseUrl}/dataset/?page_size=${perPage.v
 ////////////////////////////////
 // SEARCH (debounced)
 ////////////////////////////////
-
 const onSearch = debounce(() => {
   fetchDatasets(
     `${apiBaseUrl}/dataset/?search=${encodeURIComponent(search.value)}&page_size=${perPage.value}`
   );
 }, 600);
 
-////////////////////////////////
-// WATCHERS
-////////////////////////////////
 watch(perPage, async () => {
   await fetchDatasets();
 });
@@ -61,9 +71,6 @@ watch(search, async (newSearch) => {
   }
 });
 
-////////////////////////////////
-// ON MOUNTED
-////////////////////////////////
 onMounted(() => fetchDatasets());
 </script>
 
@@ -75,22 +82,22 @@ onMounted(() => fetchDatasets());
           <v-card variant="flat" class="mx-auto" max-width="1000">
             <!-- TITLE -->
             <div class="d-flex align-center mt-1 mb-4">
-              <h1><Database /> Dataset</h1>
+              <h1><Database /> Datasets</h1>
               <v-chip v-if="count > 0" class="me-1 my-1 mx-2">{{ count }}</v-chip>
             </div>
 
-            <!-- INFO BLOC (reprend ta page actuelle) -->
+            <!-- INFO BLOC -->
             <v-card class="mt-5 mb-5" color="grey-lighten-4">
               <v-card-text>
                 Datasets include multiple recording sessions, curated and annotated for practical
                 use in research and benchmarking.<br />
-                You can download the original dataset, inspect metadata, or explore associated DOI
-                links when available.
+                You can download the original dataset files, inspect metadata, or explore associated
+                DOI links when available.
               </v-card-text>
             </v-card>
 
             <!-- SEARCH BAR -->
-            <v-toolbar rounded="lg" class="px-2 border-sm">
+            <v-toolbar rounded="lg" class="px-2 border-sm mb-4">
               <v-text-field
                 v-model="search"
                 @input="onSearch"
@@ -101,7 +108,7 @@ onMounted(() => fetchDatasets());
                 prepend-inner-icon="mdi-magnify"
                 style="max-width: 300px"
                 variant="solo"
-              ></v-text-field>
+              />
             </v-toolbar>
 
             <!-- LOADING -->
@@ -122,39 +129,97 @@ onMounted(() => fetchDatasets());
               </v-row>
             </v-alert>
 
-            <!-- LIST -->
-            <v-data-iterator v-else :items="datasetList" :items-per-page="perPage" class="mt-5">
-              <template #default="{ items }">
-                <v-container fluid class="pa-2">
-                  <v-card v-for="item in items" :key="item.raw.id" class="mt-5 border-sm" elevated>
-                    <v-card-title>{{ item.raw.name }}</v-card-title>
+            <!-- LIST DATASETS -->
+            <v-container fluid v-else class="pa-0">
+              <v-card
+                v-for="dataset in datasetList"
+                :key="dataset.id"
+                class="mt-5 border-sm"
+                elevated
+              >
+                <v-card-title>{{ dataset.name }}</v-card-title>
+                <!-- <v-card-subtitle> Created at: {{ dataset.created_at }} </v-card-subtitle> -->
 
-                    <v-card-subtitle>
-                      Created at: {{ new Date(item.raw.created_at).toLocaleDateString() }}
-                    </v-card-subtitle>
+                <v-card-text v-if="dataset.description">{{ dataset.description }}</v-card-text>
 
-                    <v-card-item>
-                      <div v-if="item.raw.description">
-                        {{ item.raw.description }}
-                      </div>
-                    </v-card-item>
+                <v-divider class="mx-4 mb-2" />
 
-                    <v-divider class="mx-4 mb-1"></v-divider>
+                <!-- Files -->
+                <div v-for="file in dataset.files" :key="file.id" class="mb-2">
+                  <template v-if="!file.spectrogram_url && !file.plot_url">
+                    <v-card rounded="lg" class="pa-3 border-sm">
+                      <v-row align="center" justify="space-between">
+                        <v-col cols="auto">
+                          <strong>{{ file.name }}</strong>
+                        </v-col>
 
-                    <v-card-actions>
-                      <v-btn v-if="item.raw.link" variant="text" color="teal-darken-2">
-                        <v-icon icon="mdi-link-variant"></v-icon>
-                        <a :href="item.raw.link" target="_blank"> Link </a>
-                      </v-btn>
+                        <v-col cols="auto" class="d-flex align-center">
+                          <v-chip v-if="file.doi" label small color="#03DAC6" class="me-2">
+                            DOI: {{ file.doi }}
+                          </v-chip>
 
-                      <v-chip v-if="item.raw.doi" class="ma-2" label color="#03DAC6">
-                        <strong>DOI:</strong>&nbsp; {{ item.raw.doi }}
-                      </v-chip>
-                    </v-card-actions>
-                  </v-card>
-                </v-container>
-              </template>
-            </v-data-iterator>
+                          <v-btn
+                            v-if="file.link"
+                            icon
+                            :href="file.link"
+                            target="_blank"
+                            color="teal-darken-2"
+                            title="Download file"
+                          >
+                            <v-icon icon="mdi-download" />
+                          </v-btn>
+                        </v-col>
+                      </v-row>
+                    </v-card>
+                  </template>
+
+                  <template v-else>
+                    <v-expansion-panels>
+                      <v-expansion-panel>
+                        <v-expansion-panel-title>
+                          <v-row class="w-100" align="center" justify="space-between">
+                            <v-col cols="auto">
+                              <span>{{ file.name }}</span>
+                            </v-col>
+
+                            <v-col cols="auto" class="d-flex align-center">
+                              <v-chip v-if="file.doi" label small color="#03DAC6" class="me-2">
+                                DOI: {{ file.doi }}
+                              </v-chip>
+
+                              <v-btn
+                                v-if="file.link"
+                                icon
+                                :href="file.link"
+                                target="_blank"
+                                color="teal-darken-2"
+                                title="Download file"
+                              >
+                                <v-icon icon="mdi-download" />
+                              </v-btn>
+                            </v-col>
+                          </v-row>
+                        </v-expansion-panel-title>
+
+                        <v-expansion-panel-text>
+                          <v-row>
+                            <v-col cols="12" sm="6" v-if="file.spectrogram_url">
+                              <strong>Spectrogram:</strong>
+                              <v-img :src="file.spectrogram_url" alt="Spectrogram" contain />
+                            </v-col>
+
+                            <v-col cols="12" sm="6" v-if="file.plot_url">
+                              <strong>Plot:</strong>
+                              <v-img :src="file.plot_url" alt="Plot" contain />
+                            </v-col>
+                          </v-row>
+                        </v-expansion-panel-text>
+                      </v-expansion-panel>
+                    </v-expansion-panels>
+                  </template>
+                </div>
+              </v-card>
+            </v-container>
           </v-card>
         </v-col>
       </v-row>
