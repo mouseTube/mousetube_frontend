@@ -11,6 +11,8 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:modelValue', 'saved']);
 const fileStore = useFileStore();
+const { currentUser, fetchUser } = useAuth();
+const isAdmin = ref(false);
 
 interface FormDataType {
   name: string;
@@ -22,6 +24,8 @@ interface FormDataType {
   notes: string;
   size: number | null;
   doi: string;
+  spectrogram: globalThis.File | null;
+  plot: globalThis.File | null;
   number: number | null;
   file: globalThis.File | null;
   uploadedUrl: string | null;
@@ -38,6 +42,8 @@ const formData = ref<FormDataType>({
   notes: '',
   size: null,
   doi: '',
+  spectrogram: null,
+  plot: null,
   number: null,
   file: null,
   uploadedUrl: null,
@@ -89,6 +95,8 @@ watch(
         notes: file.notes || '',
         size: file.size || null,
         doi: file.doi || '',
+        spectrogram: file.spectrogram || null,
+        plot: file.plot || null,
         link: file.link || null,
         number: file.number || null,
         file: null,
@@ -105,6 +113,8 @@ watch(
         notes: '',
         size: null,
         doi: '',
+        spectrogram: null,
+        plot: null,
         link: null,
         number: null,
         file: null,
@@ -140,6 +150,8 @@ async function uploadFileAndCreate() {
       notes: formData.value.notes,
       size: formData.value.file.size,
       doi: formData.value.doi,
+      spectrogram: formData.value.spectrogram,
+      plot: formData.value.plot,
       number: formData.value.number,
       recording_session_id: props.recordingSessionId ?? null,
       repository_id: props.repository?.id ?? null,
@@ -186,6 +198,16 @@ async function handleSubmit() {
     console.error(err);
   }
 }
+
+onMounted(async () => {
+  try {
+    const user = await fetchUser();
+    isAdmin.value = user?.is_staff || user?.is_admin || false;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('not able to retrieve user info', e);
+  }
+});
 </script>
 
 <template>
@@ -266,6 +288,30 @@ async function handleSubmit() {
         :rules="doiRules"
         hint="Editable only when creating a new file"
       />
+
+      <div v-if="isAdmin">
+        <h3 class="mt-6 mb-3">Admin Only – Images</h3>
+
+        <v-file-input
+          v-model="formData.spectrogram"
+          label="Spectrogram Image"
+          prepend-icon="mdi-image"
+          accept="image/*"
+          outlined
+          class="mb-3"
+        />
+
+        <v-file-input
+          v-model="formData.plot"
+          label="Data Plot File"
+          prepend-icon="mdi-chart-line"
+          accept="image/*"
+          outlined
+          class="mb-3"
+        />
+      </div>
+
+      <!-- Link -->
 
       <v-text-field
         v-model="formData.link"

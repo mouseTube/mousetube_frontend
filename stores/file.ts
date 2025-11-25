@@ -18,6 +18,8 @@ export interface File {
   notes: string;
   size: number | null;
   doi: string;
+  spectrogram: globalThis.File | null;
+  plot: globalThis.File | null;
   number: number | null;
   is_valid_link: boolean;
   downloads: number;
