@@ -95,6 +95,7 @@ const fetchDatasets = async (url = `${apiBaseUrl}/dataset/?page_size=${perPage.v
       });
     });
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Error while loading datasets:', error);
   } finally {
     dataLoaded.value = true;
