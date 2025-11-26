@@ -272,7 +272,8 @@ onMounted(async () => {
 
       <v-select
         v-model="formData.format"
-        :items="['WAV', 'MP3', 'FLAC', 'OGG', 'AIFF', 'AVI', 'MP4', 'MOV', 'MKV']"
+        :items="['WAV', 'MP3', 'FLAC', 'OGG', 'AIFF', 'AVI', 'MP4', 'MOV', 'MKV', 'CSV',
+          'TXT', 'XLSX', 'XLS', 'ZIP', 'JPEG', 'PNG', 'PDF', 'JSON']"
         label="File Format"
         outlined
         class="mb-3"
@@ -400,7 +401,12 @@ onMounted(async () => {
           label="Select File"
           prepend-icon="mdi-upload"
           show-size
-          accept="audio/*,video/*"
+          accept="audio/*, video/*,
+            image/jpeg, image/png,
+            text/csv, text/plain,
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/vnd.ms-excel,
+            application/zip, application/pdf, application/json"
           outlined
           class="mb-3"
         />
