@@ -272,8 +272,26 @@ onMounted(async () => {
 
       <v-select
         v-model="formData.format"
-        :items="['WAV', 'MP3', 'FLAC', 'OGG', 'AIFF', 'AVI', 'MP4', 'MOV', 'MKV', 'CSV',
-          'TXT', 'XLSX', 'XLS', 'ZIP', 'JPEG', 'PNG', 'PDF', 'JSON']"
+        :items="[
+          'WAV',
+          'MP3',
+          'FLAC',
+          'OGG',
+          'AIFF',
+          'AVI',
+          'MP4',
+          'MOV',
+          'MKV',
+          'CSV',
+          'TXT',
+          'XLSX',
+          'XLS',
+          'ZIP',
+          'JPEG',
+          'PNG',
+          'PDF',
+          'JSON',
+        ]"
         label="File Format"
         outlined
         class="mb-3"
