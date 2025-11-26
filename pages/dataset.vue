@@ -17,6 +17,8 @@ interface FileType {
 interface DatasetType {
   id: number;
   name: string;
+  doi?: string | null;
+  link?: string | null;
   description?: string;
   created_at: string;
   files: FileType[];
