@@ -197,7 +197,14 @@ onMounted(() => fetchDatasets());
                       text-color="red darken-3"
                       class="me-2"
                     >
-                      DOI: {{ dataset.doi }}
+                      DOI:
+                      <a
+                        v-if="dataset.doi.includes('zenodo')"
+                        :href="'https://zenodo.org/record/' + dataset.doi.split('zenodo.')[1]"
+                        target="_blank"
+                        class="doi"
+                        >{{ dataset.doi }}</a
+                      >
                     </v-chip>
 
                     <!-- Bouton download compact -->
@@ -235,7 +242,14 @@ onMounted(() => fetchDatasets());
 
                         <v-col cols="auto" class="d-flex align-center">
                           <v-chip v-if="file.doi" label small color="#03DAC6" class="me-2">
-                            DOI: {{ file.doi }}
+                            DOI:
+                            <a
+                              v-if="file.doi.includes('zenodo')"
+                              :href="'https://zenodo.org/record/' + file.doi.split('zenodo.')[1]"
+                              target="_blank"
+                              class="doi"
+                              >{{ file.doi }}</a
+                            >
                           </v-chip>
 
                           <v-btn
