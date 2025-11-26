@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
 import debounce from 'lodash/debounce.js';
 import { Database } from 'lucide-vue-next';
@@ -24,7 +24,6 @@ interface DatasetType {
   files: FileType[];
 }
 
-const loading = ref(true);
 const dataLoaded = ref(false);
 const search = ref('');
 const datasetList = ref<DatasetType[]>([]);
@@ -35,9 +34,49 @@ const perPage = ref(10);
 
 const apiBaseUrl = useApiBaseUrl();
 
-////////////////////////////////
-// FETCH DATASETS
-////////////////////////////////
+// --- helpers for file types / icons / ordering ---
+function fileExt(name?: string) {
+  if (!name) return '';
+  const m = name.split('.').pop();
+  return (m || '').toLowerCase();
+}
+function isAudio(ext: string) {
+  return ['wav', 'mp3', 'flac', 'ogg', 'm4a', 'aac'].includes(ext);
+}
+function isImage(ext: string) {
+  return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext);
+}
+function isPdf(ext: string) {
+  return ext === 'pdf';
+}
+function isArchive(ext: string) {
+  return ['zip', 'rar', 'tar', 'gz', 'tgz', '7z'].includes(ext);
+}
+function fileIcon(name?: string) {
+  const ext = fileExt(name);
+  if (isAudio(ext)) return 'mdi-music';
+  if (isImage(ext)) return 'mdi-image';
+  if (isPdf(ext)) return 'mdi-file-pdf';
+  if (isArchive(ext)) return 'mdi-archive';
+  return 'mdi-file';
+}
+function datasetDownloadLink(dataset: DatasetType) {
+  if (dataset.link) return dataset.link;
+  return `${apiBaseUrl}/dataset/${dataset.id}/download/`;
+}
+function sortFiles(files: FileType[] = []) {
+  return [...files].sort((a, b) => {
+    const aIsAudio = isAudio(fileExt(a.name));
+    const bIsAudio = isAudio(fileExt(b.name));
+    if (aIsAudio === bIsAudio) return a.name.localeCompare(b.name);
+    return aIsAudio ? -1 : 1; // audio first
+  });
+}
+
+// --- panel states for each file (independent) ---
+const activePanels = ref<Record<number, boolean>>({});
+
+// --- fetch datasets ---
 const fetchDatasets = async (url = `${apiBaseUrl}/dataset/?page_size=${perPage.value}`) => {
   dataLoaded.value = false;
   try {
@@ -46,6 +85,15 @@ const fetchDatasets = async (url = `${apiBaseUrl}/dataset/?page_size=${perPage.v
     next.value = response.data.next;
     previous.value = response.data.previous;
     count.value = response.data.count;
+
+    // init activePanels for files
+    datasetList.value.forEach((dataset) => {
+      dataset.files.forEach((file) => {
+        if (activePanels.value[file.id] === undefined) {
+          activePanels.value[file.id] = false;
+        }
+      });
+    });
   } catch (error) {
     console.error('Error while loading datasets:', error);
   } finally {
@@ -53,21 +101,16 @@ const fetchDatasets = async (url = `${apiBaseUrl}/dataset/?page_size=${perPage.v
   }
 };
 
-////////////////////////////////
-// SEARCH (debounced)
-////////////////////////////////
+// --- search (debounced) ---
 const onSearch = debounce(() => {
   fetchDatasets(
     `${apiBaseUrl}/dataset/?search=${encodeURIComponent(search.value)}&page_size=${perPage.value}`
   );
 }, 600);
 
-watch(perPage, async () => {
-  await fetchDatasets();
-});
-
+watch(perPage, async () => fetchDatasets());
 watch(search, async (newSearch) => {
-  if (newSearch === null) {
+  if (!newSearch) {
     search.value = '';
     await fetchDatasets();
   }
@@ -139,19 +182,53 @@ onMounted(() => fetchDatasets());
                 class="mt-5 border-sm"
                 elevated
               >
-                <v-card-title>{{ dataset.name }}</v-card-title>
-                <!-- <v-card-subtitle> Created at: {{ dataset.created_at }} </v-card-subtitle> -->
+                <v-card-title class="d-flex align-center justify-space-between">
+                  <div>
+                    {{ dataset.name }}
+                  </div>
+
+                  <div class="d-flex align-center">
+                    <v-chip
+                      v-if="dataset.doi"
+                      label
+                      small
+                      color="red lighten-3"
+                      text-color="red darken-3"
+                      class="me-2"
+                    >
+                      DOI: {{ dataset.doi }}
+                    </v-chip>
+
+                    <!-- Bouton download compact -->
+                    <v-btn
+                      icon
+                      :href="datasetDownloadLink(dataset)"
+                      target="_blank"
+                      title="Download dataset (archive)"
+                      density="compact"
+                      class="ms-1"
+                    >
+                      <v-icon size="18">mdi-download</v-icon>
+                    </v-btn>
+                  </div>
+                </v-card-title>
 
                 <v-card-text v-if="dataset.description">{{ dataset.description }}</v-card-text>
-
                 <v-divider class="mx-4 mb-2" />
 
-                <!-- Files -->
-                <div v-for="file in dataset.files" :key="file.id" class="mb-2">
-                  <template v-if="!file.spectrogram_url && !file.plot_url">
-                    <v-card rounded="lg" class="pa-3 border-sm">
-                      <v-row align="center" justify="space-between">
-                        <v-col cols="auto">
+                <!-- FILES -->
+                <v-expansion-panels multiple>
+                  <v-expansion-panel
+                    v-for="file in sortFiles(dataset.files)"
+                    :key="file.id"
+                    v-model:active="activePanels[file.id]"
+                    :readonly="!file.spectrogram_url && !file.plot_url"
+                    :hide-actions="!file.spectrogram_url && !file.plot_url"
+                  >
+                    <v-expansion-panel-title>
+                      <v-row align="center" justify="space-between" class="w-100">
+                        <v-col cols="auto" class="d-flex align-center">
+                          <v-icon class="me-2">{{ fileIcon(file.name) }}</v-icon>
                           <strong>{{ file.name }}</strong>
                         </v-col>
 
@@ -167,59 +244,30 @@ onMounted(() => fetchDatasets());
                             target="_blank"
                             color="teal-darken-2"
                             title="Download file"
+                            density="compact"
+                            class="ms-1"
                           >
-                            <v-icon icon="mdi-download" />
+                            <v-icon size="18">mdi-download</v-icon>
                           </v-btn>
                         </v-col>
                       </v-row>
-                    </v-card>
-                  </template>
+                    </v-expansion-panel-title>
 
-                  <template v-else>
-                    <v-expansion-panels>
-                      <v-expansion-panel>
-                        <v-expansion-panel-title>
-                          <v-row class="w-100" align="center" justify="space-between">
-                            <v-col cols="auto">
-                              <span>{{ file.name }}</span>
-                            </v-col>
+                    <v-expansion-panel-text v-if="file.spectrogram_url || file.plot_url">
+                      <v-row>
+                        <v-col cols="12" sm="6" v-if="file.spectrogram_url">
+                          <strong>Spectrogram:</strong>
+                          <v-img :src="file.spectrogram_url" contain />
+                        </v-col>
 
-                            <v-col cols="auto" class="d-flex align-center">
-                              <v-chip v-if="file.doi" label small color="#03DAC6" class="me-2">
-                                DOI: {{ file.doi }}
-                              </v-chip>
-
-                              <v-btn
-                                v-if="file.link"
-                                icon
-                                :href="file.link"
-                                target="_blank"
-                                color="teal-darken-2"
-                                title="Download file"
-                              >
-                                <v-icon icon="mdi-download" />
-                              </v-btn>
-                            </v-col>
-                          </v-row>
-                        </v-expansion-panel-title>
-
-                        <v-expansion-panel-text>
-                          <v-row>
-                            <v-col cols="12" sm="6" v-if="file.spectrogram_url">
-                              <strong>Spectrogram:</strong>
-                              <v-img :src="file.spectrogram_url" alt="Spectrogram" contain />
-                            </v-col>
-
-                            <v-col cols="12" sm="6" v-if="file.plot_url">
-                              <strong>Plot:</strong>
-                              <v-img :src="file.plot_url" alt="Plot" contain />
-                            </v-col>
-                          </v-row>
-                        </v-expansion-panel-text>
-                      </v-expansion-panel>
-                    </v-expansion-panels>
-                  </template>
-                </div>
+                        <v-col cols="12" sm="6" v-if="file.plot_url">
+                          <strong>Plot:</strong>
+                          <v-img :src="file.plot_url" contain />
+                        </v-col>
+                      </v-row>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
               </v-card>
             </v-container>
           </v-card>
