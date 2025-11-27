@@ -76,6 +76,10 @@ function onHardwareSaved(hardwareId) {
     newHardwareFromHardware.value = false;
   }
 }
+
+function refreshPage() {
+  window.location.href = '/vocalization/create';
+}
 </script>
 
 <template>
@@ -136,7 +140,7 @@ function onHardwareSaved(hardwareId) {
             </template>
 
             <v-list bg-color="black" class="text-white">
-              <v-list-item @click="() => router.push('/vocalization/create')">
+              <v-list-item @click="refreshPage">
                 <template #prepend>
                   <AudioLines size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
                 </template>
@@ -222,13 +226,7 @@ function onHardwareSaved(hardwareId) {
             </v-list-item>
           </template>
 
-          <v-list-item
-            class="nuxt-link nav-item px-2"
-            @click="
-              drawer = false;
-              router.push('/vocalization/create');
-            "
-          >
+          <v-list-item class="nuxt-link nav-item px-2" @click="refreshPage">
             <template #prepend>
               <AudioLines size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
             </template>
