@@ -235,24 +235,14 @@ function onHardwareSaved(hardwareId) {
             <v-list-item-title>Vocalization</v-list-item-title>
           </v-list-item>
 
-          <v-list-item
-            @click="
-              drawer = false;
-              router.push('/softwares/create');
-            "
-          >
+          <v-list-item @click="() => openSoftwareModal()">
             <template #prepend>
               <MonitorCog size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
             </template>
             <v-list-item-title>Software</v-list-item-title>
           </v-list-item>
 
-          <v-list-item
-            @click="
-              drawer = false;
-              router.push('/hardwares/create');
-            "
-          >
+          <v-list-item @click="() => openHardwareModal()">
             <template #prepend>
               <Mic size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
             </template>
