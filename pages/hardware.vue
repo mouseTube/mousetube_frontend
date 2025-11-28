@@ -235,7 +235,7 @@ onBeforeUnmount(() => {
                   class="nav-icon audio-hover-icon"
                   @click="openHardwareModal"
                 >
-                  <Plus size="20" class="nav-icon audio-hover-icon" />
+                  <v-icon class="me-1">mdi-plus</v-icon>
                   Add
                 </v-btn>
               </div>
