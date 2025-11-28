@@ -40,6 +40,11 @@ const logos = [
     alt: 'ICS',
   },
   {
+    link: 'https://www.bristol.ac.uk/',
+    src: '/logo_bristol_university_300.png',
+    alt: 'University of Bristol',
+  },
+  {
     link: 'https://www.fc3r.com/',
     src: '/logo-fc3r_bleu.png',
     alt: 'FC3R',

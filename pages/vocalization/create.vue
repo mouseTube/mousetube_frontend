@@ -208,7 +208,7 @@ function goToFileTab() {
               </v-icon>
 
               <v-chip
-                v-if="item.name === 'file' && filesCount > 0"
+                v-if="item.name === 'file' && !item.disabled && filesCount > 0"
                 small
                 class="ms-2"
                 color="primary"

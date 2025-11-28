@@ -501,7 +501,7 @@ async function deleteFile() {
                     <v-icon>mdi-delete</v-icon>
                   </v-btn>
                 </template>
-                <span>Delete file (error only)</span>
+                <span>Delete file</span>
               </v-tooltip>
             </td>
 

@@ -28,6 +28,7 @@ const drawer = ref(false);
 const { smAndDown } = useDisplay();
 const { currentUser, logout } = useAuth();
 const router = useRouter();
+const route = useRoute();
 const showSoftwareModal = ref(false);
 const newSoftwareFromSoftware = ref(false);
 const showHardwareModal = ref(false);
@@ -74,6 +75,14 @@ function onHardwareSaved(hardwareId) {
   if (newHardwareFromHardware.value) {
     router.push({ path: '/account/details', query: { tab: 'hardware' } });
     newHardwareFromHardware.value = false;
+  }
+}
+
+function refreshPage() {
+  if (route.path === '/vocalization/create') {
+    window.location.href = '/vocalization/create';
+  } else {
+    router.push('/vocalization/create');
   }
 }
 </script>
@@ -136,7 +145,7 @@ function onHardwareSaved(hardwareId) {
             </template>
 
             <v-list bg-color="black" class="text-white">
-              <v-list-item @click="() => router.push('/vocalization/create')">
+              <v-list-item @click="refreshPage">
                 <template #prepend>
                   <AudioLines size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
                 </template>
@@ -222,37 +231,21 @@ function onHardwareSaved(hardwareId) {
             </v-list-item>
           </template>
 
-          <v-list-item
-            class="nuxt-link nav-item px-2"
-            @click="
-              drawer = false;
-              router.push('/vocalization/create');
-            "
-          >
+          <v-list-item class="nuxt-link nav-item px-2" @click="refreshPage">
             <template #prepend>
               <AudioLines size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
             </template>
             <v-list-item-title>Vocalization</v-list-item-title>
           </v-list-item>
 
-          <v-list-item
-            @click="
-              drawer = false;
-              router.push('/softwares/create');
-            "
-          >
+          <v-list-item @click="() => openSoftwareModal()">
             <template #prepend>
               <MonitorCog size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
             </template>
             <v-list-item-title>Software</v-list-item-title>
           </v-list-item>
 
-          <v-list-item
-            @click="
-              drawer = false;
-              router.push('/hardwares/create');
-            "
-          >
+          <v-list-item @click="() => openHardwareModal()">
             <template #prepend>
               <Mic size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
             </template>

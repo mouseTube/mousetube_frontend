@@ -18,6 +18,8 @@ export interface File {
   notes: string;
   size: number | null;
   doi: string;
+  spectrogram: globalThis.File | null;
+  plot: globalThis.File | null;
   number: number | null;
   is_valid_link: boolean;
   downloads: number;
@@ -201,6 +203,24 @@ export const useFileStore = defineStore('file', {
         return res.data;
       } catch (err: any) {
         this.error = err.message || 'Failed to create file';
+        throw err;
+      }
+    },
+
+    async createFileMultipart(formData: FormData) {
+      this.error = null;
+      try {
+        const apiBaseUrl = useApiBaseUrl();
+        const res = await axios.post(`${apiBaseUrl}/file/`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            ...this.getAuthHeaders(),
+          },
+        });
+        this.addFile(res.data);
+        return res.data;
+      } catch (err: any) {
+        this.error = err.message || 'Failed to create file (multipart)';
         throw err;
       }
     },

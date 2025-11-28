@@ -11,6 +11,8 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:modelValue', 'saved']);
 const fileStore = useFileStore();
+const { currentUser, fetchUser } = useAuth();
+const isAdmin = ref(false);
 
 interface FormDataType {
   name: string;
@@ -22,6 +24,8 @@ interface FormDataType {
   notes: string;
   size: number | null;
   doi: string;
+  spectrogram: globalThis.File | null;
+  plot: globalThis.File | null;
   number: number | null;
   file: globalThis.File | null;
   uploadedUrl: string | null;
@@ -38,6 +42,8 @@ const formData = ref<FormDataType>({
   notes: '',
   size: null,
   doi: '',
+  spectrogram: null,
+  plot: null,
   number: null,
   file: null,
   uploadedUrl: null,
@@ -89,6 +95,8 @@ watch(
         notes: file.notes || '',
         size: file.size || null,
         doi: file.doi || '',
+        spectrogram: file.spectrogram || null,
+        plot: file.plot || null,
         link: file.link || null,
         number: file.number || null,
         file: null,
@@ -105,6 +113,8 @@ watch(
         notes: '',
         size: null,
         doi: '',
+        spectrogram: null,
+        plot: null,
         link: null,
         number: null,
         file: null,
@@ -130,24 +140,36 @@ async function uploadFileAndCreate() {
     const filenameSafe = encodeURIComponent(temp_path.replace(/^\/?media\//, ''));
     const publicUrl = `${baseUrl}/media/${filenameSafe}`;
 
-    const payload = {
-      name: formData.value.name || formData.value.file.name,
-      date: formData.value.date,
-      duration: formData.value.duration,
-      format: formData.value.format,
-      sampling_rate: formData.value.sampling_rate,
-      bit_depth: formData.value.bit_depth,
-      notes: formData.value.notes,
-      size: formData.value.file.size,
-      doi: formData.value.doi,
-      number: formData.value.number,
-      recording_session_id: props.recordingSessionId ?? null,
-      repository_id: props.repository?.id ?? null,
-      link: publicUrl,
-      celery_task_id: task_id,
-    };
+    const formPayload = new FormData();
 
-    const newFile = await fileStore.createFile(payload);
+    formPayload.append('name', formData.value.name || formData.value.file.name);
+    formPayload.append('date', formData.value.date ?? '');
+    if (formData.value.duration != null)
+      formPayload.append('duration', String(formData.value.duration));
+    if (formData.value.format) formPayload.append('format', formData.value.format);
+    if (formData.value.sampling_rate != null)
+      formPayload.append('sampling_rate', String(formData.value.sampling_rate));
+    if (formData.value.bit_depth != null)
+      formPayload.append('bit_depth', String(formData.value.bit_depth));
+    formPayload.append('notes', formData.value.notes || '');
+    formPayload.append('size', String(formData.value.file.size));
+    formPayload.append('doi', formData.value.doi || '');
+    if (formData.value.number != null) formPayload.append('number', String(formData.value.number));
+    if (props.recordingSessionId)
+      formPayload.append('recording_session_id', String(props.recordingSessionId));
+    if (props.repository?.id) formPayload.append('repository_id', String(props.repository.id));
+    formPayload.append('link', publicUrl);
+    formPayload.append('celery_task_id', task_id);
+
+    if (formData.value.spectrogram) {
+      formPayload.append('spectrogram', formData.value.spectrogram as globalThis.File);
+    }
+    if (formData.value.plot) {
+      formPayload.append('plot', formData.value.plot as globalThis.File);
+    }
+
+    // const newFile = await fileStore.createFile(formPayload);
+    const newFile = await fileStore.createFileMultipart(formPayload);
     emit('saved', newFile);
     emit('update:modelValue', null);
   } catch (err) {
@@ -163,7 +185,7 @@ async function uploadFileAndCreate() {
 // =====================================================
 async function handleSubmit() {
   try {
-    const { file, uploadedUrl, doi, ...rest } = formData.value;
+    const { file, uploadedUrl, doi, spectrogram, plot, ...rest } = formData.value;
     const payload = {
       ...rest,
       doi: formData.value.doi,
@@ -186,6 +208,30 @@ async function handleSubmit() {
     console.error(err);
   }
 }
+
+function extractFileName(path: string | null) {
+  if (!path) return '';
+  return path.split('/').pop() || '';
+}
+
+watch(
+  () => formData.value.file,
+  (file) => {
+    if (file && !formData.value.name) {
+      formData.value.name = file.name;
+    }
+  }
+);
+
+onMounted(async () => {
+  try {
+    const user = await fetchUser();
+    isAdmin.value = user?.is_staff || user?.is_admin || false;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('not able to retrieve user info', e);
+  }
+});
 </script>
 
 <template>
@@ -226,7 +272,26 @@ async function handleSubmit() {
 
       <v-select
         v-model="formData.format"
-        :items="['WAV', 'MP3', 'FLAC', 'OGG', 'AIFF', 'AVI', 'MP4', 'MOV', 'MKV']"
+        :items="[
+          'WAV',
+          'MP3',
+          'FLAC',
+          'OGG',
+          'AIFF',
+          'AVI',
+          'MP4',
+          'MOV',
+          'MKV',
+          'CSV',
+          'TXT',
+          'XLSX',
+          'XLS',
+          'ZIP',
+          'JPEG',
+          'PNG',
+          'PDF',
+          'JSON',
+        ]"
         label="File Format"
         outlined
         class="mb-3"
@@ -267,6 +332,56 @@ async function handleSubmit() {
         hint="Editable only when creating a new file"
       />
 
+      <div v-if="isAdmin">
+        <h3 class="mt-6 mb-3">Admin Only – Images for Datasets</h3>
+
+        <!-- Spectrogram -->
+        <template
+          v-if="isEditMode && formData.spectrogram && typeof formData.spectrogram === 'string'"
+        >
+          <v-text-field
+            label="Spectrogram actuel"
+            :model-value="extractFileName(formData.spectrogram)"
+            readonly
+            prepend-icon="mdi-image"
+            class="mb-3"
+          />
+        </template>
+        <template v-else>
+          <v-file-input
+            v-model="formData.spectrogram"
+            label="Spectrogram Image"
+            prepend-icon="mdi-image"
+            accept="image/*"
+            outlined
+            class="mb-3"
+          />
+        </template>
+
+        <!-- Plot -->
+        <template v-if="isEditMode && formData.plot && typeof formData.plot === 'string'">
+          <v-text-field
+            label="Plot actuel"
+            :model-value="extractFileName(formData.plot)"
+            readonly
+            prepend-icon="mdi-chart-line"
+            class="mb-3"
+          />
+        </template>
+        <template v-else>
+          <v-file-input
+            v-model="formData.plot"
+            label="Data Plot File"
+            prepend-icon="mdi-chart-line"
+            accept="image/*"
+            outlined
+            class="mb-3"
+          />
+        </template>
+      </div>
+
+      <!-- Link -->
+
       <v-text-field
         v-model="formData.link"
         label="Donwload Link (required if DOI is set)"
@@ -304,7 +419,12 @@ async function handleSubmit() {
           label="Select File"
           prepend-icon="mdi-upload"
           show-size
-          accept="audio/*,video/*"
+          accept="audio/*, video/*,
+            image/jpeg, image/png,
+            text/csv, text/plain,
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/vnd.ms-excel,
+            application/zip, application/pdf, application/json"
           outlined
           class="mb-3"
         />

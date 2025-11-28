@@ -11,8 +11,8 @@ import ProtocolSelectModal from '@/components/modals/ProtocolSelectModal.vue';
 // PROPS & EMITS
 ////////////////////////////////
 const props = defineProps<{
-  selectedProtocolId: number | null;
-  selectedRecordingSessionId: number | null;
+  selectedProtocolId?: number | null;
+  selectedRecordingSessionId?: number | null;
   onGoToAnimalProfile?: () => void;
 }>();
 
@@ -277,7 +277,10 @@ async function onSubmit() {
 
     await nextTick();
 
-    if (props.selectedRecordingSessionId !== null) {
+    if (
+      props.selectedRecordingSessionId !== undefined &&
+      props.selectedRecordingSessionId !== null
+    ) {
       skipNextSessionStoreWatch.value = true;
       await recordingSessionStore.updateSessionProtocol(
         props.selectedRecordingSessionId,

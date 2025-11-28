@@ -247,7 +247,7 @@ onBeforeUnmount(() => {
                   class="nav-icon audio-hover-icon"
                   @click="router.push('/vocalization/create')"
                 >
-                  <Plus size="20" class="nav-icon audio-hover-icon" />
+                  <v-icon class="me-1">mdi-plus</v-icon>
                   Add
                 </v-btn>
               </div>
@@ -350,8 +350,8 @@ onBeforeUnmount(() => {
 
               <!-- Author -->
               <template #item.author="{ item }">
-                {{ item.recording_session?.protocol?.user?.first_name_user }}
-                {{ item.recording_session?.protocol?.user?.name_user }}
+                {{ item.recording_session.created_by?.first_name }}
+                {{ item.recording_session.created_by?.last_name }}
               </template>
 
               <template #item.downloads="{ item }">
@@ -442,8 +442,8 @@ onBeforeUnmount(() => {
                       {{ file.name ? file.name : file.link.split('/').pop() }}
                     </v-card-title>
                     <v-card-subtitle>
-                      {{ file.recording_session?.protocol?.user?.first_name_user || '' }}
-                      {{ file.recording_session?.protocol?.user?.name_user || '' }}
+                      {{ file.recording_session.created_by?.first_name || '' }}
+                      {{ file.recording_session.created_by?.last_name || '' }}
                     </v-card-subtitle>
                     <v-card-item class="bg-surface-light pt-4">
                       <v-label class="mr-2">Protocol: </v-label>
@@ -527,8 +527,6 @@ onBeforeUnmount(() => {
                             <v-card-text>
                               <v-label class="mr-2">Name: </v-label>
                               {{ file.recording_session?.protocol?.name || 'N/A' }}<br />
-                              <v-label class="mr-2">Description: </v-label>
-                              {{ file.recording_session?.protocol?.description || 'N/A' }}<br />
                               <v-label class="mr-2">Animals sex: </v-label>
                               {{ file.recording_session.protocol?.animals_sex || 'N/A' }}<br />
                               <v-label class="mr-2">Animals age: </v-label>
