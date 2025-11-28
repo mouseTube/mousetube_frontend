@@ -28,6 +28,7 @@ const drawer = ref(false);
 const { smAndDown } = useDisplay();
 const { currentUser, logout } = useAuth();
 const router = useRouter();
+const route = useRoute();
 const showSoftwareModal = ref(false);
 const newSoftwareFromSoftware = ref(false);
 const showHardwareModal = ref(false);
@@ -78,7 +79,11 @@ function onHardwareSaved(hardwareId) {
 }
 
 function refreshPage() {
-  window.location.href = '/vocalization/create';
+  if (route.path === '/vocalization/create') {
+    window.location.href = '/vocalization/create';
+  } else {
+    router.push('/vocalization/create');
+  }
 }
 </script>
 
