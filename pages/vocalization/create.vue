@@ -36,7 +36,7 @@ const tabs = reactive([
   {
     name: 'recordingSession',
     label: 'Recording Session',
-    component: RecordingSessionTab,
+    component: markRaw(RecordingSessionTab),
     disabled: false,
     hasErrors: false,
     errorMessage: '',
@@ -45,7 +45,7 @@ const tabs = reactive([
   {
     name: 'protocol',
     label: 'Protocol',
-    component: ProtocolTab,
+    component: markRaw(ProtocolTab),
     disabled: true,
     hasErrors: false,
     errorMessage: '',
@@ -54,7 +54,7 @@ const tabs = reactive([
   {
     name: 'animalProfile',
     label: 'Animal Profile',
-    component: AnimalProfileTab,
+    component: markRaw(AnimalProfileTab),
     disabled: true,
     hasErrors: false,
     errorMessage: '',
@@ -63,7 +63,7 @@ const tabs = reactive([
   {
     name: 'file',
     label: 'File',
-    component: FileTab,
+    component: markRaw(FileTab),
     disabled: true,
     hasErrors: false,
     errorMessage: '',

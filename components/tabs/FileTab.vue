@@ -228,14 +228,24 @@ watch(
 onMounted(async () => {
   // Load repositories in background (non-blocking)
   if (!repositoryStore.repositories.length) {
-    repositoryStore.fetchRepositories().catch(() => {
-      showSnackbar('⚠️ Could not load repositories.', 'warning');
-    });
-  }
-
-  const defaultRepo = repositoryStore.repositories.find((r) => r.id === 1);
-  if (!repositoryStore.selectedRepository && defaultRepo) {
-    repositoryStore.selectRepository(defaultRepo);
+    repositoryStore
+      .fetchRepositories()
+      .then(() => {
+        if (!repositoryStore.selectedRepository) {
+          const defaultRepo = repositoryStore.repositories.find((r) => r.id === 1);
+          if (defaultRepo) {
+            repositoryStore.selectRepository(defaultRepo);
+          }
+        }
+      })
+      .catch(() => {
+        showSnackbar('⚠️ Could not load repositories.', 'warning');
+      });
+  } else if (!repositoryStore.selectedRepository) {
+    const defaultRepo = repositoryStore.repositories.find((r) => r.id === 1);
+    if (defaultRepo) {
+      repositoryStore.selectRepository(defaultRepo);
+    }
   }
 
   // Load files only if session is selected
