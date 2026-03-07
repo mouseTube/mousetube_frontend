@@ -237,7 +237,7 @@ onMounted(async () => {
   if (!repositoryStore.selectedRepository && defaultRepo) {
     repositoryStore.selectRepository(defaultRepo);
   }
-  
+
   // Load files only if session is selected
   if (props.selectedRecordingSessionId) {
     const session = await recordingSessionStore.getSessionById(props.selectedRecordingSessionId);
