@@ -226,23 +226,23 @@ watch(
 
 // ---- LIFECYCLE ----
 onMounted(async () => {
+  // Load repositories in background (non-blocking)
   if (!repositoryStore.repositories.length) {
-    await repositoryStore.fetchRepositories();
+    repositoryStore.fetchRepositories().catch(() => {
+      showSnackbar('⚠️ Could not load repositories.', 'warning');
+    });
   }
 
   const defaultRepo = repositoryStore.repositories.find((r) => r.id === 1);
   if (!repositoryStore.selectedRepository && defaultRepo) {
     repositoryStore.selectRepository(defaultRepo);
   }
+  
+  // Load files only if session is selected
   if (props.selectedRecordingSessionId) {
-    // 1️⃣ Get session status
     const session = await recordingSessionStore.getSessionById(props.selectedRecordingSessionId);
     sessionStatus.value = session?.status ?? null;
-
-    // 2️⃣ Update button status
     publishDone.value = sessionStatus.value === 'shared';
-
-    // 3️⃣ Fetch files and start polling
     await fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId);
     startPollingForActiveFiles();
   }

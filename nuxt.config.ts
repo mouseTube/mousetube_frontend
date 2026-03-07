@@ -24,7 +24,7 @@ export default defineNuxtConfig({
   modules: ['@pinia/nuxt'],
   ssr: false,
   vite: {
-    plugins: [vuetify()],
+    plugins: [vuetify() as any],
     define: {
       'process.env.DEBUG': false,
     },

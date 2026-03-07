@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, markRaw } from 'vue';
+import { ref, reactive, computed, watch, markRaw, defineAsyncComponent } from 'vue';
 import { AudioLines } from 'lucide-vue-next';
 
-import RecordingSessionTab from '@/components/tabs/RecordingSessionTab.vue';
-import ProtocolTab from '@/components/tabs/ProtocolTab.vue';
-import AnimalProfileTab from '@/components/tabs/AnimalProfileTab.vue';
-import FileTab from '@/components/tabs/FileTab.vue';
+// Lazy load components for better initial performance
+const RecordingSessionTab = defineAsyncComponent(
+  () => import('@/components/tabs/RecordingSessionTab.vue')
+);
+const ProtocolTab = defineAsyncComponent(() => import('@/components/tabs/ProtocolTab.vue'));
+const AnimalProfileTab = defineAsyncComponent(
+  () => import('@/components/tabs/AnimalProfileTab.vue')
+);
+const FileTab = defineAsyncComponent(() => import('@/components/tabs/FileTab.vue'));
 
 import { useFileStore } from '@/stores/file';
 
@@ -31,38 +36,38 @@ const tabs = reactive([
   {
     name: 'recordingSession',
     label: 'Recording Session',
-    component: markRaw(RecordingSessionTab),
+    component: RecordingSessionTab,
     disabled: false,
     hasErrors: false,
     errorMessage: '',
-    unsaved: false, // <-- ADDED
+    unsaved: false,
   },
   {
     name: 'protocol',
     label: 'Protocol',
-    component: markRaw(ProtocolTab),
+    component: ProtocolTab,
     disabled: true,
     hasErrors: false,
     errorMessage: '',
-    unsaved: false, // <-- ADDED
+    unsaved: false,
   },
   {
     name: 'animalProfile',
     label: 'Animal Profile',
-    component: markRaw(AnimalProfileTab),
+    component: AnimalProfileTab,
     disabled: true,
     hasErrors: false,
     errorMessage: '',
-    unsaved: false, // <-- ADDED
+    unsaved: false,
   },
   {
     name: 'file',
     label: 'File',
-    component: markRaw(FileTab),
+    component: FileTab,
     disabled: true,
     hasErrors: false,
     errorMessage: '',
-    unsaved: false, // <-- ADDED (optional)
+    unsaved: false,
   },
 ]);
 
