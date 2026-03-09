@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, markRaw } from 'vue';
+import { ref, reactive, computed, watch, markRaw, defineAsyncComponent } from 'vue';
 import { AudioLines } from 'lucide-vue-next';
 
-import RecordingSessionTab from '@/components/tabs/RecordingSessionTab.vue';
-import ProtocolTab from '@/components/tabs/ProtocolTab.vue';
-import AnimalProfileTab from '@/components/tabs/AnimalProfileTab.vue';
-import FileTab from '@/components/tabs/FileTab.vue';
+// Lazy load components for better initial performance
+const RecordingSessionTab = defineAsyncComponent(
+  () => import('@/components/tabs/RecordingSessionTab.vue')
+);
+const ProtocolTab = defineAsyncComponent(() => import('@/components/tabs/ProtocolTab.vue'));
+const AnimalProfileTab = defineAsyncComponent(
+  () => import('@/components/tabs/AnimalProfileTab.vue')
+);
+const FileTab = defineAsyncComponent(() => import('@/components/tabs/FileTab.vue'));
 
 import { useFileStore } from '@/stores/file';
 
@@ -35,7 +40,7 @@ const tabs = reactive([
     disabled: false,
     hasErrors: false,
     errorMessage: '',
-    unsaved: false, // <-- ADDED
+    unsaved: false,
   },
   {
     name: 'protocol',
@@ -44,7 +49,7 @@ const tabs = reactive([
     disabled: true,
     hasErrors: false,
     errorMessage: '',
-    unsaved: false, // <-- ADDED
+    unsaved: false,
   },
   {
     name: 'animalProfile',
@@ -53,7 +58,7 @@ const tabs = reactive([
     disabled: true,
     hasErrors: false,
     errorMessage: '',
-    unsaved: false, // <-- ADDED
+    unsaved: false,
   },
   {
     name: 'file',
@@ -62,7 +67,7 @@ const tabs = reactive([
     disabled: true,
     hasErrors: false,
     errorMessage: '',
-    unsaved: false, // <-- ADDED (optional)
+    unsaved: false,
   },
 ]);
 

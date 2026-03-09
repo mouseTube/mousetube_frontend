@@ -2,22 +2,37 @@
 ////////////////////////////////
 // IMPORTS
 ////////////////////////////////
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, defineAsyncComponent } from 'vue';
 import { useRecordingSessionStore, type RecordingSession } from '@/stores/recordingSession';
 import { useHardwareStore } from '@/stores/hardware';
 import { useSoftwareStore, type SoftwareVersion } from '@/stores/software';
 import { useStudyStore } from '@/stores/study';
 import { useLaboratoryStore } from '~/stores/laboratory';
-import SoftwareSelectionModal from '../modals/SoftwareSelectionModal.vue';
-import LaboratoryModal from '@/components/modals/LaboratoryModal.vue';
-import HardwareModal from '@/components/modals/HardwareModal.vue';
-import SelectSessionModal from '@/components/modals/SessionModal.vue';
-import StudyModal from '@/components/modals/CreateStudyModal.vue';
-import HardwareSelectionModal from '@/components/modals/HardwareSelectionModal.vue';
+
+// Lazy load modals for better initial performance
+const SoftwareSelectionModal = defineAsyncComponent(
+  () => import('../modals/SoftwareSelectionModal.vue')
+);
+const LaboratoryModal = defineAsyncComponent(
+  () => import('@/components/modals/LaboratoryModal.vue')
+);
+const HardwareModal = defineAsyncComponent(() => import('@/components/modals/HardwareModal.vue'));
+const SelectSessionModal = defineAsyncComponent(
+  () => import('@/components/modals/SessionModal.vue')
+);
+const StudyModal = defineAsyncComponent(() => import('@/components/modals/CreateStudyModal.vue'));
+const HardwareSelectionModal = defineAsyncComponent(
+  () => import('@/components/modals/HardwareSelectionModal.vue')
+);
+const StudySelectionModal = defineAsyncComponent(
+  () => import('@/components/modals/StudySelectionModal.vue')
+);
+const ReferenceSelectionModal = defineAsyncComponent(
+  () => import('@/components/modals/ReferenceSelectionModal.vue')
+);
+
 import { useAuth } from '@/composables/useAuth';
 import { useRouter } from 'vue-router';
-import StudySelectionModal from '@/components/modals/StudySelectionModal.vue';
-import ReferenceSelectionModal from '@/components/modals/ReferenceSelectionModal.vue';
 import { useReferenceStore, type Reference } from '~/stores/reference';
 
 ////////////////////////////////
@@ -355,15 +370,21 @@ function tryMergeDateTime() {
 /* Fetch lists used to populate selects (studies, hardware, software, labs). */
 async function fetchSelectableData() {
   try {
-    await Promise.all([
-      hardwareStore.fetchAllHardware(),
-      softwareStore.fetchAllSoftware(),
-      studyStore.fetchAllStudies(),
-      laboratoryStore.fetchAllLaboratories(),
-    ]);
+    // Load data in priority order, with hardware & software being less critical initially
+    await Promise.all([studyStore.fetchAllStudies(), laboratoryStore.fetchAllLaboratories()]);
     hardwareOptions.value = hardwareStore.hardwares;
     softwareOptions.value = softwareStore.softwares;
     laboratoriesOptions.value = laboratoryStore.laboratories;
+
+    // Load hardware and software in background (not blocking)
+    Promise.all([hardwareStore.fetchAllHardware(), softwareStore.fetchAllSoftware()])
+      .then(() => {
+        hardwareOptions.value = hardwareStore.hardwares;
+        softwareOptions.value = softwareStore.softwares;
+      })
+      .catch(() => {
+        showSnackbar('Error loading hardware/software options.', 'warning');
+      });
   } catch (e) {
     showSnackbar('Error loading selectable data.', 'error');
   }
