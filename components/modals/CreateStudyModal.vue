@@ -82,6 +82,14 @@ function resetForm() {
   };
 }
 
+// function dateConsistency() {
+//   if(formData.value.start_date && formData.value.end_date){
+//     if(Date(formData.value.start_date) >= Date(formData.value.end_date)){
+//       alert("date problem");
+//     }
+//   }
+// }
+
 watch(
   () => props.study,
   (newStudy) => {
@@ -98,6 +106,20 @@ watch(
     }
   },
   { immediate: true }
+);
+
+watch(
+    () => [formData.value.start_date, formData.value.end_date],
+    (newStartDate, newEndDate) => {
+      if(newStartDate && newEndDate) {
+        if(newStartDate >= newEndDate) {
+          formData.value = {
+            end_date: newEndDate || ''
+          };
+          snackbar.value = { show: true, message: 'End date must be after start date.' };
+        }
+      }
+    }
 );
 </script>
 
