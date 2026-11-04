@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
-import debounce from 'lodash/debounce.js';
-import { Database } from 'lucide-vue-next';
+import debounce from 'lodash-es/debounce';
+import { Database } from '@lucide/vue';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 
 interface FileType {

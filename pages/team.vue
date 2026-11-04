@@ -12,7 +12,7 @@ Code under GPL v3.0 licence
 // IMPORT
 ////////////////////////////////
 
-import { Users } from 'lucide-vue-next';
+import { Users } from '@lucide/vue';
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 

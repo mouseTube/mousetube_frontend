@@ -9,6 +9,10 @@ import { useSoftwareStore, type SoftwareVersion } from '@/stores/software';
 import { useStudyStore } from '@/stores/study';
 import { useLaboratoryStore } from '~/stores/laboratory';
 
+import { useAuth } from '@/composables/useAuth';
+import { useRouter } from 'vue-router';
+import { useReferenceStore, type Reference } from '~/stores/reference';
+
 // Lazy load modals for better initial performance
 const SoftwareSelectionModal = defineAsyncComponent(
   () => import('../modals/SoftwareSelectionModal.vue')
@@ -30,10 +34,6 @@ const StudySelectionModal = defineAsyncComponent(
 const ReferenceSelectionModal = defineAsyncComponent(
   () => import('@/components/modals/ReferenceSelectionModal.vue')
 );
-
-import { useAuth } from '@/composables/useAuth';
-import { useRouter } from 'vue-router';
-import { useReferenceStore, type Reference } from '~/stores/reference';
 
 ////////////////////////////////
 // STORES
@@ -104,10 +104,7 @@ const formData = ref({
   equipment: {
     channels: null as 'mono' | 'stereo' | 'more than 2' | null,
     sound_isolation: null as
-      | 'soundproof room'
-      | 'soundproof cage'
-      | 'no specific sound isolation'
-      | null,
+      'soundproof room' | 'soundproof cage' | 'no specific sound isolation' | null,
     soundcards: [] as number[],
     microphones: [] as number[],
     amplifiers: [] as number[],
@@ -981,12 +978,12 @@ onMounted(async () => {
                 <v-col cols="6">
                   <v-date-picker
                     v-model="date"
-                    @update:modelValue="updateDate"
+                    @update:model-value="updateDate"
                     show-adjacent-months
                   />
                 </v-col>
                 <v-col cols="6">
-                  <v-time-picker v-model="time" @update:modelValue="updateTime" format="24hr" />
+                  <v-time-picker v-model="time" @update:model-value="updateTime" format="24hr" />
                 </v-col>
               </v-row>
             </v-card>
@@ -1385,29 +1382,29 @@ onMounted(async () => {
 
               <ReferenceSelectionModal
                 v-model="showReferenceSelectionModal"
-                :selectedReferences="selectedReferenceIds"
-                @update:selectedReferences="onUpdateSelectedReferences"
+                :selected-references="selectedReferenceIds"
+                @update:selected-references="onUpdateSelectedReferences"
               />
 
               <StudySelectionModal
                 v-model="showStudySelectionModal"
-                :selectedStudies="formData.studies"
-                @update:selectedStudies="(newIds: number[]) => (formData.studies = newIds)"
+                :selected-studies="formData.studies"
+                @update:selected-studies="(newIds: number[]) => (formData.studies = newIds)"
               />
 
               <HardwareSelectionModal
                 v-model="showHardwareSelectionModal"
                 :hardware-type="hardwareTypeForSelection"
-                :selectedHardwareIds="selectedHardwareList"
-                @update:selectedHardwareIds="
+                :selected-hardware-ids="selectedHardwareList"
+                @update:selected-hardware-ids="
                   updateSelectedHardwareIds(currentHardwareCategory, $event)
                 "
               />
 
               <SoftwareSelectionModal
                 v-model="showSoftwareSelectionModal"
-                :selectedSoftwareVersions="formData.equipment.acquisition_software"
-                @update:selectedSoftwareVersions="onUpdateSelectedSoftwareVersions"
+                :selected-software-versions="formData.equipment.acquisition_software"
+                @update:selected-software-versions="onUpdateSelectedSoftwareVersions"
               />
             </v-card-text>
           </v-card>

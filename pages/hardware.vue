@@ -13,8 +13,8 @@ Code under GPL v3.0 licence
 ////////////////////////////
 import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
-import debounce from 'lodash/debounce.js';
-import { Mic, MicVocal, Speaker, BoomBox, Microchip } from 'lucide-vue-next';
+import debounce from 'lodash-es/debounce';
+import { Mic, MicVocal, Speaker, BoomBox, Microchip } from '@lucide/vue';
 import { useAuth } from '@/composables/useAuth';
 import { useRouter } from 'vue-router';
 import HardwareModal from '@/components/modals/HardwareModal.vue';

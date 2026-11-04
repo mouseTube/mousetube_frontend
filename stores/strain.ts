@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
-import { type Species } from '~/stores/species';
+import type { Species } from '~/stores/species';
 
 export interface Strain {
   id: number;

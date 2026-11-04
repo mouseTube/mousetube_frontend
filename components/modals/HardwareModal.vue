@@ -261,8 +261,8 @@ async function saveHardware() {
 
     <ReferenceSelectionModal
       v-model="showReferenceModal"
-      :selectedReferences="selectedReferenceIds"
-      @update:selectedReferences="onReferencesUpdated"
+      :selected-references="selectedReferenceIds"
+      @update:selected-references="onReferencesUpdated"
     />
 
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000" location="bottom">

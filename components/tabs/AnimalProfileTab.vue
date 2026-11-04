@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import { type AnimalProfile } from '@/stores/animalProfile';
+import type { AnimalProfile } from '@/stores/animalProfile';
 import { useRecordingSessionStore } from '@/stores/recordingSession';
 import AnimalProfileSelectionModal from '@/components/modals/AnimalProfileSelectionModal.vue';
-import { cloneDeep } from 'lodash';
+import { cloneDeep } from 'lodash-es';
 
 // ----------------------
 // Props & Emits
@@ -222,8 +222,8 @@ watch(
 
     <AnimalProfileSelectionModal
       v-model="showSelectionModal"
-      :selectedAnimalProfiles="selectedAnimalProfiles"
-      @update:selectedAnimalProfiles="onUpdateSelectedAnimalProfiles"
+      :selected-animal-profiles="selectedAnimalProfiles"
+      @update:selected-animal-profiles="onUpdateSelectedAnimalProfiles"
     />
 
     <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000" location="top right">

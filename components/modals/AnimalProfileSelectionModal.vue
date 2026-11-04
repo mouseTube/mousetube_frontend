@@ -499,7 +499,7 @@ function loadMoreStrains() {
 
     <CreateAnimalProfileModal
       v-model="showCreateModal"
-      :profileToEdit="profileToEdit"
+      :profile-to-edit="profileToEdit"
       @created="handleCreatedOrUpdated"
       @updated="handleCreatedOrUpdated"
     />

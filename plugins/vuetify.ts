@@ -5,14 +5,13 @@
 // PHENOMIN, CNRS UMR7104, INSERM U964, Université de Strasbourg
 // Code under GPL v3.0 licence
 
+import { createVuetify } from 'vuetify';
+import * as components from 'vuetify/components';
+import * as directives from 'vuetify/directives';
+import { md3 } from 'vuetify/blueprints';
+import 'vuetify/styles';
 
-import { createVuetify } from "vuetify"
-import * as components from "vuetify/components"
-import * as directives from "vuetify/directives"
-import { md3 } from 'vuetify/blueprints'
-import 'vuetify/styles'
-
-export default defineNuxtPlugin(nuxtApp => {
+export default defineNuxtPlugin((nuxtApp) => {
   const vuetify = createVuetify({
     blueprint: md3,
     components,
@@ -32,13 +31,13 @@ export default defineNuxtPlugin(nuxtApp => {
           },
         },
       },
-      },
-      defaults: {
-        VChip: { rounded: 'pill' },
-        VTabs: { rounded: 'md' },
-        VBtn: { rounded: 'lg' },
-      },
-  })
+    },
+    defaults: {
+      VChip: { rounded: 'pill' },
+      VTabs: { rounded: 'md' },
+      VBtn: { rounded: 'lg' },
+    },
+  });
 
-  nuxtApp.vueApp.use(vuetify)
-})
+  nuxtApp.vueApp.use(vuetify);
+});

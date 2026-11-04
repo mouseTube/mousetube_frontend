@@ -131,7 +131,7 @@ async function saveContact() {
 <template>
   <v-dialog
     :model-value="props.modelValue"
-    @update:modelValue="emit('update:modelValue', $event)"
+    @update:model-value="emit('update:modelValue', $event)"
     max-width="600"
   >
     <v-card>

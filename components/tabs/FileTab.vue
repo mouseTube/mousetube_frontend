@@ -90,7 +90,8 @@ async function pollPublishTask() {
   const interval = setInterval(async () => {
     try {
       const res = await axios.get(
-        `${apiBaseUrl}/recording-session/get_task_status?task_id=${publishTaskId.value}`
+        `${apiBaseUrl}/recording-session/get_task_status?task_id=${publishTaskId.value}`,
+        getAuthHeaders()
       );
 
       const state = res.data.state;
@@ -140,7 +141,7 @@ function pollFileStatus(fileId: number) {
 
   const interval = setInterval(async () => {
     try {
-      const res = await axios.get(`${apiBaseUrl}/file/${fileId}/status/`);
+      const res = await axios.get(`${apiBaseUrl}/file/${fileId}/status/`, getAuthHeaders());
       fileStore.updateFileStatus(fileId, { status: res.data.status });
 
       if (['done', 'error'].includes(res.data.status)) {
@@ -573,7 +574,7 @@ async function deleteFile() {
         <FileForm
           v-if="showFileForm"
           v-model="editingFile"
-          :recordingSessionId="props.selectedRecordingSessionId"
+          :recording-session-id="props.selectedRecordingSessionId"
           :repository="repositoryStore.selectedRepository"
           @saved="handleSaved"
         />
@@ -599,8 +600,8 @@ async function deleteFile() {
         v-if="
           props.selectedRecordingSessionId != null && repositoryStore.selectedRepository != null
         "
-        :recordingSessionId="props.selectedRecordingSessionId"
-        :recordingSessionName="session?.name || ''"
+        :recording-session-id="props.selectedRecordingSessionId"
+        :recording-session-name="session?.name || ''"
         :repository="{
           id: repositoryStore.selectedRepository.id,
           name: repositoryStore.selectedRepository.name,
@@ -608,7 +609,7 @@ async function deleteFile() {
         }"
         :show="showPublishModal"
         @close="showPublishModal = false"
-        @publishConfirmed="
+        @publish-confirmed="
           (payload: any) => {
             showPublishModal = false;
             publishSession(payload);

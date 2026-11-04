@@ -14,8 +14,8 @@ Code under GPL v3.0 licence
 
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
-import debounce from 'lodash/debounce.js';
-import { Warehouse } from 'lucide-vue-next';
+import debounce from 'lodash-es/debounce';
+import { Warehouse } from '@lucide/vue';
 
 ////////////////////////////////
 // DATA

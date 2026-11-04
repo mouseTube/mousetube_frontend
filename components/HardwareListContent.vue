@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useHardwareStore, type Hardware } from '@/stores/hardware';
 import { useFavoriteStore } from '@/stores/favorite';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
-import { Mic, MicVocal, Speaker, BoomBox, Microchip } from 'lucide-vue-next';
+import { Mic, MicVocal, Speaker, BoomBox, Microchip } from '@lucide/vue';
 
 const hardwareStore = useHardwareStore();
 const favoriteStore = useFavoriteStore();

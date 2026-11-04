@@ -5,7 +5,7 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useAuth } from '@/composables/useAuth';
 import axios from 'axios';
-import { User } from 'lucide-vue-next';
+import { User } from '@lucide/vue';
 import { useRoute, useRouter } from 'vue-router';
 import SoftwareListContent from '@/components/SoftwareListContent.vue';
 import HardwareListContent from '@/components/HardwareListContent.vue';

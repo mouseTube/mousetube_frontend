@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, markRaw, defineAsyncComponent } from 'vue';
-import { AudioLines } from 'lucide-vue-next';
+import { AudioLines } from '@lucide/vue';
+
+import { useFileStore } from '@/stores/file';
 
 // Lazy load components for better initial performance
 const RecordingSessionTab = defineAsyncComponent(
@@ -11,8 +13,6 @@ const AnimalProfileTab = defineAsyncComponent(
   () => import('@/components/tabs/AnimalProfileTab.vue')
 );
 const FileTab = defineAsyncComponent(() => import('@/components/tabs/FileTab.vue'));
-
-import { useFileStore } from '@/stores/file';
 
 // === STATE ===
 const tab = ref(0);
@@ -252,7 +252,7 @@ function goToFileTab() {
             @session-selected="onSessionSelected"
             @animal-selected="onAnimalSelected"
             @animal-saved="onAnimalSaved($event.saved)"
-            @update:selectedProtocolId="selectedProtocolId = $event"
+            @update:selected-protocol-id="selectedProtocolId = $event"
             @session-dirty="onSessionDirty($event)"
             @session-saved="onSessionSaved($event)"
             @protocol-dirty="onProtocolDirty($event)"

@@ -304,7 +304,7 @@ onMounted(async () => {
           item-key="id"
           hover
           hide-default-footer
-          :sort-by.sync="sortBy"
+          v-model:sort-by="sortBy"
           @update:sort-by="onSortUpdate"
           @click:row="
             (event: MouseEvent, { item }: { item: RecordingSession }) => selectSession(item)
@@ -432,7 +432,7 @@ onMounted(async () => {
                 <v-col cols="6">
                   <v-date-picker
                     v-model="date"
-                    @update:modelValue="updateDate"
+                    @update:model-value="updateDate"
                     show-adjacent-months
                   />
                 </v-col>

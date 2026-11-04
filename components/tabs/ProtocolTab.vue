@@ -561,7 +561,7 @@ onMounted(async () => {
       outlined
       dense
       :value-comparator="(a: any, b: any) => a === b"
-      @update:modelValue="handleProtocolSelection"
+      @update:model-value="handleProtocolSelection"
       :disabled="isValidated && session?.status === 'shared'"
     >
       <template #selection="{ item, index }">

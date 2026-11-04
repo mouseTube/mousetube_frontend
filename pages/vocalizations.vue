@@ -14,8 +14,8 @@ Code under GPL v3.0 licence
 
 import { ref, onMounted, watch, computed } from 'vue';
 import axios from 'axios';
-import debounce from 'lodash/debounce.js';
-import { AudioLines } from 'lucide-vue-next';
+import debounce from 'lodash-es/debounce';
+import { AudioLines } from '@lucide/vue';
 import { useAuth } from '@/composables/useAuth';
 import { useRouter } from 'vue-router';
 

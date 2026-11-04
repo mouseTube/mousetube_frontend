@@ -383,14 +383,14 @@ onMounted(async () => {
 
           <ReferenceSelectionModal
             v-model="showReferenceModal"
-            v-model:selectedReferences="selectedReferenceIds"
-            @update:selectedReferences="onReferencesUpdated"
+            v-model:selected-references="selectedReferenceIds"
+            @update:selected-references="onReferencesUpdated"
           />
 
           <ContactSelectionModal
             v-model="showContactModal"
-            v-model:selectedContacts="selectedContactIds"
-            @update:selectedContacts="onContactsUpdated"
+            v-model:selected-contacts="selectedContactIds"
+            @update:selected-contacts="onContactsUpdated"
           />
         </v-form>
       </v-card-text>
