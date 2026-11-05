@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 const apiBaseUrl = useApiBaseUrl();
@@ -27,6 +27,11 @@ const institutionalRule = (v) =>
   !isPersonalEmail(v) ||
   'Personal email addresses (Gmail, Outlook, Yahoo...) are not accepted. Use your institutional address.';
 const serverMessage = ref('');
+const submitting = ref(false); // request in progress: blocks double clicks
+const registered = ref(false); // account request sent: the form is done
+const resendMessage = ref('');
+const resendWait = ref(0); // seconds before the confirmation e-mail can be sent again
+let resendTimer = null;
 const alertType = ref(''); // 'success' or 'error'
 const hasOrcid = ref(false);
 
@@ -66,6 +71,7 @@ const handleRegister = async () => {
     errors.value[key] = [];
   });
 
+  submitting.value = true;
   try {
     await axios.post(`${baseUrl.value}/auth/users/`, {
       username: form.value.username,
@@ -79,9 +85,13 @@ const handleRegister = async () => {
       'Check your email and click the link to confirm your address. ' +
       'An administrator then reviews your request and activates your account.';
     alertType.value = 'success';
+    registered.value = true;
+    startResendWait();
   } catch (error) {
     const data = error?.response?.data;
-    if (data && typeof data === 'object') {
+    if (error?.response?.status === 429) {
+      serverMessage.value = 'Too many attempts. Please wait a minute and try again.';
+    } else if (data && typeof data === 'object') {
       Object.entries(data).forEach(([field, messages]) => {
         const key = field === 'orcid_proof' ? 'orcid' : field;
         if (key in errors.value) {
@@ -92,8 +102,38 @@ const handleRegister = async () => {
       serverMessage.value = 'An unknown error occurred';
     }
     alertType.value = 'error';
+  } finally {
+    submitting.value = false;
   }
 };
+
+const startResendWait = (seconds = 60) => {
+  clearInterval(resendTimer);
+  resendWait.value = seconds;
+  resendTimer = setInterval(() => {
+    resendWait.value -= 1;
+    if (resendWait.value <= 0) clearInterval(resendTimer);
+  }, 1000);
+};
+
+const resendConfirmation = async () => {
+  resendMessage.value = '';
+  startResendWait();
+  try {
+    // The API answers 204 whether or not the address exists (no account enumeration).
+    await axios.post(`${baseUrl.value}/auth/users/resend_activation/`, {
+      email: form.value.email,
+    });
+    resendMessage.value = 'If the address is correct, a new email has been sent.';
+  } catch (error) {
+    resendMessage.value =
+      error?.response?.status === 429
+        ? 'Too many attempts. Please wait a minute.'
+        : 'The email could not be sent. Please try again later.';
+  }
+};
+
+onBeforeUnmount(() => clearInterval(resendTimer));
 
 onMounted(async () => {
   try {
@@ -252,9 +292,32 @@ onMounted(async () => {
           {{ serverMessage }}
         </v-alert>
 
-        <v-btn color="primary" style="width: 100%" type="submit" class="mt-2">
-          Create Account
+        <v-btn
+          color="primary"
+          style="width: 100%"
+          type="submit"
+          class="mt-2"
+          :loading="submitting"
+          :disabled="submitting || registered"
+        >
+          {{ registered ? 'Request sent' : 'Create Account' }}
         </v-btn>
+
+        <div v-if="registered" class="text-center mt-4">
+          <div class="text-body-2" style="color: #666">Did not receive the email?</div>
+          <v-btn
+            variant="text"
+            color="primary"
+            :disabled="resendWait > 0"
+            @click="resendConfirmation"
+          >
+            {{ resendWait > 0 ? `Resend the email in ${resendWait} s` : 'Resend the email' }}
+          </v-btn>
+          <div v-if="resendMessage" class="text-body-2 mt-1">{{ resendMessage }}</div>
+          <div class="text-caption mt-2" style="color: #666">
+            Check your spam folder too. The link is valid for 3 days.
+          </div>
+        </div>
       </v-form>
     </v-card>
   </v-main>
