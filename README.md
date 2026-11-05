@@ -19,9 +19,10 @@
 
 To run Mousetube Client locally, a working Mousetube API environment is required and the following tools have to be installed:
 
-- [yarn](https://yarnpkg.com/) (or [npm](https://www.npmjs.com/))
-- [nodejs](https://nodejs.org/)
+- [Node.js](https://nodejs.org/) **24 or later** (see `engines` in `package.json`) with npm
 - [Git](https://git-scm.com/)
+
+The lock file is `package-lock.json`, so use npm (yarn is not tested).
 
 ## Installation
 
@@ -34,42 +35,47 @@ Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduct
 Make sure to install dependencies:
 
 ```bash
-# npm
 npm install
-# or yarn
-yarn install
 ```
+
+Create a `.env` file (copy `.env.example`). The API must be reachable at `NUXT_PUBLIC_API_BASE_URL`.
 
 ### Development Server
 
 Start the development server on http://localhost:3000:
 
 ```bash
-# npm
 npm run dev
-
-# or yarn
-yarn dev
 ```
 
 ### Production
 
-1. Add a .env file in the mousetube_frontendv0-5 folder with the following content:
+1. Create a `.env` file:
 
    ```env
-   DEBUG=false #DEBUG muste be false in production mode, not mandatory for development mode
-   NUXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api #if not provided, the default value will be http://127.0.0.1:8000/api
+   DEBUG=false
+   NUXT_PUBLIC_API_BASE_URL=https://your-domain/api
    ```
 
-2. Build the application for production:
+   `DEBUG` must be `false` in production (it is read by `entrypoint.sh`). If `NUXT_PUBLIC_API_BASE_URL` is missing, `http://127.0.0.1:8000/api` is used.
+
+2. Build, then start the server:
+
+   ```bash
+   npm ci
+   npm run build
+   npm start
+   ```
+
+   With Docker, `entrypoint.sh` does these steps when `DEBUG=false`.
+
+### Quality checks
 
 ```bash
-# npm
-npm run build
-
-# or yarn
-yarn build
+npm run lint
 ```
+
+The access token lasts one hour and is renewed automatically with the refresh token (`plugins/axios-refresh.client.ts`).
 
 ## Check out mouseTube's publications:
 
