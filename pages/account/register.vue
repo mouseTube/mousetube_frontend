@@ -61,6 +61,12 @@ const errors = ref({
   password2: [],
 });
 
+// The ORCID proof in the address only lasts 30 minutes (and a reload does not renew it).
+const orcidExpired = computed(() => hasOrcid.value && errors.value.orcid.length > 0);
+const restartOrcid = () => {
+  window.location.href = `${baseUrl.value}/accounts/orcid/login/`;
+};
+
 const hasFieldErrors = computed(() => Object.values(errors.value).some((m) => m.length > 0));
 
 const passwordError = computed(
@@ -282,7 +288,23 @@ onMounted(async () => {
 
         <div aria-live="polite">
           <v-alert
-            v-if="serverMessage || hasFieldErrors"
+            v-if="orcidExpired"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+          >
+            <strong>The ORCID confirmation has expired.</strong> It is valid for 30 minutes and
+            reloading this page does not renew it. Sign in with ORCID again to continue.
+            <div class="mt-2">
+              <v-btn size="small" color="success" variant="outlined" @click="restartOrcid">
+                <v-icon start>mdi-orcid</v-icon>
+                Sign in with ORCID again
+              </v-btn>
+            </div>
+          </v-alert>
+          <v-alert
+            v-else-if="serverMessage || hasFieldErrors"
             type="error"
             variant="tonal"
             density="compact"

@@ -36,7 +36,11 @@ const confirmLink = async () => {
       router.push('/account/details');
     }, 1500);
   } catch (err) {
-    errorMessage.value = 'An error occurred while linking your ORCID.';
+    errorMessage.value =
+      err.response?.status === 400
+        ? 'The ORCID confirmation expired (30 minutes). Go back to your profile and click ' +
+          '"Link my Orcid account" again.'
+        : 'An error occurred while linking your ORCID.';
   } finally {
     loading.value = false;
   }
