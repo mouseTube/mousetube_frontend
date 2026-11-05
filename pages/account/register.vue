@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 const apiBaseUrl = useApiBaseUrl();
@@ -12,6 +12,20 @@ const showPassword2 = ref(false);
 
 const requiredRule = (v) => (!!v && v.trim() !== '') || 'This field is required';
 const emailRule = (v) => /.+@.+\..+/.test(v) || 'Invalid email';
+
+// Personal providers (gmail, outlook...) are refused. The list comes from the API, which
+// enforces the same rule on its side; this only gives instant feedback.
+const personalDomains = ref(new Set());
+const institutionalOnly = ref(false);
+const isPersonalEmail = (email) => {
+  const parts = email.split('@').pop().trim().toLowerCase().split('.');
+  return parts.some((_, i) => personalDomains.value.has(parts.slice(i).join('.')));
+};
+const institutionalRule = (v) =>
+  !institutionalOnly.value ||
+  !v ||
+  !isPersonalEmail(v) ||
+  'Personal email addresses (Gmail, Outlook, Yahoo...) are not accepted. Use your institutional address.';
 const serverMessage = ref('');
 const alertType = ref(''); // 'success' or 'error'
 const hasOrcid = ref(false);
@@ -79,7 +93,14 @@ const handleRegister = async () => {
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
+  try {
+    const res = await axios.get(`${apiBaseUrl}/personal-email-domains/`);
+    personalDomains.value = new Set(res.data.domains);
+    institutionalOnly.value = res.data.enforced;
+  } catch {
+    // the API still refuses personal addresses when the form is submitted
+  }
   const q = route.query;
   if (q.first_name) form.value.first_name = q.first_name;
   if (q.last_name) form.value.last_name = q.last_name;
@@ -114,8 +135,24 @@ onMounted(() => {
     <!-- Card -->
     <v-card
       class="pa-6"
-      style="border-radius: 20px; max-width: 360px; width: 100%; box-shadow: 0 4px 16px #00000015"
+      style="border-radius: 20px; max-width: 440px; width: 100%; box-shadow: 0 4px 16px #00000015"
     >
+      <v-alert type="warning" variant="tonal" density="compact" class="mb-4">
+        <strong>An institutional email address is required.</strong>
+        <ul class="mt-1 ps-4 text-body-2">
+          <li>
+            <strong>Institutional</strong> (accepted): the domain is that of your university,
+            institute or hospital, e.g. <code>firstname.lastname@igbmc.fr</code>.
+          </li>
+          <li>
+            <strong>Personal</strong> (refused): a public mail provider such as Gmail,
+            Outlook/Hotmail, Yahoo, iCloud, ProtonMail, Free or Orange.
+          </li>
+        </ul>
+        <div class="text-body-2 mt-1">
+          Your account is then reviewed by an administrator before it is activated.
+        </div>
+      </v-alert>
       <v-form ref="loginForm" @submit.prevent="handleRegister">
         <v-text-field
           v-model="form.username"
@@ -129,10 +166,10 @@ onMounted(() => {
         />
         <v-text-field
           v-model="form.email"
-          label="Email *"
+          label="Institutional email *"
           variant="outlined"
           density="comfortable"
-          :rules="[requiredRule, emailRule]"
+          :rules="[requiredRule, emailRule, institutionalRule]"
           :error-messages="errors.email"
           class="mb-2"
           required
