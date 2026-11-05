@@ -5,6 +5,7 @@ import { useFavoriteStore } from '@/stores/favorite';
 
 export const currentUser = ref<string | null>(null);
 export const id_user = ref<number | null>(null);
+export const isStaff = ref(false); // administrators see the admin-only buttons
 export const token = useStorage<string | null>('auth_token', null, localStorage);
 export const refresh = useStorage<string | null>('refresh_token', null, localStorage);
 
@@ -39,6 +40,7 @@ export function useAuth() {
       token.value = res.data.access;
       if (res.data.refresh) refresh.value = res.data.refresh;
       currentUser.value = username;
+      await fetchUser();
       await favoriteStore.fetchAllFavorites();
       return true;
     } catch (error: any) {
@@ -56,6 +58,7 @@ export function useAuth() {
 
   const logout = () => {
     currentUser.value = null;
+    isStaff.value = false;
     token.value = null;
     refresh.value = null;
   };
@@ -72,6 +75,7 @@ export function useAuth() {
 
       currentUser.value = res.data.username;
       id_user.value = res.data.id;
+      isStaff.value = !!res.data.is_staff;
 
       await favoriteStore.fetchAllFavorites();
 
@@ -92,6 +96,7 @@ export function useAuth() {
     });
     id_user.value = res.data.id;
     currentUser.value = res.data.username;
+    isStaff.value = !!res.data.is_staff;
     return res.data;
   };
 
@@ -110,6 +115,7 @@ export function useAuth() {
     token,
     refresh,
     id_user,
+    isStaff,
     loggedIn,
     login,
     logout,

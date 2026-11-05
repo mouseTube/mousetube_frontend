@@ -4,6 +4,8 @@ import axios from 'axios';
 import debounce from 'lodash-es/debounce';
 import { Database } from '@lucide/vue';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
+import { isStaff } from '@/composables/useAuth';
+import DatasetCreateModal from '@/components/modals/DatasetCreateModal.vue';
 
 interface FileType {
   id: number;
@@ -33,6 +35,14 @@ const count = ref(0);
 const perPage = ref(10);
 
 const apiBaseUrl = useApiBaseUrl();
+
+// --- admin-only: add a dataset ---
+const showCreate = ref(false);
+const createdMessage = ref(false);
+const onCreated = async () => {
+  createdMessage.value = true;
+  await fetchDatasets();
+};
 
 // --- helpers for file types / icons / ordering ---
 function fileExt(name?: string) {
@@ -130,6 +140,15 @@ onMounted(() => fetchDatasets());
             <div class="d-flex align-center mt-1 mb-4">
               <h1><Database /> Datasets</h1>
               <v-chip v-if="count > 0" class="me-1 my-1 mx-2">{{ count }}</v-chip>
+              <v-spacer />
+              <v-btn
+                v-if="isStaff"
+                color="primary"
+                prepend-icon="mdi-plus"
+                @click="showCreate = true"
+              >
+                Add a dataset
+              </v-btn>
             </div>
 
             <!-- INFO BLOC -->
@@ -289,6 +308,10 @@ onMounted(() => fetchDatasets());
         </v-col>
       </v-row>
     </v-container>
+    <DatasetCreateModal v-model:show="showCreate" @created="onCreated" />
+    <v-snackbar v-model="createdMessage" color="success" timeout="4000"
+      >Dataset created.</v-snackbar
+    >
   </v-main>
 </template>
 
