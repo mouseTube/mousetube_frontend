@@ -14,6 +14,8 @@ interface FileType {
   link?: string | null;
   spectrogram_url?: string | null;
   plot_url?: string | null;
+  downloads?: number;
+  session?: { name: string; chips: string[]; animal_profiles: string[] } | null;
 }
 
 interface DatasetType {
@@ -226,6 +228,17 @@ onMounted(() => fetchDatasets());
                       >
                     </v-chip>
 
+                    <v-btn
+                      icon
+                      :href="`${apiBaseUrl}/dataset/${dataset.id}/metadata/`"
+                      target="_blank"
+                      title="Metadata (JSON)"
+                      density="compact"
+                      class="ms-1"
+                    >
+                      <v-icon size="18">mdi-code-json</v-icon>
+                    </v-btn>
+
                     <!-- Bouton download compact -->
                     <v-btn
                       icon
@@ -254,12 +267,43 @@ onMounted(() => fetchDatasets());
                   >
                     <v-expansion-panel-title>
                       <v-row align="center" justify="space-between" class="w-100">
-                        <v-col cols="auto" class="d-flex align-center">
+                        <v-col class="d-flex align-center flex-wrap">
                           <v-icon class="me-2">{{ fileIcon(file.name) }}</v-icon>
-                          <strong>{{ file.name }}</strong>
+                          <strong class="me-3">{{ file.name }}</strong>
+                          <template v-if="file.session">
+                            <v-chip
+                              v-for="chip in file.session.chips"
+                              :key="chip"
+                              size="x-small"
+                              label
+                              color="teal"
+                              variant="tonal"
+                              class="me-1 my-1"
+                            >
+                              {{ chip }}
+                            </v-chip>
+                            <v-chip
+                              v-for="animal in file.session.animal_profiles"
+                              :key="animal"
+                              size="x-small"
+                              label
+                              color="red"
+                              variant="tonal"
+                              class="me-1 my-1"
+                            >
+                              {{ animal }}
+                            </v-chip>
+                          </template>
                         </v-col>
 
                         <v-col cols="auto" class="d-flex align-center">
+                          <span
+                            v-if="file.downloads"
+                            class="text-caption text-medium-emphasis me-3"
+                            :title="`${file.downloads} downloads`"
+                          >
+                            <v-icon size="14">mdi-download</v-icon> {{ file.downloads }}
+                          </span>
                           <v-chip v-if="file.doi" label small color="#03DAC6" class="me-2">
                             DOI:
                             <a
@@ -291,12 +335,16 @@ onMounted(() => fetchDatasets());
                       <v-row>
                         <v-col cols="12" sm="6" v-if="file.spectrogram_url">
                           <strong>Spectrogram:</strong>
-                          <v-img :src="file.spectrogram_url" contain />
+                          <a :href="file.spectrogram_url" target="_blank" title="Open full size">
+                            <v-img :src="file.spectrogram_url" contain />
+                          </a>
                         </v-col>
 
                         <v-col cols="12" sm="6" v-if="file.plot_url">
                           <strong>Plot:</strong>
-                          <v-img :src="file.plot_url" contain />
+                          <a :href="file.plot_url" target="_blank" title="Open full size">
+                            <v-img :src="file.plot_url" contain />
+                          </a>
                         </v-col>
                       </v-row>
                     </v-expansion-panel-text>
