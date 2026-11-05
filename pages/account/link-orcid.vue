@@ -13,6 +13,7 @@ const errorMessage = ref('');
 const successMessage = ref('');
 
 const orcid = route.query.orcid;
+const orcidProof = route.query.orcid_proof; // signed by the API after the ORCID login
 const firstName = route.query.first_name;
 const lastName = route.query.last_name;
 const userId = route.query.user_id;
@@ -25,7 +26,7 @@ const confirmLink = async () => {
   try {
     await axios.post(
       `${apiBaseUrl}/link-orcid/`,
-      { orcid, firstName, lastName },
+      { orcid_proof: orcidProof, firstName, lastName },
       { headers: { Authorization: `Bearer ${auth.token.value}` } }
     );
 

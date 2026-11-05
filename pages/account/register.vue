@@ -22,6 +22,7 @@ const form = ref({
   first_name: '',
   last_name: '',
   orcid: '',
+  orcid_proof: '',
   password: '',
   password2: '',
 });
@@ -58,7 +59,7 @@ const handleRegister = async () => {
       password: form.value.password,
       first_name: form.value.first_name,
       last_name: form.value.last_name,
-      orcid: form.value.orcid,
+      orcid_proof: form.value.orcid_proof,
     });
     serverMessage.value = 'Check your email to activate your account.';
     alertType.value = 'success';
@@ -66,8 +67,9 @@ const handleRegister = async () => {
     const data = error?.response?.data;
     if (data && typeof data === 'object') {
       Object.entries(data).forEach(([field, messages]) => {
-        if (field in errors.value) {
-          errors.value[field] = messages;
+        const key = field === 'orcid_proof' ? 'orcid' : field;
+        if (key in errors.value) {
+          errors.value[key] = messages;
         }
       });
     } else {
@@ -83,6 +85,7 @@ onMounted(() => {
   if (q.last_name) form.value.last_name = q.last_name;
   if (q.orcid) {
     form.value.orcid = q.orcid;
+    form.value.orcid_proof = q.orcid_proof || '';
     hasOrcid.value = true;
     serverMessage.value =
       'No mouseTube user found with the given ORCID.\n' +

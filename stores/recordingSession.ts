@@ -6,7 +6,7 @@ import { token } from '@/composables/useAuth';
 import type { SoftwareVersion } from '@/stores/software';
 import type { AnimalProfile } from '@/stores/animalProfile';
 
-export interface Study {
+interface Study {
   id: number;
   name: string;
   description?: string | null;
@@ -15,16 +15,16 @@ export interface Study {
   created_at?: string | null;
   modified_at?: string | null;
 }
-export interface Protocol {
+interface Protocol {
   id: number;
   name: string;
 }
-export interface Hardware {
+interface Hardware {
   id: number;
   name: string;
   type: string;
 }
-export interface Laboratory {
+interface Laboratory {
   id: number;
   name: string;
   institution?: string | null;
@@ -34,7 +34,7 @@ export interface Laboratory {
   contact?: string | null;
 }
 
-export interface Reference {
+interface Reference {
   id: number;
   name: string;
   description?: string | null;
