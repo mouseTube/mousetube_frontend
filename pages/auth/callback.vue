@@ -12,8 +12,13 @@ const token = new URLSearchParams(window.location.hash.slice(1)).get('token');
 window.history.replaceState(null, '', window.location.pathname);
 
 if (token) {
-  await auth.loginWithToken(token);
-  router.push('/account/details');
+  try {
+    await auth.loginWithToken(token);
+    router.push('/account/details');
+  } catch {
+    // e.g. the API refused the token: go back to the login page instead of an error page
+    router.replace('/account/login?error=no_token');
+  }
 } else {
   router.push('/account/login');
 }

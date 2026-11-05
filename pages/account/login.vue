@@ -102,6 +102,11 @@ const redirectToOrcid = () => {
 };
 
 onMounted(() => {
+  // Sent by the API after an ORCID login of an account that is not active yet
+  const status = String(route.query.account_status || '');
+  if (['awaiting_review', 'awaiting_email_confirmation'].includes(status)) {
+    accountStatus.value = status;
+  }
   const errorParam = route.query.error;
   if (errorParam === 'no_token') {
     loginErrorMessage.value = 'Authentication failed. Please try again.';
