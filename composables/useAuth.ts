@@ -47,7 +47,10 @@ export function useAuth() {
         error.response?.data?.non_field_errors?.[0] ||
         error.response?.data?.username?.[0] ||
         error.message;
-      throw new Error(msg);
+      // account_status: set by the API when the password is right but the account is pending
+      throw Object.assign(new Error(msg), {
+        accountStatus: error.response?.data?.account_status as string | undefined,
+      });
     }
   };
 
