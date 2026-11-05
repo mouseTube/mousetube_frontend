@@ -144,7 +144,7 @@ onMounted(async () => {
         <ul class="mt-1 ps-4 text-body-2">
           <li>
             <strong>Institutional</strong> (accepted): the domain is that of your university,
-            institute or hospital, e.g. <code>firstname.lastname@igbmc.fr</code>.
+            institute or hospita.
           </li>
           <li>
             <strong>Personal</strong> (refused): a public mail provider such as Gmail,
