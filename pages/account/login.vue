@@ -111,146 +111,151 @@ onMounted(() => {
 
 <template>
   <v-main
-    class="d-flex flex-column align-center justify-center py-8 px-3"
+    class="d-flex flex-column align-center"
     style="min-height: 100vh; background-color: white"
   >
-    <!-- Logo -->
-    <img
-      src="/logo_mousetube_big.png"
-      alt="mouseTube Logo"
-      style="width: 300px; max-width: 80%; margin-bottom: 12px"
-    />
+    <div class="d-flex flex-column align-center my-auto py-8 px-3" style="width: 100%">
+      <!-- Logo -->
+      <img
+        src="/logo_mousetube_big.png"
+        alt="mouseTube Logo"
+        style="width: 300px; max-width: 80%; margin-bottom: 12px"
+      />
 
-    <!-- Title -->
-    <h1 class="text-h5 font-weight-medium mb-1">Welcome back to mouseTube</h1>
-    <p class="text-body-2 mb-6" style="color: #666">Log in to continue.</p>
+      <!-- Title -->
+      <h1 class="text-h5 font-weight-medium mb-1">Welcome back to mouseTube</h1>
+      <p class="text-body-2 mb-6" style="color: #666">Log in to continue.</p>
 
-    <!-- Card -->
-    <v-card
-      class="pa-6"
-      style="border-radius: 20px; max-width: 480px; width: 100%; box-shadow: 0 4px 16px #00000015"
-    >
-      <v-form ref="loginForm" v-model="formValid" novalidate @submit.prevent="handleLogin">
-        <div aria-live="polite">
-          <v-alert
-            v-if="accountStatus === 'awaiting_review'"
-            type="info"
-            variant="tonal"
-            class="mb-4"
-            title="Your request is waiting for administrator review"
+      <!-- Card -->
+      <v-card
+        class="pa-6"
+        style="border-radius: 20px; max-width: 480px; width: 100%; box-shadow: 0 4px 16px #00000015"
+      >
+        <v-form ref="loginForm" v-model="formValid" novalidate @submit.prevent="handleLogin">
+          <div aria-live="polite">
+            <v-alert
+              v-if="accountStatus === 'awaiting_review'"
+              type="info"
+              variant="tonal"
+              class="mb-4"
+              title="Your request is waiting for administrator review"
+            >
+              Your email address is confirmed. An administrator will review your request. You
+              receive an email as soon as your account is active. Nothing else to do for now.
+            </v-alert>
+            <v-alert
+              v-else-if="accountStatus === 'awaiting_email_confirmation'"
+              type="warning"
+              variant="tonal"
+              class="mb-4"
+              title="Please confirm your email address"
+            >
+              <p class="mb-3">
+                Your request is saved, but your email address is not confirmed yet. Open the link in
+                the email we sent you (check your spam folder too). Lost it? We send you a new one.
+              </p>
+              <v-text-field
+                v-model="resendEmail"
+                label="Institutional email"
+                type="email"
+                variant="outlined"
+                density="compact"
+                autocomplete="email"
+                autocapitalize="none"
+                spellcheck="false"
+                hide-details
+                class="mb-2"
+                @keyup.enter="resend"
+              />
+              <v-btn size="small" color="primary" :loading="resending" @click="resend">
+                Send a new link
+              </v-btn>
+              <div v-if="resendMessage" class="text-body-2 mt-2" role="status">
+                {{ resendMessage }}
+              </div>
+            </v-alert>
+            <v-alert v-if="loginErrorMessage" type="error" variant="tonal" class="mb-4">
+              {{ loginErrorMessage }}
+              <div v-if="showInactiveHint" class="text-body-2 mt-2">
+                Just registered? An account becomes active once you have confirmed your email
+                address
+                <em>and</em> an administrator has approved your request. You receive an email at
+                each step.
+              </div>
+            </v-alert>
+          </div>
+
+          <v-text-field
+            v-model="username"
+            :rules="[(v) => !!v || 'Username is required']"
+            label="Username"
+            variant="outlined"
+            density="comfortable"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+            class="mb-2"
+            required
+          />
+          <v-text-field
+            v-model="password"
+            :rules="[(v) => !!v || 'Password is required']"
+            :type="showPassword ? 'text' : 'password'"
+            label="Password"
+            variant="outlined"
+            density="comfortable"
+            autocomplete="current-password"
+            :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+            class="mb-1"
+            required
+            @click:append-inner="showPassword = !showPassword"
+          />
+          <p class="text-body-2 text-end mb-4">
+            <nuxt-link class="text-primary" to="/account/forgot-password"
+              >Forgot your password?</nuxt-link
+            >
+          </p>
+
+          <v-btn
+            color="primary"
+            style="width: 100%; border-radius: 12px"
+            type="submit"
+            size="large"
+            :loading="submitting"
+            :disabled="submitting"
           >
-            Your email address is confirmed. An administrator will review your request. You receive
-            an email as soon as your account is active. Nothing else to do for now.
-          </v-alert>
-          <v-alert
-            v-else-if="accountStatus === 'awaiting_email_confirmation'"
-            type="warning"
-            variant="tonal"
-            class="mb-4"
-            title="Please confirm your email address"
+            Log in
+          </v-btn>
+
+          <v-divider class="my-5" />
+
+          <p class="text-center text-body-2 mb-3" style="color: #666">Or continue with ORCID</p>
+          <v-btn
+            variant="outlined"
+            color="success"
+            style="width: 100%; border-radius: 12px"
+            size="large"
+            @click="redirectToOrcid"
           >
-            <p class="mb-3">
-              Your request is saved, but your email address is not confirmed yet. Open the link in
-              the email we sent you (check your spam folder too). Lost it? We send you a new one.
-            </p>
-            <v-text-field
-              v-model="resendEmail"
-              label="Institutional email"
-              type="email"
-              variant="outlined"
-              density="compact"
-              autocomplete="email"
-              autocapitalize="none"
-              spellcheck="false"
-              hide-details
-              class="mb-2"
-              @keyup.enter="resend"
-            />
-            <v-btn size="small" color="primary" :loading="resending" @click="resend">
-              Send a new link
-            </v-btn>
-            <div v-if="resendMessage" class="text-body-2 mt-2" role="status">
-              {{ resendMessage }}
-            </div>
-          </v-alert>
-          <v-alert v-if="loginErrorMessage" type="error" variant="tonal" class="mb-4">
-            {{ loginErrorMessage }}
-            <div v-if="showInactiveHint" class="text-body-2 mt-2">
-              Just registered? An account becomes active once you have confirmed your email address
-              <em>and</em> an administrator has approved your request. You receive an email at each
-              step.
-            </div>
-          </v-alert>
-        </div>
+            <v-icon start>mdi-orcid</v-icon>
+            Log in with ORCID
+          </v-btn>
+          <p class="text-caption text-center mt-2 mb-0" style="color: #666">
+            If no account is linked to your ORCID iD yet, we take you to the registration form.
+          </p>
 
-        <v-text-field
-          v-model="username"
-          :rules="[(v) => !!v || 'Username is required']"
-          label="Username"
-          variant="outlined"
-          density="comfortable"
-          autocomplete="username"
-          autocapitalize="none"
-          spellcheck="false"
-          class="mb-2"
-          required
-        />
-        <v-text-field
-          v-model="password"
-          :rules="[(v) => !!v || 'Password is required']"
-          :type="showPassword ? 'text' : 'password'"
-          label="Password"
-          variant="outlined"
-          density="comfortable"
-          autocomplete="current-password"
-          :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
-          class="mb-1"
-          required
-          @click:append-inner="showPassword = !showPassword"
-        />
-        <p class="text-body-2 text-end mb-4">
-          <nuxt-link to="/account/forgot-password">Forgot your password?</nuxt-link>
-        </p>
+          <v-divider class="my-5" />
 
-        <v-btn
-          color="primary"
-          style="width: 100%; border-radius: 12px"
-          type="submit"
-          size="large"
-          :loading="submitting"
-          :disabled="submitting"
-        >
-          Log in
-        </v-btn>
-
-        <v-divider class="my-5" />
-
-        <p class="text-center text-body-2 mb-3" style="color: #666">Or continue with ORCID</p>
-        <v-btn
-          variant="outlined"
-          color="success"
-          style="width: 100%; border-radius: 12px"
-          size="large"
-          @click="redirectToOrcid"
-        >
-          <v-icon start>mdi-orcid</v-icon>
-          Log in with ORCID
-        </v-btn>
-        <p class="text-caption text-center mt-2 mb-0" style="color: #666">
-          If no account is linked to your ORCID iD yet, we take you to the registration form.
-        </p>
-
-        <v-divider class="my-5" />
-
-        <p class="text-center text-body-2 mb-0">
-          New to mouseTube?
-          <nuxt-link to="/account/register">Create an account</nuxt-link>
-          <br />
-          <span class="text-caption" style="color: #666">
-            An institutional email address is required.
-          </span>
-        </p>
-      </v-form>
-    </v-card>
+          <p class="text-center text-body-2 mb-0">
+            New to mouseTube?
+            <nuxt-link class="text-primary" to="/account/register">Create an account</nuxt-link>
+            <br />
+            <span class="text-caption" style="color: #666">
+              An institutional email address is required.
+            </span>
+          </p>
+        </v-form>
+      </v-card>
+    </div>
   </v-main>
 </template>
