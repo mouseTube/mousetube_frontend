@@ -75,7 +75,9 @@ const handleRegister = async () => {
       last_name: form.value.last_name,
       orcid_proof: form.value.orcid_proof,
     });
-    serverMessage.value = 'Check your email to activate your account.';
+    serverMessage.value =
+      'Check your email and click the link to confirm your address. ' +
+      'An administrator then reviews your request and activates your account.';
     alertType.value = 'success';
   } catch (error) {
     const data = error?.response?.data;
