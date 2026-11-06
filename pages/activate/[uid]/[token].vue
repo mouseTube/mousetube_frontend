@@ -110,7 +110,7 @@ onMounted(confirm);
             Thank you. An administrator will now review your request. You will receive an email as
             soon as your account is active. You do not need to do anything else.
           </p>
-          <v-btn color="primary" variant="tonal" to="/">Back to home</v-btn>
+          <v-btn color="primary" variant="tonal" to="/account/login">Go to log in</v-btn>
         </template>
 
         <template v-else-if="state === 'active'">
