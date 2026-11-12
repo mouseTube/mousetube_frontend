@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ReviewStatus from '@/components/ReviewStatus.vue';
+import OntologyField from '@/components/OntologyField.vue';
 import { ref, watch, onMounted } from 'vue';
 import { useAnimalProfileStore } from '~/stores/animalProfile';
 import { useStrainStore, type Strain } from '~/stores/strain';
@@ -39,6 +41,8 @@ const formData = ref<Partial<AnimalProfile>>({
   age: '',
   genotype: '',
   treatment: '',
+  age_term: null,
+  treatment_term: null,
   status: 'draft',
 });
 
@@ -51,6 +55,8 @@ function resetForm() {
     age: '',
     genotype: '',
     treatment: '',
+    age_term: null,
+    treatment_term: null,
     status: 'draft',
   };
 }
@@ -79,6 +85,8 @@ watch(
         age: profile.age ?? '',
         genotype: profile.genotype ?? '',
         treatment: profile.treatment ?? '',
+        age_term: profile.age_term ?? null,
+        treatment_term: profile.treatment_term ?? null,
         status: profile.status ?? 'draft',
       };
     } else {
@@ -161,13 +169,16 @@ function handleStrainCreated(newStrain: Strain) {
       <v-card-title>
         {{ props.profileToEdit ? 'Edit Animal Profile' : 'Create Animal Profile' }}
       </v-card-title>
+      <div v-if="props.profileToEdit?.id" class="px-6 pt-2">
+        <ReviewStatus endpoint="animalprofile" :id="props.profileToEdit?.id" />
+      </div>
 
       <v-card-text>
         <v-form ref="formRef" v-model="formValid">
           <!-- Name -->
           <v-text-field
             v-model="formData.name"
-            outlined
+            variant="outlined"
             required
             :rules="[(v) => !!v || 'Name is required']"
             class="mb-4"
@@ -176,14 +187,14 @@ function handleStrainCreated(newStrain: Strain) {
           </v-text-field>
 
           <!-- Description -->
-          <v-textarea v-model="formData.description" outlined class="mb-4">
+          <v-textarea v-model="formData.description" variant="outlined" class="mb-4">
             <template #label>Description</template>
           </v-textarea>
 
           <!-- Strain -->
           <v-text-field
             :model-value="formData.strain ? formData.strain.name : ''"
-            outlined
+            variant="outlined"
             readonly
             required
             :rules="[(v) => !!formData.strain || 'Strain is required']"
@@ -192,7 +203,7 @@ function handleStrainCreated(newStrain: Strain) {
           >
             <template #label>Strain <span style="color: red">*</span></template>
             <template #append>
-              <v-btn text @click.stop="showStrainSelectModal = true">Select</v-btn>
+              <v-btn variant="text" @click.stop="showStrainSelectModal = true">Select</v-btn>
             </template>
           </v-text-field>
 
@@ -200,7 +211,7 @@ function handleStrainCreated(newStrain: Strain) {
           <v-select
             v-model="formData.sex"
             :items="['male', 'female']"
-            outlined
+            variant="outlined"
             required
             :rules="[(v) => !!v || 'Sex is required']"
             class="mb-4"
@@ -212,7 +223,7 @@ function handleStrainCreated(newStrain: Strain) {
           <v-select
             v-model="formData.age"
             :items="['pup', 'juvenile', 'adult']"
-            outlined
+            variant="outlined"
             required
             :rules="[(v) => !!v || 'Age is required']"
             class="mb-4"
@@ -220,10 +231,18 @@ function handleStrainCreated(newStrain: Strain) {
             <template #label>Age <span style="color: red">*</span></template>
           </v-select>
 
+          <OntologyField
+            v-model="formData.age_term"
+            field="age"
+            label="Developmental stage (optional)"
+            hint="A precise stage of the Mouse Developmental Stages ontology, when the age class is too broad."
+            class="mb-4"
+          />
+
           <!-- Genotype -->
           <v-text-field
             v-model="formData.genotype"
-            outlined
+            variant="outlined"
             required
             :rules="[(v) => !!v || 'Genotype is required']"
             class="mb-4"
@@ -232,15 +251,26 @@ function handleStrainCreated(newStrain: Strain) {
           </v-text-field>
 
           <!-- Treatment -->
-          <v-text-field v-model="formData.treatment" outlined class="mb-4">
+          <v-text-field v-model="formData.treatment" variant="outlined" class="mb-4">
             <template #label>Treatment</template>
           </v-text-field>
+          <OntologyField
+            v-if="formData.treatment"
+            v-model="formData.treatment_term"
+            field="treatment"
+            label="Compound (ChEBI, optional)"
+            hint="Link the treatment to its chemical entity so it can be found by other tools."
+            class="mb-2"
+          />
+          <p class="text-caption text-medium-emphasis mb-0">
+            The sex is linked to its PATO term automatically.
+          </p>
         </v-form>
       </v-card-text>
 
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="emit('update:modelValue', false)">Close</v-btn>
+        <v-btn variant="text" @click="emit('update:modelValue', false)">Close</v-btn>
         <v-btn color="primary" @click="handleSubmit">
           {{ props.profileToEdit ? 'Update' : 'Create' }}
         </v-btn>

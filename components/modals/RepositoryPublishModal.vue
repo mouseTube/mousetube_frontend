@@ -232,7 +232,7 @@ function isFieldReadOnly(field: FieldSchema) {
 
       <!-- Actions -->
       <v-card-actions class="justify-end">
-        <v-btn text @click="closeModal">Cancel</v-btn>
+        <v-btn variant="text" @click="closeModal">Cancel</v-btn>
         <v-btn color="primary" @click="confirmPublish">Share</v-btn>
       </v-card-actions>
     </v-card>

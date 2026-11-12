@@ -252,13 +252,19 @@ onMounted(async () => {
     <v-card-text>
       <h3 class="mb-3">File Metadata</h3>
 
-      <v-text-field v-model="formData.name" label="File Name *" outlined required class="mb-3" />
+      <v-text-field
+        v-model="formData.name"
+        label="File Name *"
+        variant="outlined"
+        required
+        class="mb-3"
+      />
 
       <v-text-field
         v-model="formData.date"
         label="Recording Date"
         type="date"
-        outlined
+        variant="outlined"
         class="mb-3"
       />
 
@@ -266,7 +272,7 @@ onMounted(async () => {
         v-model="formData.duration"
         label="Duration (seconds)"
         type="number"
-        outlined
+        variant="outlined"
         class="mb-3"
       />
 
@@ -293,7 +299,7 @@ onMounted(async () => {
           'JSON',
         ]"
         label="File Format"
-        outlined
+        variant="outlined"
         class="mb-3"
       />
 
@@ -301,7 +307,7 @@ onMounted(async () => {
         v-model="formData.sampling_rate"
         label="Sampling Rate (Hz)"
         type="number"
-        outlined
+        variant="outlined"
         class="mb-3"
       />
 
@@ -309,7 +315,7 @@ onMounted(async () => {
         v-model="formData.bit_depth"
         :items="[8, 16, 24, 32]"
         label="Bit Depth"
-        outlined
+        variant="outlined"
         class="mb-3"
       />
 
@@ -317,7 +323,7 @@ onMounted(async () => {
         v-model="formData.size"
         label="File Size (bytes)"
         type="number"
-        outlined
+        variant="outlined"
         class="mb-3"
       />
 
@@ -325,7 +331,7 @@ onMounted(async () => {
       <v-text-field
         v-model="formData.doi"
         label="DOI"
-        outlined
+        variant="outlined"
         class="mb-3"
         :readonly="isEditMode"
         :rules="doiRules"
@@ -353,7 +359,7 @@ onMounted(async () => {
             label="Spectrogram Image"
             prepend-icon="mdi-image"
             accept="image/*"
-            outlined
+            variant="outlined"
             class="mb-3"
           />
         </template>
@@ -374,7 +380,7 @@ onMounted(async () => {
             label="Data Plot File"
             prepend-icon="mdi-chart-line"
             accept="image/*"
-            outlined
+            variant="outlined"
             class="mb-3"
           />
         </template>
@@ -385,7 +391,7 @@ onMounted(async () => {
       <v-text-field
         v-model="formData.link"
         label="Donwload Link (required if DOI is set)"
-        outlined
+        variant="outlined"
         class="mb-3"
         :disabled="isEditMode"
         :rules="linkRules"
@@ -396,11 +402,11 @@ onMounted(async () => {
         v-model="formData.number"
         label="File Number"
         type="number"
-        outlined
+        variant="outlined"
         class="mb-3"
       />
 
-      <v-textarea v-model="formData.notes" label="Notes" outlined class="mb-3" />
+      <v-textarea v-model="formData.notes" label="Notes" variant="outlined" class="mb-3" />
 
       <!-- DOI given -->
       <v-alert v-if="isDoiOnly" type="info" class="mb-4" border="start" variant="tonal">
@@ -425,7 +431,7 @@ onMounted(async () => {
             application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
             application/vnd.ms-excel,
             application/zip, application/pdf, application/json"
-          outlined
+          variant="outlined"
           class="mb-3"
         />
 

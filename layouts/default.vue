@@ -177,4 +177,47 @@ h1 {
     margin-inline: auto;
   }
 }
+
+/* small label with a red bar, above a page title */
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 8px;
+  color: #555;
+}
+.title-bar {
+  width: 40px;
+  height: 4px;
+  border-radius: 4px;
+  background: rgb(var(--v-theme-primary));
+}
+
+/* dialogs (creation and selection forms): rounded, scrollable body, footer bar */
+.v-dialog > .v-overlay__content > .v-card {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+  border-radius: 20px;
+}
+.v-dialog > .v-overlay__content > .v-card > .v-card-title {
+  padding: 20px 24px 4px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.v-dialog > .v-overlay__content > .v-card > .v-card-text {
+  overflow-y: auto;
+  padding-top: 12px;
+}
+.v-dialog > .v-overlay__content > .v-card > .v-card-actions {
+  padding: 12px 24px 16px;
+  border-top: 1px solid #eee;
+}
+.modal-note {
+  padding: 0 24px;
+  white-space: normal;
+  opacity: 1;
+  color: #666;
+}
 </style>

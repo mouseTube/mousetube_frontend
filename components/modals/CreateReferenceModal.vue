@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ReviewStatus from '@/components/ReviewStatus.vue';
 import { ref, watch } from 'vue';
 import { useReferenceStore, type Reference } from '~/stores/reference';
 
@@ -110,21 +111,29 @@ async function saveReference() {
       <v-card-title>
         {{ formData.id ? 'Edit Reference' : 'Create Reference' }}
       </v-card-title>
+      <div v-if="formData.id" class="px-6 pt-2">
+        <ReviewStatus endpoint="reference" :id="formData.id" />
+      </div>
 
       <v-card-text>
         <!-- Name -->
-        <v-text-field v-model="formData.name" outlined required class="mb-4">
+        <v-text-field v-model="formData.name" variant="outlined" required class="mb-4">
           <template #label> Reference Name <span class="text-error">*</span> </template>
         </v-text-field>
 
         <!-- Description -->
-        <v-textarea v-model="formData.description" label="Description" outlined class="mb-4" />
+        <v-textarea
+          v-model="formData.description"
+          label="Description"
+          variant="outlined"
+          class="mb-4"
+        />
 
         <!-- URL -->
-        <v-text-field v-model="formData.url" label="URL" outlined class="mb-4" />
+        <v-text-field v-model="formData.url" label="URL" variant="outlined" class="mb-4" />
 
         <!-- DOI -->
-        <v-text-field v-model="formData.doi" label="DOI" outlined class="mb-4" />
+        <v-text-field v-model="formData.doi" label="DOI" variant="outlined" class="mb-4" />
       </v-card-text>
 
       <v-card-actions>
@@ -132,14 +141,14 @@ async function saveReference() {
         <v-btn color="primary" @click="saveReference">
           {{ formData.id ? 'Update' : 'Save' }}
         </v-btn>
-        <v-btn text @click="emit('update:modelValue', false)">Cancel</v-btn>
+        <v-btn variant="text" @click="emit('update:modelValue', false)">Cancel</v-btn>
       </v-card-actions>
 
       <!-- Snackbar -->
-      <v-snackbar v-model="snackbar.show" :timeout="3000" color="error" top>
+      <v-snackbar v-model="snackbar.show" :timeout="3000" color="error" location="top">
         {{ snackbar.message }}
         <template #actions>
-          <v-btn text @click="snackbar.show = false">Close</v-btn>
+          <v-btn variant="text" @click="snackbar.show = false">Close</v-btn>
         </template>
       </v-snackbar>
     </v-card>

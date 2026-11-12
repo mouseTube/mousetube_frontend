@@ -359,7 +359,7 @@ function loadMoreStrains() {
           <v-col cols="1" class="d-flex justify-center">
             <v-select
               v-model="selectedStatus"
-              :items="['draft', 'waiting_validation', 'validated']"
+              :items="['draft', 'waiting validation', 'validated']"
               clearable
               density="comfortable"
               label="Status"
@@ -512,7 +512,7 @@ function loadMoreStrains() {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn text @click="showConfirmDelete = false">Cancel</v-btn>
+          <v-btn variant="text" @click="showConfirmDelete = false">Cancel</v-btn>
           <v-btn color="red" text @click="confirmDelete">Delete</v-btn>
         </v-card-actions>
       </v-card>

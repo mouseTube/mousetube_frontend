@@ -401,7 +401,7 @@ onMounted(async () => {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="close">Close</v-btn>
+        <v-btn variant="text" @click="close">Close</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -413,7 +413,12 @@ onMounted(async () => {
 
       <v-card-text>
         <v-form>
-          <v-text-field v-model="duplicateForm.name" label="New Session Name" outlined required />
+          <v-text-field
+            v-model="duplicateForm.name"
+            label="New Session Name"
+            variant="outlined"
+            required
+          />
 
           <v-menu
             v-if="!duplicateForm.is_multiple"
@@ -423,7 +428,7 @@ onMounted(async () => {
             offset-y
           >
             <template #activator="{ props }">
-              <v-text-field v-model="formattedDate" readonly outlined class="mb-4">
+              <v-text-field v-model="formattedDate" readonly variant="outlined" class="mb-4">
                 <template #label>Recording Date</template>
               </v-text-field>
             </template>
@@ -451,7 +456,7 @@ onMounted(async () => {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="showDuplicateDialog = false">Cancel</v-btn>
+        <v-btn variant="text" @click="showDuplicateDialog = false">Cancel</v-btn>
         <v-btn color="primary" @click="confirmDuplicate">Duplicate</v-btn>
       </v-card-actions>
     </v-card>
@@ -466,7 +471,7 @@ onMounted(async () => {
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="showDeleteDialog = false">Cancel</v-btn>
+        <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
         <v-btn color="error" @click="confirmDelete">Delete</v-btn>
       </v-card-actions>
     </v-card>

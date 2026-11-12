@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ReviewStatus from '@/components/ReviewStatus.vue';
 import { ref, watch } from 'vue';
 import { useContactStore, type Contact } from '@/stores/contact';
 
@@ -136,37 +137,40 @@ async function saveContact() {
   >
     <v-card>
       <v-card-title>{{ formData.id ? 'Edit Contact' : 'Create Contact' }}</v-card-title>
+      <div v-if="formData.id" class="px-6 pt-2">
+        <ReviewStatus endpoint="contact" :id="formData.id" />
+      </div>
 
       <v-card-text>
         <v-form ref="formRef" lazy-validation>
           <v-row dense>
             <v-col cols="12" sm="6">
-              <v-text-field v-model="formData.first_name" label="First name" outlined />
+              <v-text-field v-model="formData.first_name" label="First name" variant="outlined" />
             </v-col>
             <v-col cols="12" sm="6">
-              <v-text-field v-model="formData.last_name" label="Last name" outlined />
+              <v-text-field v-model="formData.last_name" label="Last name" variant="outlined" />
             </v-col>
             <v-col cols="12" sm="6">
               <v-text-field
                 v-model="formData.email"
                 label="Email *"
-                outlined
+                variant="outlined"
                 type="email"
                 :rules="[emailRequired, emailFormat]"
                 required
               />
             </v-col>
             <v-col cols="12" sm="6">
-              <v-text-field v-model="formData.phone" label="Phone" outlined />
+              <v-text-field v-model="formData.phone" label="Phone" variant="outlined" />
             </v-col>
             <v-col cols="12" sm="6">
-              <v-text-field v-model="formData.unit" label="Unit" outlined />
+              <v-text-field v-model="formData.unit" label="Unit" variant="outlined" />
             </v-col>
             <v-col cols="12" sm="6">
-              <v-text-field v-model="formData.institution" label="Institution" outlined />
+              <v-text-field v-model="formData.institution" label="Institution" variant="outlined" />
             </v-col>
             <v-col cols="12">
-              <v-text-field v-model="formData.address" label="Address" outlined />
+              <v-text-field v-model="formData.address" label="Address" variant="outlined" />
             </v-col>
             <v-col cols="12" sm="6">
               <v-select
@@ -185,13 +189,13 @@ async function saveContact() {
       <v-card-actions>
         <v-spacer />
         <v-btn color="primary" @click="saveContact">{{ formData.id ? 'Update' : 'Save' }}</v-btn>
-        <v-btn text @click="emit('update:modelValue', false)">Cancel</v-btn>
+        <v-btn variant="text" @click="emit('update:modelValue', false)">Cancel</v-btn>
       </v-card-actions>
 
-      <v-snackbar v-model="snackbar.show" :timeout="3000" color="error" top>
+      <v-snackbar v-model="snackbar.show" :timeout="3000" color="error" location="top">
         {{ snackbar.message }}
         <template #actions>
-          <v-btn text @click="snackbar.show = false">Close</v-btn>
+          <v-btn variant="text" @click="snackbar.show = false">Close</v-btn>
         </template>
       </v-snackbar>
     </v-card>

@@ -312,7 +312,7 @@ function close() {
                   :color="
                     item.status === 'validated'
                       ? 'green'
-                      : item.status === 'awaiting validation'
+                      : item.status === 'waiting validation'
                         ? 'blue'
                         : 'grey'
                   "
@@ -345,7 +345,7 @@ function close() {
               :items="options.animals_sex"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -360,7 +360,7 @@ function close() {
               :items="options.animals_age"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -375,7 +375,7 @@ function close() {
               :items="options.animals_housing"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -390,7 +390,7 @@ function close() {
               :items="['1', '2', '3', '4', '>4']"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -405,7 +405,7 @@ function close() {
               :items="options.context_duration"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -420,7 +420,7 @@ function close() {
               :items="options.context_cage"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -435,7 +435,7 @@ function close() {
               :items="options.context_bedding"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -450,7 +450,7 @@ function close() {
               :items="options.context_light_cycle"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -465,7 +465,7 @@ function close() {
               :items="options.status"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -486,7 +486,7 @@ function close() {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="close">Close</v-btn>
+        <v-btn variant="text" @click="close">Close</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -501,7 +501,7 @@ function close() {
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="deleteDialog = false">Cancel</v-btn>
+        <v-btn variant="text" @click="deleteDialog = false">Cancel</v-btn>
         <v-btn color="error" @click="confirmDelete">Delete</v-btn>
       </v-card-actions>
     </v-card>
@@ -511,14 +511,14 @@ function close() {
   <v-snackbar v-model="snackbarSuccess" color="green" timeout="3000">
     {{ successMessage }}
     <template #actions="{ isActive }">
-      <v-btn text @click="snackbarSuccess = false">Close</v-btn>
+      <v-btn variant="text" @click="snackbarSuccess = false">Close</v-btn>
     </template>
   </v-snackbar>
 
   <v-snackbar v-model="snackbarError" color="red" timeout="5000">
     {{ errorMessage }}
     <template #actions="{ isActive }">
-      <v-btn text @click="snackbarError = false">Close</v-btn>
+      <v-btn variant="text" @click="snackbarError = false">Close</v-btn>
     </template>
   </v-snackbar>
 </template>

@@ -274,7 +274,7 @@ async function toggleFavorite(refId: number) {
           <v-icon start>mdi-plus</v-icon> Add Reference
         </v-btn>
         <div>
-          <v-btn text @click="localDialog = false">Cancel</v-btn>
+          <v-btn variant="text" @click="localDialog = false">Cancel</v-btn>
           <v-btn color="primary" variant="flat" @click="localDialog = false" class="ml-2"
             >Done</v-btn
           >

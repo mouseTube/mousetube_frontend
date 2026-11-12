@@ -289,7 +289,7 @@ function selectStrain(item: Strain) {
         >"?
       </v-card-text>
       <v-card-actions>
-        <v-btn text @click="showDeleteDialog = false">Cancel</v-btn>
+        <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
         <v-btn color="error" @click="deleteStrain">Delete</v-btn>
       </v-card-actions>
     </v-card>

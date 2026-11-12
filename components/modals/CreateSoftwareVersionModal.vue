@@ -168,7 +168,7 @@ function close() {
         <v-form ref="formRef">
           <v-text-field
             v-model="formData.version"
-            outlined
+            variant="outlined"
             :rules="[versionRule]"
             :disabled="loading || isReadOnly"
             class="mb-4"
@@ -179,7 +179,7 @@ function close() {
           <v-text-field
             v-model="formData.release_date"
             label="Release Date"
-            outlined
+            variant="outlined"
             readonly
             @click="dateDialog = true"
             :disabled="loading || isReadOnly"
@@ -194,8 +194,8 @@ function close() {
               >
                 <v-card-actions>
                   <v-spacer />
-                  <v-btn text @click="dateDialog = false">Cancel</v-btn>
-                  <v-btn text @click="dateDialog = false">OK</v-btn>
+                  <v-btn variant="text" @click="dateDialog = false">Cancel</v-btn>
+                  <v-btn variant="text" @click="dateDialog = false">OK</v-btn>
                 </v-card-actions>
               </v-date-picker>
             </v-card>
@@ -205,14 +205,14 @@ function close() {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="close" :disabled="loading">Cancel</v-btn>
+        <v-btn variant="text" @click="close" :disabled="loading">Cancel</v-btn>
         <v-btn color="primary" @click="submit" :loading="loading" :disabled="loading || isReadOnly">
           {{ softwareVersionId ? 'Save Changes' : 'Create' }}
         </v-btn>
       </v-card-actions>
     </v-card>
 
-    <v-snackbar v-model="snackbar" color="error" timeout="6000" top>
+    <v-snackbar v-model="snackbar" color="error" timeout="6000" location="top">
       {{ snackbarMessage }}
       <template #actions>
         <v-btn color="white" variant="text" @click="snackbar = false">Close</v-btn>

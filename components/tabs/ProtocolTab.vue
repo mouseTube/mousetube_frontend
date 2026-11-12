@@ -49,7 +49,7 @@ const formData = ref({
     bedding: '',
     light_cycle: '',
   },
-  status: 'draft' as 'draft' | 'awaiting validation' | 'validated' | null,
+  status: 'draft' as 'draft' | 'waiting validation' | 'validated' | null,
 });
 
 const snackbar = ref(false);
@@ -583,7 +583,7 @@ onMounted(async () => {
             :color="
               formData.status === 'validated'
                 ? 'green'
-                : formData.status === 'awaiting validation'
+                : formData.status === 'waiting validation'
                   ? 'blue'
                   : 'grey'
             "

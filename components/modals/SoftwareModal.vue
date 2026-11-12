@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ReviewStatus from '@/components/ReviewStatus.vue';
 import { ref, watch, computed, nextTick, onMounted } from 'vue';
 import { useSoftwareStore } from '@/stores/software';
 import { useReferenceStore, type Reference } from '~/stores/reference';
@@ -274,6 +275,12 @@ onMounted(async () => {
       <v-card-title class="d-flex align-center">
         {{ props.softwareId ? 'Edit Software' : 'Create Software' }}
       </v-card-title>
+      <div v-if="props.softwareId" class="px-6 pt-2">
+        <ReviewStatus endpoint="software" :id="props.softwareId" />
+      </div>
+      <v-card-subtitle v-if="!props.softwareId" class="modal-note">
+        Until an administrator validates it, only you can see this entry.
+      </v-card-subtitle>
 
       <v-card-text>
         <!-- Alerte lecture seule -->
@@ -297,7 +304,7 @@ onMounted(async () => {
           <v-text-field
             v-model="formData.name"
             label="Name *"
-            outlined
+            variant="outlined"
             required
             :rules="[nameRule]"
             :disabled="loading || isReadOnly"
@@ -308,7 +315,7 @@ onMounted(async () => {
             v-model="formData.type"
             :items="['acquisition', 'analysis', 'acquisition and analysis']"
             label="Type *"
-            outlined
+            variant="outlined"
             required
             :rules="[typeRule]"
             :disabled="loading || isReadOnly"
@@ -318,7 +325,7 @@ onMounted(async () => {
           <v-text-field
             v-model="formData.made_by"
             label="Made By"
-            outlined
+            variant="outlined"
             :disabled="loading || isReadOnly"
             class="mb-4"
           />
@@ -326,7 +333,7 @@ onMounted(async () => {
           <v-textarea
             v-model="formData.description"
             label="Description"
-            outlined
+            variant="outlined"
             :disabled="loading || isReadOnly"
             rows="3"
             class="mb-4"
@@ -335,7 +342,7 @@ onMounted(async () => {
           <v-textarea
             v-model="formData.technical_requirements"
             label="Technical Requirements"
-            outlined
+            variant="outlined"
             :disabled="loading || isReadOnly"
             rows="3"
             class="mb-4"
@@ -397,7 +404,7 @@ onMounted(async () => {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="close" :disabled="loading">Cancel</v-btn>
+        <v-btn variant="text" @click="close" :disabled="loading">Cancel</v-btn>
         <v-btn
           v-show="isReadOnly"
           color="primary"
@@ -412,7 +419,7 @@ onMounted(async () => {
       </v-card-actions>
     </v-card>
 
-    <v-snackbar v-model="snackbar" color="error" timeout="6000" top>
+    <v-snackbar v-model="snackbar" color="error" timeout="6000" location="top">
       {{ snackbarMessage }}
       <template #actions>
         <v-btn color="white" variant="text" @click="snackbar = false"> Close </v-btn>

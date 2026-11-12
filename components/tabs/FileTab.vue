@@ -30,6 +30,9 @@ const publishDone = ref(false);
 const publishError = ref<string | null>(null);
 const publishProgress = ref(0);
 const sessionStatus = ref<string | null>(null);
+// what an administrator still has to validate before the session can be shared
+const pendingEntries = ref<{ kind: string; id: number; name: string; status: string }[]>([]);
+const sharing = ref(false);
 
 // === SNACKBAR ===
 const snackbar = ref(false);
@@ -51,7 +54,51 @@ function getAuthHeaders() {
   return token.value ? { headers: { Authorization: `Bearer ${token.value}` } } : {};
 }
 
-// ---- PUBLISH SESSION ----
+// ---- SHARE THE SESSION (visible to everybody once what it uses is validated) ----
+async function loadSessionState() {
+  const id = props.selectedRecordingSessionId;
+  if (!id) return;
+  const res = await axios.get(`${apiBaseUrl}/recording-session/${id}/`, getAuthHeaders());
+  sessionStatus.value = res.data.status ?? null;
+  pendingEntries.value = res.data.pending_entries ?? [];
+  publishDone.value = sessionStatus.value === 'published';
+}
+
+async function changeSharing(status: 'shared' | 'draft') {
+  const id = props.selectedRecordingSessionId;
+  if (!id) return;
+  sharing.value = true;
+  try {
+    const res = await axios.patch(
+      `${apiBaseUrl}/recording-session/${id}/`,
+      { status },
+      getAuthHeaders()
+    );
+    sessionStatus.value = res.data.status;
+    pendingEntries.value = res.data.pending_entries ?? [];
+    if (res.data.status === 'shared') {
+      showSnackbar('✅ Your session is shared: everybody can see it.', 'success');
+    } else if (res.data.status === 'waiting validation') {
+      showSnackbar(
+        'Your session uses new entries: an administrator will review them, then it is shared.',
+        'info'
+      );
+    } else {
+      showSnackbar('Your session is a draft again.', 'info');
+    }
+  } catch (err: any) {
+    const data = err?.response?.data;
+    showSnackbar(
+      (typeof data === 'object' && (data.detail || data.status?.[0])) ||
+        'The change could not be saved.',
+      'error'
+    );
+  } finally {
+    sharing.value = false;
+  }
+}
+
+// ---- PUBLISH SESSION (deposit in a repository, with a DOI) ----
 async function publishSession(payload: any = null) {
   if (!props.selectedRecordingSessionId) return;
 
@@ -77,9 +124,9 @@ async function publishSession(payload: any = null) {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(err);
-    publishError.value = 'Failed to start sharing.';
+    publishError.value = 'Failed to start the deposit.';
     isPublishing.value = false;
-    showSnackbar('❌ Failed to start sharing.', 'error');
+    showSnackbar('❌ Failed to start the deposit.', 'error');
   }
 }
 
@@ -105,17 +152,9 @@ async function pollPublishTask() {
 
         await fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId!);
 
-        await recordingSessionStore.updateSessionStatus(
-          props.selectedRecordingSessionId!,
-          'shared'
-        );
-        const updatedSession = await recordingSessionStore.getSessionById(
-          props.selectedRecordingSessionId!
-        );
-        sessionStatus.value = updatedSession?.status ?? null;
-        publishDone.value = sessionStatus.value === 'shared';
+        await loadSessionState();
 
-        showSnackbar('✅ Session shared successfully!', 'success');
+        showSnackbar('✅ Session published in the repository.', 'success');
       } else if (state === 'FAILURE') {
         clearInterval(interval);
         isPublishing.value = false;
@@ -198,9 +237,7 @@ watch(
     stopAllPolling();
 
     if (newId) {
-      const session = await recordingSessionStore.getSessionById(newId);
-      sessionStatus.value = session?.status ?? null;
-      publishDone.value = sessionStatus.value === 'shared';
+      await loadSessionState().catch(() => null);
       await fileStore.fetchFilesBySessionId(newId);
     } else {
       fileStore.files.splice(0, fileStore.files.length);
@@ -251,9 +288,7 @@ onMounted(async () => {
 
   // Load files only if session is selected
   if (props.selectedRecordingSessionId) {
-    const session = await recordingSessionStore.getSessionById(props.selectedRecordingSessionId);
-    sessionStatus.value = session?.status ?? null;
-    publishDone.value = sessionStatus.value === 'shared';
+    await loadSessionState().catch(() => null);
     await fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId);
     startPollingForActiveFiles();
   }
@@ -397,6 +432,83 @@ async function deleteFile() {
           </v-sheet>
         </div>
 
+        <!-- 🔹 Sharing of the session -->
+        <v-sheet class="share-panel w-100 mb-4" rounded="lg">
+          <div class="d-flex flex-wrap align-center justify-space-between ga-3">
+            <div>
+              <div class="d-flex align-center ga-2">
+                <strong>Visibility</strong>
+                <v-chip
+                  size="small"
+                  label
+                  variant="tonal"
+                  :color="
+                    sessionStatus === 'shared' || sessionStatus === 'published'
+                      ? 'success'
+                      : sessionStatus === 'waiting validation'
+                        ? 'warning'
+                        : 'grey'
+                  "
+                >
+                  {{
+                    sessionStatus === 'waiting validation'
+                      ? 'Waiting for validation'
+                      : sessionStatus === 'shared'
+                        ? 'Shared'
+                        : sessionStatus === 'published'
+                          ? 'Published'
+                          : 'Draft'
+                  }}
+                </v-chip>
+              </div>
+              <p class="text-body-2 text-medium-emphasis mb-0 mt-1">
+                <template v-if="sessionStatus === 'published'">
+                  This session is public and deposited in a repository.
+                </template>
+                <template v-else-if="sessionStatus === 'shared'">
+                  This session is public. Publish it in a repository to get a DOI.
+                </template>
+                <template v-else-if="sessionStatus === 'waiting validation'">
+                  An administrator reviews what is new in it, then it is shared. You cannot edit it
+                  meanwhile; withdraw it to make changes.
+                </template>
+                <template v-else>
+                  Only you can see this session. Share it to make it, and its files, public.
+                </template>
+              </p>
+            </div>
+            <div class="d-flex ga-2">
+              <v-btn
+                v-if="sessionStatus === 'draft'"
+                color="primary"
+                prepend-icon="mdi-share-variant-outline"
+                :loading="sharing"
+                :disabled="files.length === 0"
+                @click="changeSharing('shared')"
+              >
+                Share this session
+              </v-btn>
+              <v-btn
+                v-else-if="sessionStatus === 'waiting validation'"
+                variant="outlined"
+                :loading="sharing"
+                @click="changeSharing('draft')"
+              >
+                Withdraw
+              </v-btn>
+            </div>
+          </div>
+          <ul
+            v-if="sessionStatus === 'waiting validation' && pendingEntries.length"
+            class="share-pending text-body-2 mt-3"
+          >
+            <li v-for="entry in pendingEntries" :key="entry.kind + entry.id">
+              <span class="text-medium-emphasis">{{ entry.kind }}</span> {{ entry.name }}
+              <v-chip size="x-small" variant="tonal" label>{{ entry.status }}</v-chip>
+            </li>
+          </ul>
+        </v-sheet>
+
         <!-- 🔹 Title + Buttons -->
         <div class="d-flex justify-space-between align-center w-100">
           <h3 class="ma-0 pa-0">Files</h3>
@@ -408,7 +520,7 @@ async function deleteFile() {
                 :color="
                   publishError ? 'red' : publishDone ? 'teal' : isPublishing ? 'warning' : 'success'
                 "
-                :disabled="!canPublish || isPublishing || publishDone"
+                :disabled="!canPublish || isPublishing || publishDone || sessionStatus !== 'shared'"
                 @click="showPublishModal = true"
                 style="min-width: 140px"
               >
@@ -424,9 +536,9 @@ async function deleteFile() {
                   }}
                 </v-icon>
                 <span v-if="publishError">Error</span>
-                <span v-else-if="isPublishing">Sharing...</span>
-                <span v-else-if="publishDone">Shared</span>
-                <span v-else>Share</span>
+                <span v-else-if="isPublishing">Publishing...</span>
+                <span v-else-if="publishDone">Published</span>
+                <span v-else>Publish in a repository</span>
               </v-btn>
             </div>
 
@@ -586,14 +698,14 @@ async function deleteFile() {
           <v-card-title class="text-h6">Confirm deletion</v-card-title>
           <v-card-text>Are you sure you want to delete this file?</v-card-text>
           <v-card-actions class="justify-end">
-            <v-btn text @click="showDeleteDialog = false">Cancel</v-btn>
+            <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
             <v-btn color="red" text @click="deleteFile">Delete</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
 
       <!-- === SNACKBAR === -->
-      <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000" top right>
+      <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000" location="top" right>
         {{ snackbarMessage }}
       </v-snackbar>
       <RepositoryPublishModal
@@ -628,5 +740,15 @@ async function deleteFile() {
   margin-right: 0.75rem;
   display: inline-block;
   vertical-align: middle;
+}
+
+.share-panel {
+  padding: 16px;
+  background: #f6f6f6;
+  border: 1px solid #e4e4e4;
+}
+.share-pending {
+  margin: 12px 0 0;
+  padding-left: 18px;
 }
 </style>

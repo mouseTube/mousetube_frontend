@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ReviewStatus from '@/components/ReviewStatus.vue';
 import { ref, onMounted, watch, nextTick } from 'vue';
 import { useSpeciesStore } from '@/stores/species';
 import { useStrainStore, type Strain } from '@/stores/strain';
@@ -146,6 +147,9 @@ onMounted(() => {
   <v-dialog v-model="localShow" max-width="600px">
     <v-card>
       <v-card-title>{{ props.strain ? 'Edit Strain' : 'Create New Strain' }}</v-card-title>
+      <div v-if="props.strain?.id" class="px-6 pt-2">
+        <ReviewStatus endpoint="strain" :id="props.strain?.id" />
+      </div>
 
       <v-card-text>
         <template v-if="speciesLoading">
@@ -156,7 +160,7 @@ onMounted(() => {
           <v-form ref="formRef">
             <v-text-field
               v-model="formData.name"
-              outlined
+              variant="outlined"
               required
               class="mb-4"
               :rules="[(v) => !!v || 'Name is required']"
@@ -166,7 +170,7 @@ onMounted(() => {
 
             <v-text-field
               v-model="formData.background"
-              outlined
+              variant="outlined"
               required
               class="mb-4"
               :rules="[(v) => !!v || 'Background is required']"
@@ -177,7 +181,7 @@ onMounted(() => {
             <v-textarea
               v-model="formData.bibliography"
               label="Bibliography"
-              outlined
+              variant="outlined"
               class="mb-4"
             />
 
@@ -187,7 +191,7 @@ onMounted(() => {
               item-title="label"
               item-value="value"
               label="Species"
-              outlined
+              variant="outlined"
               required
               class="mb-4"
               :rules="[(v) => !!v || 'Species is required']"
@@ -199,7 +203,7 @@ onMounted(() => {
       </v-card-text>
 
       <v-card-actions v-if="!speciesLoading">
-        <v-btn text @click="localShow = false">Close</v-btn>
+        <v-btn variant="text" @click="localShow = false">Close</v-btn>
         <v-btn color="primary" @click="submit">
           {{ props.strain ? 'Save' : 'Create' }}
         </v-btn>

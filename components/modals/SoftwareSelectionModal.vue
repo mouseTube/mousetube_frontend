@@ -344,7 +344,7 @@ onMounted(async () => {
             <v-card
               class="software-card"
               :class="{ 'selected-card': selectedSoftwareIds.includes(group.software.id) }"
-              outlined
+              variant="outlined"
             >
               <!-- Card header -->
               <v-card-title class="d-flex justify-space-between align-center pa-2">
@@ -418,7 +418,7 @@ onMounted(async () => {
                   item-value="id"
                   label="Select Version"
                   dense
-                  outlined
+                  variant="outlined"
                   @update:model-value="(val: number) => onVersionSelected(group.software.id, val)"
                 />
               </v-card-text>
@@ -528,7 +528,7 @@ onMounted(async () => {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn text @click="showDeleteConfirm = false">Cancel</v-btn>
+          <v-btn variant="text" @click="showDeleteConfirm = false">Cancel</v-btn>
           <v-btn color="primary" @click="confirmDelete">Delete</v-btn>
         </v-card-actions>
       </v-card>
@@ -545,7 +545,7 @@ onMounted(async () => {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn text @click="showDeleteSoftwareConfirm = false">Cancel</v-btn>
+          <v-btn variant="text" @click="showDeleteSoftwareConfirm = false">Cancel</v-btn>
           <v-btn color="primary" @click="confirmDeleteSoftware">Delete</v-btn>
         </v-card-actions>
       </v-card>

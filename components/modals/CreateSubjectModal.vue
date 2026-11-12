@@ -52,16 +52,27 @@ function handleSubmit() {
       <v-card-title>Create Subject</v-card-title>
       <v-card-text>
         <!-- Subject Name -->
-        <v-text-field v-model="formData.name" label="Subject Name" outlined required class="mb-4" />
+        <v-text-field
+          v-model="formData.name"
+          label="Subject Name"
+          variant="outlined"
+          required
+          class="mb-4"
+        />
 
         <!-- Identifier -->
-        <v-text-field v-model="formData.identifier" label="Identifier" outlined class="mb-4" />
+        <v-text-field
+          v-model="formData.identifier"
+          label="Identifier"
+          variant="outlined"
+          class="mb-4"
+        />
 
         <!-- Cohort -->
-        <v-text-field v-model="formData.cohort" label="Cohort" outlined class="mb-4" />
+        <v-text-field v-model="formData.cohort" label="Cohort" variant="outlined" class="mb-4" />
 
         <!-- Origin -->
-        <v-text-field v-model="formData.origin" label="Origin" outlined class="mb-4" />
+        <v-text-field v-model="formData.origin" label="Origin" variant="outlined" class="mb-4" />
 
         <!-- Animal Profile -->
         <v-select
@@ -70,7 +81,7 @@ function handleSubmit() {
           item-title="label"
           item-value="value"
           label="Animal Profile"
-          outlined
+          variant="outlined"
           required
           class="mb-4"
         />
@@ -83,7 +94,7 @@ function handleSubmit() {
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="emit('update:modelValue', false)">Close</v-btn>
+        <v-btn variant="text" @click="emit('update:modelValue', false)">Close</v-btn>
         <v-btn color="primary" @click="handleSubmit">Create</v-btn>
       </v-card-actions>
     </v-card>

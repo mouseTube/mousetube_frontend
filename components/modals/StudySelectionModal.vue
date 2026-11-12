@@ -261,7 +261,7 @@ watch(localDialog, handleDialogOpen, { immediate: true });
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn text @click="showDeleteConfirm = false">Cancel</v-btn>
+          <v-btn variant="text" @click="showDeleteConfirm = false">Cancel</v-btn>
           <v-btn color="error" @click="confirmDelete">Delete</v-btn>
         </v-card-actions>
       </v-card>

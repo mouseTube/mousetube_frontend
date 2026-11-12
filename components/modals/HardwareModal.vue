@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ReviewStatus from '@/components/ReviewStatus.vue';
 import { ref, watch, computed } from 'vue';
 import { useHardwareStore, type Hardware } from '@/stores/hardware';
 import ReferenceSelectionModal from '@/components/modals/ReferenceSelectionModal.vue';
@@ -207,6 +208,12 @@ async function saveHardware() {
       <v-card-title>
         {{ isEdit ? 'Edit Hardware' : 'Create Hardware' }}
       </v-card-title>
+      <div v-if="props.hardwareId" class="px-6 pt-2">
+        <ReviewStatus endpoint="hardware" :id="props.hardwareId" />
+      </div>
+      <v-card-subtitle v-if="!isEdit" class="modal-note">
+        Until an administrator validates it, only you can see this entry.
+      </v-card-subtitle>
 
       <v-card-text>
         <!-- ✅ form encapsulation -->
@@ -214,7 +221,7 @@ async function saveHardware() {
           <v-text-field
             v-model="formData.name"
             label="Name *"
-            outlined
+            variant="outlined"
             required
             :rules="[nameRule]"
             class="mb-4"
@@ -223,13 +230,23 @@ async function saveHardware() {
             v-model="formData.type"
             :items="['soundcard', 'microphone', 'speaker', 'amplifier']"
             label="Type *"
-            outlined
+            variant="outlined"
             required
             :rules="[typeRule]"
             class="mb-4"
           />
-          <v-text-field v-model="formData.made_by" label="Made By" outlined class="mb-4" />
-          <v-textarea v-model="formData.description" label="Description" outlined class="mb-4" />
+          <v-text-field
+            v-model="formData.made_by"
+            label="Made By"
+            variant="outlined"
+            class="mb-4"
+          />
+          <v-textarea
+            v-model="formData.description"
+            label="Description"
+            variant="outlined"
+            class="mb-4"
+          />
 
           <v-card-subtitle class="mb-2">References</v-card-subtitle>
           <div class="chip-list d-flex flex-wrap align-center mb-4">
@@ -252,7 +269,8 @@ async function saveHardware() {
       </v-card-text>
 
       <v-card-actions>
-        <v-btn text @click="emit('update:modelValue', false)">Cancel</v-btn>
+        <v-spacer />
+        <v-btn variant="text" @click="emit('update:modelValue', false)">Cancel</v-btn>
         <v-btn color="primary" @click="saveHardware">
           {{ isEdit ? 'Save Changes' : 'Create' }}
         </v-btn>
