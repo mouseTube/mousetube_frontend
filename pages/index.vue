@@ -81,7 +81,7 @@ onMounted(() => {
   <v-main class="w-100 home">
     <!-- Hero -->
     <section class="hero">
-      <v-container class="py-8 py-md-10">
+      <v-container class="pt-5 pb-8 pb-md-10">
         <v-row align="center">
           <v-col cols="12" md="7">
             <div class="eyebrow">
@@ -134,28 +134,37 @@ onMounted(() => {
         </v-col>
       </v-row>
 
-      <!-- Call for papers -->
-      <v-card class="cfp mt-8" variant="flat" rounded="xl">
-        <v-card-text class="d-flex flex-column flex-md-row align-md-center ga-4 pa-6">
+      <!-- What's new -->
+      <v-card class="news mt-8" variant="flat" rounded="xl">
+        <v-card-text class="d-flex flex-column flex-md-row ga-4 pa-6">
           <v-avatar color="grey-darken-3" size="52"
-            ><v-icon size="28">mdi-handshake-outline</v-icon></v-avatar
+            ><v-icon size="28">mdi-newspaper-variant-outline</v-icon></v-avatar
           >
           <div>
-            <div class="text-h6 font-weight-bold">Call for papers</div>
-            <p class="mb-0 text-body-1">
-              Working on ultrasonic vocalizations? Together, Dr. Elodie Ey and Dr. Markus Wöhr are
-              serving as guest editors for a Behavioural Brain Research special issue on Ultrasonic
-              Communication in Rodents. They are more than happy to learn about your most recent
-              discoveries.
-            </p>
-            <p class="mt-2 mb-0 text-body-1">
-              More information here:
-              <nuxt-link
-                href="https://www.sciencedirect.com/special-issue/317071/ultrasonic-communication-in-rodents"
-                target="_blank"
-                >Behavioural Brain Research - Ultrasonic Communication in Rodents</nuxt-link
-              >
-            </p>
+            <div class="text-h6 font-weight-bold mb-3">What’s new?</div>
+            <div class="news-item">
+              <div class="news-date">09/10/2026</div>
+              <p class="mb-0 text-body-1">
+                A publication in The Biologist, the magazine from the Royal Society of Biology
+                (RSB), presents the original framework of MouseTube and its perspectives. Read how
+                mouseTube integrates into the scientific landscape
+                <nuxt-link
+                  href="https://biologist.rsb.org.uk/can_you_squeak_up_please.html"
+                  target="_blank"
+                  >here</nuxt-link
+                >.
+              </p>
+            </div>
+            <div class="news-item">
+              <div class="news-date">10/06/2026</div>
+              <p class="mb-0 text-body-1">
+                Two datasets were added: one with mouse vocalisation recordings and one with rat
+                vocalisation recordings. These recordings are manually annotated by two experts and
+                automatically analysed by six algorithms with basic settings (DeepSqueak, Avisoft
+                SASLab Pro, Sonotrack, LMT USV Toolbox, UsvSeg, RatRec). Annotations and
+                segmentations are available for benchmarking or to challenge your own application.
+              </p>
+            </div>
           </div>
         </v-card-text>
       </v-card>
@@ -368,9 +377,21 @@ a:hover {
   border-color: #222;
 }
 
-.cfp {
+.news {
   background: #f6f6f6;
   border: 1px solid #e4e4e4;
+}
+
+.news-item + .news-item {
+  margin-top: 16px;
+}
+
+.news-date {
+  margin-bottom: 2px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #666;
 }
 
 .accent {
