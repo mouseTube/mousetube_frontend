@@ -312,7 +312,7 @@ a:hover {
 
 .stat:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
   border-color: #222;
 }
 
@@ -320,21 +320,24 @@ a:hover {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 18px;
+  padding: 8px 20px;
   border-radius: 999px;
   background: #fff;
-  border: 1px solid #e4e4e4;
+  border: 1.5px solid #cfcfcf;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
   color: #111;
-  font-size: 0.95rem;
+  font-size: 1rem;
   text-decoration: none;
 }
 
 .stat strong {
+  font-size: 1.2rem;
   font-weight: 800;
+  line-height: 1;
 }
 
 .stat:hover .soundwaves div {
-  animation-duration: 0.5s;
+  animation-duration: 0.6s;
 }
 
 .tile {
@@ -417,51 +420,66 @@ a:hover {
   }
 }
 
+/* small equalizer in the counter pill: thin bars that stay inside it */
 .soundwaves {
   display: flex;
-  gap: 4px;
-  height: 10px;
+  gap: 3px;
+  height: 16px;
   align-items: center;
 }
 
 .soundwaves div {
-  width: 3px;
+  width: 2px;
   height: 100%;
-  background-color: rgb(230, 45, 45);
-  animation: wave 1s infinite ease-in-out;
+  background-color: rgb(var(--v-theme-primary));
+  animation: wave 1.1s infinite ease-in-out;
   transform-origin: center center;
-  border-radius: 10px;
+  border-radius: 2px;
+  transform: scaleY(0.35);
 }
 
+.soundwaves div:nth-child(1) {
+  animation-delay: -0.2s;
+}
 .soundwaves div:nth-child(2) {
-  animation-delay: 0.2s;
+  animation-delay: -0.7s;
+  animation-duration: 0.9s;
 }
 .soundwaves div:nth-child(3) {
-  animation-delay: 0.4s;
+  animation-delay: -0.4s;
+  animation-duration: 1.3s;
 }
 .soundwaves div:nth-child(4) {
-  animation-delay: 0.6s;
+  animation-delay: -0.9s;
 }
 .soundwaves div:nth-child(5) {
-  animation-delay: 0.8s;
+  animation-delay: -0.1s;
+  animation-duration: 1s;
 }
 .soundwaves div:nth-child(6) {
-  animation-delay: 1s;
+  animation-delay: -0.6s;
+  animation-duration: 1.2s;
 }
 
 @keyframes wave {
   0%,
   100% {
-    transform: scaleY(1);
+    transform: scaleY(0.3);
   }
   50% {
-    transform: scaleY(3);
+    transform: scaleY(1);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .soundwaves div {
     animation: none;
+  }
+  .soundwaves div:nth-child(odd) {
+    transform: scaleY(0.9);
+  }
+  .soundwaves div:nth-child(even) {
+    transform: scaleY(0.5);
   }
   .tile,
   .stat {

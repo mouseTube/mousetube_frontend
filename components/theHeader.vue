@@ -91,15 +91,13 @@ function refreshPage() {
       <!-- Logo -->
       <v-col cols="auto" class="d-flex align-center flex-shrink-1">
         <nuxt-link to="/" class="nuxt-link text-truncate" exact-active-class="active-logo">
-          <v-img
-            :width="smAndDown ? 40 : 60"
-            :height="smAndDown ? 40 : 60"
-            src="/logo_mousetube_carre.png"
-            alt="MouseTube"
-            class="logo-img"
-            style="background: white; padding: 4px; object-fit: contain; border-radius: 50%"
-          />
-          <span class="ml-2 site-title">MouseTube</span>
+          <!-- The picture twice: the megaphone and the mouse, each cut out of the same image so
+               they can move on their own when hovered. -->
+          <span class="logo-img logo-badge" role="img" aria-label="MouseTube">
+            <img src="/logo_mousetube_carre.png" alt="" class="logo-layer logo-megaphone" />
+            <img src="/logo_mousetube_carre.png" alt="" class="logo-layer logo-mouse" />
+          </span>
+          <span class="ml-2 site-title">Mouse<span class="site-title-tube">Tube</span></span>
         </nuxt-link>
       </v-col>
 
@@ -304,7 +302,7 @@ function refreshPage() {
 }
 
 .nav-label {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
   transition: color 0.2s ease;
@@ -319,6 +317,119 @@ function refreshPage() {
   transition:
     filter 0.3s ease,
     box-shadow 0.3s ease;
+}
+
+/* --- logo: the mouse shouts into the megaphone when the link is hovered --- */
+.logo-badge {
+  --logo: 60px;
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: var(--logo);
+  height: var(--logo);
+  border-radius: 50%;
+  background: #fff;
+}
+.logo-layer {
+  position: absolute;
+  inset: 4px;
+  width: calc(100% - 8px);
+  height: calc(100% - 8px);
+  object-fit: contain;
+}
+/* megaphone (left part) and mouse (right part) of the same picture */
+.logo-megaphone {
+  clip-path: polygon(0 0, 63% 0, 63% 56%, 52% 62%, 50% 80%, 0 80%);
+  transform-origin: 55% 60%;
+}
+.logo-mouse {
+  clip-path: polygon(63% 0, 100% 0, 100% 100%, 40% 100%, 40% 80%, 50% 80%, 52% 62%, 63% 56%);
+  transform-origin: 75% 90%;
+}
+/* rings that spread from the logo, like a sound */
+.logo-badge::before,
+.logo-badge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid #e53935;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nuxt-link:hover .logo-megaphone {
+  animation: megaphone-shake 0.7s ease-in-out infinite;
+}
+.nuxt-link:hover .logo-mouse {
+  animation: mouse-squeak 0.7s ease-in-out infinite;
+}
+.nuxt-link:hover .logo-badge::before {
+  animation: sound-ring 1.6s ease-out infinite;
+}
+.nuxt-link:hover .logo-badge::after {
+  animation: sound-ring 1.6s ease-out 0.8s infinite;
+}
+
+@keyframes megaphone-shake {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(-4deg) scale(1.04);
+  }
+  75% {
+    transform: rotate(3deg) scale(1.04);
+  }
+}
+@keyframes mouse-squeak {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-1.5%) scale(1.03);
+  }
+}
+@keyframes sound-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* the title: "Tube" is red, as on the megaphone, when hovered and on the home page */
+.site-title {
+  display: inline-block;
+  padding-right: 6px; /* room for the shift on hover: the link clips what overflows */
+  transition: transform 0.25s ease;
+}
+.site-title-tube {
+  transition: color 0.25s ease;
+}
+.nuxt-link:hover .site-title {
+  transform: translateX(3px);
+}
+.nuxt-link:hover .site-title-tube,
+.active-logo .site-title-tube {
+  color: #e53935;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nuxt-link:hover .logo-megaphone,
+  .nuxt-link:hover .logo-mouse,
+  .nuxt-link:hover .logo-badge::before,
+  .nuxt-link:hover .logo-badge::after {
+    animation: none;
+  }
+  .nuxt-link:hover .site-title {
+    transform: none;
+  }
 }
 
 .nuxt-link:hover .logo-img,
@@ -349,7 +460,7 @@ function refreshPage() {
   text-decoration: none;
   color: white;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .nav-item {
@@ -365,8 +476,8 @@ function refreshPage() {
 }
 
 @media screen and (max-width: 1400px) {
-  .logo-img {
-    width: 40px;
+  .logo-badge {
+    --logo: 40px;
   }
 }
 
