@@ -186,6 +186,28 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateIsDesktop);
 });
+// Ontology terms attached to a file: the animals (sex, stage, treatment) and the session
+// (behaviors recorded), each linking to its definition.
+const termsOf = (file) => {
+  const terms = [];
+  const add = (kind, term) => {
+    if (term?.curie && !terms.some((t) => t.term.curie === term.curie)) terms.push({ kind, term });
+  };
+  for (const subject of file.subjects || []) {
+    const profile = subject.animal_profile;
+    add('Sex', profile?.sex_term);
+    add('Stage', profile?.age_term);
+    add('Treatment', profile?.treatment_term);
+  }
+  for (const profile of file.recording_session?.animal_profiles || []) {
+    add('Sex', profile.sex_term);
+    add('Stage', profile.age_term);
+    add('Treatment', profile.treatment_term);
+  }
+  for (const term of file.recording_session?.behavior_terms || []) add('Behavior', term);
+  return terms;
+};
+
 // Readable summary of a file: label above value, real units, a human date.
 const formatDate = (value) => {
   const d = value ? new Date(value) : null;
@@ -506,6 +528,24 @@ const facts = (file) => {
                     <v-expansion-panels>
                       <v-expansion-panel title="More information">
                         <v-expansion-panel-text>
+                          <div v-if="termsOf(file).length" class="terms mb-2">
+                            <v-chip
+                              v-for="item in termsOf(file)"
+                              :key="item.term.curie"
+                              :href="item.term.iri"
+                              target="_blank"
+                              size="small"
+                              label
+                              variant="outlined"
+                              class="me-2 mb-1"
+                            >
+                              <span class="text-medium-emphasis me-1">{{ item.kind }}</span>
+                              {{ item.term.label }}
+                              <span class="text-caption text-medium-emphasis ms-1">{{
+                                item.term.curie
+                              }}</span>
+                            </v-chip>
+                          </div>
                           <v-card
                             v-if="file.subjects && file.subjects.length"
                             class="mx-auto my-2 pt-2 pl-2"

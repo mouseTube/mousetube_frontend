@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ReviewStatus from '@/components/ReviewStatus.vue';
 import { ref, computed, onMounted } from 'vue';
 import { useHardwareStore, type Hardware } from '@/stores/hardware';
 import { useFavoriteStore } from '@/stores/favorite';
@@ -238,15 +239,15 @@ onMounted(async () => {
           </div>
 
           <v-card-actions class="justify-space-between pt-0 pe-3 pb-3">
-            <v-chip
-              v-if="hw.status"
-              :color="getStatusColor(hw.status)"
-              size="small"
-              class="ms-2 text-white"
-              label
-            >
-              {{ hw.status }}
-            </v-chip>
+            <ReviewStatus
+              v-if="hw.id"
+              class="ms-2"
+              endpoint="hardware"
+              :id="hw.id"
+              :status="hw.status || 'draft'"
+              compact
+              @changed="hw.status = $event"
+            />
 
             <div>
               <v-icon

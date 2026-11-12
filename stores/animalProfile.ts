@@ -3,6 +3,14 @@ import axios from 'axios';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 import type { Strain } from '~/stores/strain';
 
+// a term of a vocabulary (PATO, MmusDv, ChEBI...): identifier, label, link
+export interface Term {
+  curie: string;
+  label: string;
+  ontology?: string;
+  iri?: string;
+}
+
 export interface AnimalProfile {
   id: number;
   name: string;
@@ -13,6 +21,9 @@ export interface AnimalProfile {
   genotype: string;
   treatment: string;
   status: string;
+  sex_term?: Term | null;
+  age_term?: Term | null;
+  treatment_term?: Term | null;
 }
 
 export const useAnimalProfileStore = defineStore('animalProfile', {
