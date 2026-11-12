@@ -30,6 +30,8 @@ interface DatasetType {
 
 const dataLoaded = ref(false);
 const search = ref('');
+// the term of the last search sent to the API: the file rows are filtered with it too
+const appliedSearch = ref('');
 const datasetList = ref<DatasetType[]>([]);
 const next = ref<string | null>(null);
 const previous = ref<string | null>(null);
@@ -55,23 +57,6 @@ function fileExt(name?: string) {
 function isAudio(ext: string) {
   return ['wav', 'mp3', 'flac', 'ogg', 'm4a', 'aac'].includes(ext);
 }
-function isImage(ext: string) {
-  return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext);
-}
-function isPdf(ext: string) {
-  return ext === 'pdf';
-}
-function isArchive(ext: string) {
-  return ['zip', 'rar', 'tar', 'gz', 'tgz', '7z'].includes(ext);
-}
-function fileIcon(name?: string) {
-  const ext = fileExt(name);
-  if (isAudio(ext)) return 'mdi-music';
-  if (isImage(ext)) return 'mdi-image';
-  if (isPdf(ext)) return 'mdi-file-pdf';
-  if (isArchive(ext)) return 'mdi-archive';
-  return 'mdi-file';
-}
 function datasetDownloadLink(dataset: DatasetType) {
   if (dataset.link) return dataset.link;
   return `${apiBaseUrl}/dataset/${dataset.id}/download/`;
@@ -83,6 +68,30 @@ function sortFiles(files: FileType[] = []) {
     if (aIsAudio === bIsAudio) return a.name.localeCompare(b.name);
     return aIsAudio ? -1 : 1; // audio first
   });
+}
+
+// A search returns whole datasets: keep, inside each, the files that match the words
+// (name, DOI, session, the chips and animal profiles shown on the row). When no file
+// matches, the dataset matched through its own text, so every file stays visible.
+function matchingFiles(files: FileType[] = []) {
+  const words = appliedSearch.value.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return files;
+  const matches = files.filter((f) => {
+    const text = [
+      f.name,
+      f.doi,
+      f.session?.name,
+      ...(f.session?.chips || []),
+      ...(f.session?.animal_profiles || []),
+    ]
+      .join(' ')
+      .toLowerCase();
+    // a word matches the start of a word ("no" must not match "zenodo")
+    return words.every((w) =>
+      new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(text)
+    );
+  });
+  return matches.length ? matches : files;
 }
 
 // --- panel states for each file (independent) ---
@@ -116,6 +125,7 @@ const fetchDatasets = async (url = `${apiBaseUrl}/dataset/?page_size=${perPage.v
 
 // --- search (debounced) ---
 const onSearch = debounce(() => {
+  appliedSearch.value = search.value.trim();
   fetchDatasets(
     `${apiBaseUrl}/dataset/?search=${encodeURIComponent(search.value)}&page_size=${perPage.value}`
   );
@@ -125,6 +135,7 @@ watch(perPage, async () => fetchDatasets());
 watch(search, async (newSearch) => {
   if (!newSearch) {
     search.value = '';
+    appliedSearch.value = '';
     await fetchDatasets();
   }
 });
@@ -156,10 +167,18 @@ onMounted(() => fetchDatasets());
             <!-- INFO BLOC -->
             <v-card class="mt-5 mb-5" color="grey-lighten-4">
               <v-card-text>
-                Datasets include multiple recording sessions, curated and annotated for practical
-                use in research and benchmarking.<br />
-                You can download the original dataset files, inspect metadata, or explore associated
-                DOI links when available.
+                <p class="mb-2">
+                  Datasets are provided for practical use in research and benchmarking of existing
+                  or new applications for ultrasonic vocalisation detection and analysis. Datasets
+                  include multiple recording sessions, gathering recordings covering part of the
+                  diversity of ultrasonic vocalisations for each species. Each recording is curated
+                  and manually annotated by two experts.
+                </p>
+                <p class="mb-0">
+                  The files also underwent automatic detections by different applications (analysis
+                  parameters are given). You can download the original audio files, as well as the
+                  results of manual and automatic detections.
+                </p>
               </v-card-text>
             </v-card>
 
@@ -214,8 +233,8 @@ onMounted(() => fetchDatasets());
                       v-if="dataset.doi"
                       label
                       small
-                      color="red lighten-3"
-                      text-color="red darken-3"
+                      variant="tonal"
+                      color="blue"
                       class="me-2"
                     >
                       DOI:
@@ -255,11 +274,18 @@ onMounted(() => fetchDatasets());
 
                 <v-card-text v-if="dataset.description">{{ dataset.description }}</v-card-text>
                 <v-divider class="mx-4 mb-2" />
+                <div
+                  v-if="appliedSearch && matchingFiles(dataset.files).length < dataset.files.length"
+                  class="text-caption text-medium-emphasis mx-4 mb-2"
+                >
+                  {{ matchingFiles(dataset.files).length }} of {{ dataset.files.length }} files
+                  match "{{ appliedSearch }}"
+                </div>
 
                 <!-- FILES -->
                 <v-expansion-panels multiple>
                   <v-expansion-panel
-                    v-for="file in sortFiles(dataset.files)"
+                    v-for="file in sortFiles(matchingFiles(dataset.files))"
                     :key="file.id"
                     v-model:active="activePanels[file.id]"
                     :readonly="!file.spectrogram_url && !file.plot_url"
@@ -268,7 +294,6 @@ onMounted(() => fetchDatasets());
                     <v-expansion-panel-title>
                       <v-row align="center" justify="space-between" class="w-100">
                         <v-col class="d-flex align-center flex-wrap">
-                          <v-icon class="me-2">{{ fileIcon(file.name) }}</v-icon>
                           <strong class="me-3">{{ file.name }}</strong>
                           <template v-if="file.session">
                             <v-chip
@@ -304,7 +329,14 @@ onMounted(() => fetchDatasets());
                           >
                             <v-icon size="14">mdi-download</v-icon> {{ file.downloads }}
                           </span>
-                          <v-chip v-if="file.doi" label small color="#03DAC6" class="me-2">
+                          <v-chip
+                            v-if="file.doi"
+                            label
+                            small
+                            variant="tonal"
+                            color="blue"
+                            class="me-2"
+                          >
                             DOI:
                             <a
                               v-if="file.doi.includes('zenodo')"
@@ -370,5 +402,8 @@ a {
 }
 a:hover {
   text-decoration: underline;
+}
+.doi {
+  color: inherit;
 }
 </style>

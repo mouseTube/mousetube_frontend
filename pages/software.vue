@@ -148,6 +148,11 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateIsDesktop);
 });
+
+// One color per kind of software, so the type reads at a glance.
+const typeColor = (type) =>
+  ({ acquisition: 'blue', analysis: 'red', 'acquisition and analysis': 'orange' })[type] ||
+  'grey-darken-3';
 </script>
 
 <template>
@@ -215,6 +220,14 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
+            <v-card class="mt-5 mb-5" color="grey-lighten-4">
+              <v-card-text>
+                A non-exhaustive list of software used to record or analyse ultrasonic vocalization
+                files. <strong>mouseTube</strong> does not distribute them: each entry gives its
+                maker and references to its documentation. Information about the software is an
+                important metadata.
+              </v-card-text>
+            </v-card>
             <v-toolbar rounded="lg" class="px-2 border-sm mb-4">
               <v-text-field
                 v-model="search"
@@ -419,28 +432,21 @@ onBeforeUnmount(() => {
                       {{ software.made_by }}
                     </v-card-subtitle>
                     <v-chip
-                      v-bind:class="{
-                        'bg-blue-darken-2': software.type === 'acquisition',
-                        'bg-red-darken-2': software.type === 'analysis',
-                        'bg-orange-darken-2': software.type === 'acquisition and analysis',
-                      }"
-                      style="
-                        position: absolute;
-                        top: 12px;
-                        right: 12px;
-                        background-color: red;
-                        color: white;
-                      "
+                      class="type-chip"
                       label
+                      size="small"
+                      variant="tonal"
+                      :color="typeColor(software.type)"
+                      style="position: absolute; top: 12px; right: 12px"
                     >
                       {{ software.type }}
                     </v-chip>
-                    <v-card-item class="bg-surface-light pt-4">
-                      <v-label class="mr-2"></v-label>{{ software.description }}<br />
+                    <v-card-item v-if="software.description" class="bg-surface-light pt-4">
+                      {{ software.description }}
                     </v-card-item>
 
                     <v-expansion-panels>
-                      <v-expansion-panel title="References" bg-color="grey-lighten-2">
+                      <v-expansion-panel title="References">
                         <v-expansion-panel-text>
                           <v-row dense align="start" justify="start" class="pa-2">
                             <v-col
@@ -522,7 +528,7 @@ onBeforeUnmount(() => {
                 :disabled="currentPage == 1"
                 icon="mdi-skip-backward"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchSoftware(firstPageUrl)"
               ></v-btn>
@@ -530,7 +536,7 @@ onBeforeUnmount(() => {
                 :disabled="!previous"
                 icon="mdi-arrow-left"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchSoftware(previous)"
               ></v-btn>
@@ -541,7 +547,7 @@ onBeforeUnmount(() => {
                 :disabled="!next"
                 icon="mdi-arrow-right"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchSoftware(next)"
               ></v-btn>
@@ -549,7 +555,7 @@ onBeforeUnmount(() => {
                 :disabled="currentPage == Math.ceil(count / perPage)"
                 icon="mdi-skip-forward"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchSoftware(lastPageUrl)"
               ></v-btn>

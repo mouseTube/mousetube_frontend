@@ -242,8 +242,8 @@ onBeforeUnmount(() => {
             </div>
             <v-card class="mt-5 mb-5" color="grey-lighten-4">
               <v-card-text>
-                In this section, you will find a non-exhaustive list of commercial and custom-made
-                hardware (arranged in alphabetical order) to record ultrasonic vocalization files.
+                A non-exhaustive list of commercial and custom-made hardware (arranged in
+                alphabetical order) to record ultrasonic vocalization files.
                 <strong>mouseTube</strong> is not a seller. Information about the hardware is an
                 important metadata.
               </v-card-text>
@@ -492,7 +492,7 @@ onBeforeUnmount(() => {
                 :disabled="currentPage == 1"
                 icon="mdi-skip-backward"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchHardware(firstPageUrl)"
               ></v-btn>
@@ -500,7 +500,7 @@ onBeforeUnmount(() => {
                 :disabled="!previous"
                 icon="mdi-arrow-left"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchHardware(previous)"
               ></v-btn>
@@ -511,7 +511,7 @@ onBeforeUnmount(() => {
                 :disabled="!next"
                 icon="mdi-arrow-right"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchHardware(next)"
               ></v-btn>
@@ -519,7 +519,7 @@ onBeforeUnmount(() => {
                 :disabled="currentPage == Math.ceil(count / perPage)"
                 icon="mdi-skip-forward"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchHardware(lastPageUrl)"
               ></v-btn>

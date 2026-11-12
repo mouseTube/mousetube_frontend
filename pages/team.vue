@@ -85,7 +85,7 @@ watch(
     <v-container fluid>
       <v-row>
         <v-col>
-          <v-card variant="flat" class="mx-auto" max-width="800">
+          <v-card variant="flat" class="mx-auto" max-width="1000">
             <!-- <v-img
               cover
               :width="500"
@@ -497,12 +497,14 @@ watch(
 
 <style scoped>
 a {
-  text-decoration: none;
-  color: #b71c1c;
+  color: #222;
+  text-decoration: underline;
+  text-decoration-color: #bbb;
+  text-underline-offset: 3px;
 }
 
 a:hover {
-  text-decoration: underline;
+  text-decoration-color: #c62828;
 }
 
 .max-v-list-height {

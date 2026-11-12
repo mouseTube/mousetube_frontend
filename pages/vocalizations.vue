@@ -186,6 +186,36 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateIsDesktop);
 });
+// Readable summary of a file: label above value, real units, a human date.
+const formatDate = (value) => {
+  const d = value ? new Date(value) : null;
+  return d && !isNaN(d)
+    ? d.toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC',
+      })
+    : 'N/A';
+};
+const formatRate = (hz) =>
+  hz ? (hz >= 1000 ? `${+(hz / 1000).toFixed(1)} kHz` : `${hz} Hz`) : 'N/A';
+const facts = (file) => {
+  const session = file.recording_session || {};
+  const profiles = (file.subjects || [])
+    .filter((s) => s.animal_profile)
+    .map((s) => s.animal_profile.name);
+  const animals = profiles.length ? profiles : (session.animal_profiles || []).map((p) => p.name);
+  return [
+    { label: 'Protocol', value: session.protocol?.name || 'N/A', chip: 'teal' },
+    { label: 'Animal profile', value: animals.join(', ') || 'N/A', chip: 'red' },
+    { label: 'Duration', value: file.duration ? `${file.duration} s` : 'N/A' },
+    { label: 'Date', value: formatDate(session.date) },
+    { label: 'Format', value: file.format || 'N/A' },
+    { label: 'Sampling rate', value: formatRate(file.sampling_rate) },
+    { label: 'Bit depth', value: file.bit_depth ? `${file.bit_depth} bits` : 'N/A' },
+  ];
+};
 </script>
 
 <template>
@@ -252,6 +282,14 @@ onBeforeUnmount(() => {
                 </v-btn>
               </div>
             </div>
+            <v-card class="mt-5 mb-5" color="grey-lighten-4">
+              <v-card-text>
+                Recordings of rodent ultrasonic vocalizations shared by the community. Each file
+                comes with the context in which it was recorded: protocol, animals, duration, format
+                and sampling rate. The files are stored in external repositories such as Zenodo: use
+                the DOI or the Download button to get them.
+              </v-card-text>
+            </v-card>
             <!-- Search bar  -->
             <v-toolbar rounded="lg" class="px-2 border-sm">
               <v-text-field
@@ -343,7 +381,7 @@ onBeforeUnmount(() => {
               }"
             >
               <template #item.name="{ item }">
-                <span style="white-space: nowrap">{{
+                <span class="font-weight-bold" style="white-space: nowrap">{{
                   item.name || item.link.split('/').pop()
                 }}</span>
               </template>
@@ -438,7 +476,7 @@ onBeforeUnmount(() => {
                         </v-avatar>
                       </template>
                     </v-badge>
-                    <v-card-title>
+                    <v-card-title class="font-weight-bold">
                       {{ file.name ? file.name : file.link.split('/').pop() }}
                     </v-card-title>
                     <v-card-subtitle>
@@ -446,51 +484,27 @@ onBeforeUnmount(() => {
                       {{ file.recording_session.created_by?.last_name || '' }}
                     </v-card-subtitle>
                     <v-card-item class="bg-surface-light pt-4">
-                      <v-label class="mr-2">Protocol: </v-label>
-                      {{ file.recording_session?.protocol?.name || 'N/A' }}<br />
-                      <v-label class="mr-2">Animal profile: </v-label>
-                      <span
-                        v-if="
-                          file.subjects &&
-                          file.subjects.length &&
-                          file.subjects.some((s) => s.animal_profile)
-                        "
-                      >
-                        {{
-                          file.subjects
-                            .filter((s) => s.animal_profile)
-                            .map((s) => s.animal_profile.name)
-                            .join(', ')
-                        }}
-                      </span>
-                      <span
-                        v-else-if="
-                          file.recording_session.animal_profiles &&
-                          file.recording_session.animal_profiles.length
-                        "
-                      >
-                        {{
-                          file.recording_session.animal_profiles
-                            .map((profile) => profile.name)
-                            .join(', ')
-                        }}
-                      </span>
-                      <span v-else> N/A </span><br />
-                      <v-label class="mr-2">Duration: </v-label>
-                      {{ file.duration || 'N/A' }}<br />
-                      <v-label class="mr-2">Date: </v-label>
-                      {{ file.recording_session.date || 'N/A' }}<br />
-                      <v-label class="mr-2">Format: </v-label>
-                      {{ file.format || 'N/A' }}<br />
-                      <v-label class="mr-2">Sampling_rate: </v-label>
-                      {{ file.sampling_rate || 'N/A' }} Hz<br />
-                      <v-label class="mr-2">Bit_depth: </v-label>
-                      {{ file.bit_depth || 'N/A' }} bits<br />
+                      <dl class="facts">
+                        <div v-for="fact in facts(file)" :key="fact.label" class="fact">
+                          <dt>{{ fact.label }}</dt>
+                          <dd>
+                            <v-chip
+                              v-if="fact.chip && fact.value !== 'N/A'"
+                              size="small"
+                              label
+                              variant="tonal"
+                              :color="fact.chip"
+                              >{{ fact.value }}</v-chip
+                            >
+                            <template v-else>{{ fact.value }}</template>
+                          </dd>
+                        </div>
+                      </dl>
                     </v-card-item>
 
                     <!-- Expansion Panel -->
                     <v-expansion-panels>
-                      <v-expansion-panel title="More information" bg-color="grey-lighten-2">
+                      <v-expansion-panel title="More information">
                         <v-expansion-panel-text>
                           <v-card
                             v-if="file.subjects && file.subjects.length"
@@ -752,7 +766,7 @@ onBeforeUnmount(() => {
                     <v-card-actions class="d-flex align-center">
                       <v-row class="w-100">
                         <v-col class="d-flex align-center" cols="auto">
-                          <v-chip class="ma-2" label color="red-lighten-1" v-if="file.doi">
+                          <v-chip class="ma-2" label variant="tonal" color="blue" v-if="file.doi">
                             DOI:
                             <a
                               v-if="file.doi.includes('zenodo')"
@@ -771,10 +785,10 @@ onBeforeUnmount(() => {
                         <v-col class="d-flex justify-end" cols="auto">
                           <v-btn
                             v-if="file.is_valid_link"
-                            color="red-darken-4"
+                            color="primary"
                             prepend-icon="mdi-download"
-                            variant="tonal"
-                            elevation="4"
+                            variant="flat"
+                            elevation="0"
                             class="ma-2 hover-effect border-sm"
                             @click="incrementDownloads(file.id, file.link)"
                           >
@@ -784,8 +798,8 @@ onBeforeUnmount(() => {
                             v-else
                             color="grey"
                             prepend-icon="mdi-alert-circle"
-                            variant="tonal"
-                            elevation="4"
+                            variant="flat"
+                            elevation="0"
                             class="ma-2 border-sm"
                           >
                             <a :href="file.link" target="_blank"> Invalid link</a>
@@ -804,7 +818,7 @@ onBeforeUnmount(() => {
                 :disabled="currentPage == 1"
                 icon="mdi-skip-backward"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchFiles(firstPageUrl)"
               ></v-btn>
@@ -812,7 +826,7 @@ onBeforeUnmount(() => {
                 :disabled="!previous"
                 icon="mdi-arrow-left"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchFiles(previous)"
               ></v-btn>
@@ -823,7 +837,7 @@ onBeforeUnmount(() => {
                 :disabled="!next"
                 icon="mdi-arrow-right"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchFiles(next)"
               ></v-btn>
@@ -831,7 +845,7 @@ onBeforeUnmount(() => {
                 :disabled="currentPage == Math.ceil(count / perPage)"
                 icon="mdi-skip-forward"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchFiles(lastPageUrl)"
               ></v-btn>
@@ -896,6 +910,10 @@ onBeforeUnmount(() => {
 a {
   text-decoration: none;
   color: rgb(219, 98, 98);
+}
+
+.doi {
+  color: inherit;
 }
 
 .doi:hover {
