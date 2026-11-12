@@ -304,10 +304,10 @@ function refreshPage() {
 }
 
 .nav-label {
-  font-size: 20px;
-  font-weight: 700;
-  color: white;
-  transition: color 0.3s ease;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  transition: color 0.2s ease;
 }
 
 .nav-item:hover .audio-hover-icon {
@@ -331,20 +331,16 @@ function refreshPage() {
 }
 
 .nav-icon {
-  stroke: white;
-  transition: stroke 0.3s ease;
+  stroke: rgba(255, 255, 255, 0.85);
+  transition: stroke 0.2s ease;
   margin-right: 8px;
-}
-
-.nav-label {
-  color: white;
-  transition: color 0.3s ease;
 }
 
 .site-title {
   color: white;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .nuxt-link {
@@ -352,46 +348,25 @@ function refreshPage() {
   align-items: center;
   text-decoration: none;
   color: white;
-  font-weight: 800;
-  font-size: 20px;
+  font-weight: 700;
+  font-size: 15px;
 }
 
 .nav-item {
-  padding: 8px 16px;
+  padding: 8px 14px;
+  border-radius: 999px;
   text-decoration: none;
 }
 
 .nav-links {
-  gap: 16px;
+  gap: 20px;
   flex-grow: 2;
   flex-wrap: wrap;
 }
 
 @media screen and (max-width: 1400px) {
-  .nav-label {
-    font-size: 16px;
-    font-weight: 700;
-  }
-  .nav-item {
-    font-size: 16px;
-    padding: 8px 12px;
-  }
-  .site-title {
-    font-size: 16px;
-  }
   .logo-img {
     width: 40px;
-  }
-}
-
-@media screen and (max-width: 1250px) {
-  .nav-label {
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .nav-item {
-    font-size: 12px;
-    padding: 8px 12px;
   }
 }
 
@@ -407,12 +382,19 @@ function refreshPage() {
 
 .nav-item:hover .nav-icon,
 .active-link .nav-icon {
-  stroke: red;
+  stroke: #e53935;
 }
 
+/* the red name is the only mark of the current page: no pill, no grey overlay */
 .nav-item:hover .nav-label,
-.active-link .nav-label {
-  color: #ccc;
+.active-link .nav-label,
+.v-list-item--active .v-list-item-title {
+  color: #e53935;
+}
+
+.v-list-item--active :deep(.v-list-item__overlay),
+.v-list-item:hover :deep(.v-list-item__overlay) {
+  opacity: 0;
 }
 
 .v-list-item:hover .audio-hover-icon {
