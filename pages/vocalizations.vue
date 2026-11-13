@@ -195,11 +195,13 @@ const termsOf = (file) => {
   };
   for (const subject of file.subjects || []) {
     const profile = subject.animal_profile;
+    add('Species', profile?.strain?.species?.ontology_term);
     add('Sex', profile?.sex_term);
     add('Stage', profile?.age_term);
     add('Treatment', profile?.treatment_term);
   }
   for (const profile of file.recording_session?.animal_profiles || []) {
+    add('Species', profile.strain?.species?.ontology_term);
     add('Sex', profile.sex_term);
     add('Stage', profile.age_term);
     add('Treatment', profile.treatment_term);
@@ -523,29 +525,29 @@ const facts = (file) => {
                         </div>
                       </dl>
                     </v-card-item>
+                    <v-card-item v-if="termsOf(file).length" class="bg-surface-light pt-0">
+                      <div class="terms">
+                        <v-chip
+                          v-for="item in termsOf(file)"
+                          :key="item.term.curie"
+                          :href="item.term.iri"
+                          :title="item.term.curie"
+                          target="_blank"
+                          size="small"
+                          label
+                          variant="outlined"
+                          class="me-2 mb-1"
+                        >
+                          <span class="text-medium-emphasis me-1">{{ item.kind }}</span>
+                          {{ item.term.label }}
+                        </v-chip>
+                      </div>
+                    </v-card-item>
 
                     <!-- Expansion Panel -->
                     <v-expansion-panels>
                       <v-expansion-panel title="More information">
                         <v-expansion-panel-text>
-                          <div v-if="termsOf(file).length" class="terms mb-2">
-                            <v-chip
-                              v-for="item in termsOf(file)"
-                              :key="item.term.curie"
-                              :href="item.term.iri"
-                              target="_blank"
-                              size="small"
-                              label
-                              variant="outlined"
-                              class="me-2 mb-1"
-                            >
-                              <span class="text-medium-emphasis me-1">{{ item.kind }}</span>
-                              {{ item.term.label }}
-                              <span class="text-caption text-medium-emphasis ms-1">{{
-                                item.term.curie
-                              }}</span>
-                            </v-chip>
-                          </div>
                           <v-card
                             v-if="file.subjects && file.subjects.length"
                             class="mx-auto my-2 pt-2 pl-2"
@@ -783,6 +785,15 @@ const facts = (file) => {
                                   {{ file.recording_session.laboratory?.unit || '' }}
                                   {{ file.recording_session.laboratory?.address || '' }}
                                   {{ file.recording_session.laboratory?.country || '' }}
+                                  <a
+                                    v-if="file.recording_session.laboratory?.organization"
+                                    :href="file.recording_session.laboratory.organization.iri"
+                                    target="_blank"
+                                    rel="noopener"
+                                    class="ror-link"
+                                    :title="file.recording_session.laboratory.organization.label"
+                                    >ROR <v-icon size="12">mdi-open-in-new</v-icon></a
+                                  >
                                 </li>
                                 <li>
                                   <v-label class="mr-2">Animal profiles: </v-label>
@@ -898,6 +909,16 @@ const facts = (file) => {
 </template>
 
 <style scoped>
+.ror-link {
+  margin-left: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: rgb(var(--v-theme-primary));
+}
+.ror-link:hover {
+  text-decoration: underline;
+}
 .filter-overlay {
   position: fixed;
   top: 80px;

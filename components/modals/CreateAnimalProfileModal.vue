@@ -224,6 +224,7 @@ function handleStrainCreated(newStrain: Strain) {
             v-model="formData.age"
             :items="['pup', 'juvenile', 'adult']"
             variant="outlined"
+            @update:model-value="formData.age_term = null"
             required
             :rules="[(v) => !!v || 'Age is required']"
             class="mb-4"
@@ -235,7 +236,7 @@ function handleStrainCreated(newStrain: Strain) {
             v-model="formData.age_term"
             field="age"
             label="Developmental stage (optional)"
-            hint="A precise stage of the Mouse Developmental Stages ontology, when the age class is too broad."
+            hint="For a mouse, the stage of the age class is filled in automatically (infant, juvenile or mature stage). Choose a more precise one if you know it."
             class="mb-4"
           />
 
