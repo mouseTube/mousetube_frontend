@@ -51,6 +51,7 @@ const formData = ref<FormDataType>({
 });
 
 const uploading = ref(false);
+const uploadError = ref('');
 const isEditMode = computed(() => !!props.modelValue?.id);
 const isDoiOnly = computed(
   () => !isEditMode.value && !formData.value.file && (!!formData.value.doi || !!formData.value.link)
@@ -131,9 +132,10 @@ watch(
 async function uploadFileAndCreate() {
   if (!formData.value.file) return;
   uploading.value = true;
+  uploadError.value = '';
 
   try {
-    const { temp_path, task_id } = await fileStore.uploadFile(formData.value.file);
+    const { temp_path } = await fileStore.uploadFile(formData.value.file);
 
     const apiBaseUrl = useApiBaseUrl();
     const baseUrl = apiBaseUrl.replace(/\/api\/?$/, '');
@@ -159,7 +161,6 @@ async function uploadFileAndCreate() {
       formPayload.append('recording_session_id', String(props.recordingSessionId));
     if (props.repository?.id) formPayload.append('repository_id', String(props.repository.id));
     formPayload.append('link', publicUrl);
-    formPayload.append('celery_task_id', task_id);
 
     if (formData.value.spectrogram) {
       formPayload.append('spectrogram', formData.value.spectrogram as globalThis.File);
@@ -175,6 +176,12 @@ async function uploadFileAndCreate() {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Erreur upload ou file creation:', err);
+    const e = err as {
+      response?: { data?: { error?: string; detail?: string } };
+      message?: string;
+    };
+    uploadError.value =
+      e.response?.data?.error || e.response?.data?.detail || e.message || 'The upload failed.';
   } finally {
     uploading.value = false;
   }
@@ -345,53 +352,68 @@ onMounted(async () => {
         class="mb-3"
       />
 
-      <v-text-field
-        v-model="formData.date"
-        label="Recording Date"
-        type="date"
-        variant="outlined"
-        class="mb-3"
-      />
+      <v-row dense>
+        <v-col cols="12" sm="6">
+          <v-select
+            v-model="formData.format"
+            :items="FORMATS"
+            label="File Format"
+            variant="outlined"
+            class="mb-0"
+          />
+        </v-col>
+        <v-col cols="12" sm="6">
+          <v-text-field
+            v-model="formData.size"
+            label="File Size (bytes)"
+            type="number"
+            variant="outlined"
+            class="mb-0"
+          />
+        </v-col>
+      </v-row>
 
-      <v-text-field
-        v-model="formData.duration"
-        label="Duration (seconds)"
-        type="number"
-        variant="outlined"
-        class="mb-3"
-      />
+      <v-row dense>
+        <v-col cols="12" sm="6">
+          <v-text-field
+            v-model="formData.duration"
+            label="Duration (seconds)"
+            type="number"
+            variant="outlined"
+            class="mb-0"
+          />
+        </v-col>
+        <v-col cols="12" sm="6">
+          <v-text-field
+            v-model="formData.sampling_rate"
+            label="Sampling Rate (Hz)"
+            type="number"
+            variant="outlined"
+            class="mb-0"
+          />
+        </v-col>
+      </v-row>
 
-      <v-select
-        v-model="formData.format"
-        :items="FORMATS"
-        label="File Format"
-        variant="outlined"
-        class="mb-3"
-      />
-
-      <v-text-field
-        v-model="formData.sampling_rate"
-        label="Sampling Rate (Hz)"
-        type="number"
-        variant="outlined"
-        class="mb-3"
-      />
-
-      <v-select
-        v-model="formData.bit_depth"
-        :items="[8, 16, 24, 32]"
-        label="Bit Depth"
-        variant="outlined"
-        class="mb-3"
-      />
-
-      <v-text-field
-        v-model="formData.size"
-        label="File Size (bytes)"
-        type="number"
-        variant="outlined"
-        class="mb-3"
-      />
+      <v-row dense>
+        <v-col cols="12" sm="6">
+          <v-text-field
+            v-model="formData.date"
+            label="Recording Date"
+            type="date"
+            variant="outlined"
+            class="mb-0"
+          />
+        </v-col>
+        <v-col cols="12" sm="6">
+          <v-select
+            v-model="formData.bit_depth"
+            :items="[8, 16, 24, 32]"
+            label="Bit Depth"
+            variant="outlined"
+            class="mb-0"
+          />
+        </v-col>
+      </v-row>
 
       <!-- DOI -->
       <v-text-field
@@ -456,7 +478,7 @@ onMounted(async () => {
 
       <v-text-field
         v-model="formData.link"
-        label="Donwload Link (required if DOI is set)"
+        label="Download Link (required if DOI is set)"
         variant="outlined"
         class="mb-3"
         :disabled="isEditMode"
@@ -482,6 +504,14 @@ onMounted(async () => {
         correctly filled.
       </v-alert>
 
+      <v-alert v-if="uploadError" type="error" variant="tonal" class="mb-3">
+        {{ uploadError }}
+      </v-alert>
+
+      <p v-if="uploading" class="text-caption mb-1">
+        Sending the file to the server… {{ fileStore.uploadProgress }} %. Keep this window open; the
+        transfer to the repository then continues in the background.
+      </p>
       <v-progress-linear
         v-if="uploading"
         :model-value="fileStore.uploadProgress"

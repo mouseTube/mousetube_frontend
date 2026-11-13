@@ -124,9 +124,11 @@ async function publishSession(payload: any = null) {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(err);
-    publishError.value = 'Failed to start the deposit.';
+    const e = err as { response?: { data?: { detail?: string; error?: string } } };
+    publishError.value =
+      e.response?.data?.detail || e.response?.data?.error || 'Failed to start the deposit.';
     isPublishing.value = false;
-    showSnackbar('❌ Failed to start the deposit.', 'error');
+    showSnackbar(`❌ ${publishError.value}`, 'error');
   }
 }
 
@@ -174,6 +176,30 @@ async function pollPublishTask() {
   }, 3000);
 }
 
+// ---- FILE LINE: format · size · date · duration ----
+function formatSize(bytes?: number | null) {
+  if (!bytes) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0;
+  let value = bytes;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i++;
+  }
+  return `${value >= 10 || i === 0 ? Math.round(value) : value.toFixed(1)} ${units[i]}`;
+}
+function fileMeta(file: any) {
+  return [
+    file.format,
+    formatSize(file.size),
+    file.duration ? `${file.duration} s` : '',
+    file.sampling_rate ? `${file.sampling_rate / 1000} kHz` : '',
+    file.date,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 // ---- FILES POLLING ----
 function pollFileStatus(fileId: number) {
   if (pollingIntervals.has(fileId)) return;
@@ -181,7 +207,11 @@ function pollFileStatus(fileId: number) {
   const interval = setInterval(async () => {
     try {
       const res = await axios.get(`${apiBaseUrl}/file/${fileId}/status/`, getAuthHeaders());
-      fileStore.updateFileStatus(fileId, { status: res.data.status });
+      fileStore.updateFileStatus(fileId, {
+        status: res.data.status,
+        progress: res.data.progress,
+        error_message: res.data.error_message,
+      });
 
       if (['done', 'error'].includes(res.data.status)) {
         clearInterval(interval);
@@ -558,118 +588,134 @@ async function deleteFile() {
         </div>
       </v-card-title>
 
-      <!-- === FILES TABLE === -->
-      <v-table v-if="files.length > 0">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Date</th>
-            <th>Format</th>
-            <th>Size</th>
-            <th>Actions</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="file in files" :key="file.id">
-            <td>{{ file.name }}</td>
-            <td>{{ file.date }}</td>
-            <td>{{ file.format }}</td>
-            <td>{{ file.size ? file.size.toLocaleString() : '-' }}</td>
-            <td class="d-inline-flex align-center gap-1">
-              <v-tooltip location="top">
-                <template #activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon
-                    size="small"
-                    color="primary"
-                    variant="text"
-                    :disabled="file.status !== 'done' || publishDone"
-                    @click.stop="editFile(file)"
-                  >
-                    <v-icon>mdi-pencil</v-icon>
-                  </v-btn>
-                </template>
-                <span>Edit file</span>
-              </v-tooltip>
-              <v-tooltip location="top">
-                <template #activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon
-                    size="small"
-                    color="primary"
-                    variant="text"
-                    :disabled="file.status !== 'done' || !publishDone"
-                    @click="openFileLink(file.link)"
-                  >
-                    <v-icon>mdi-download</v-icon>
-                  </v-btn>
-                </template>
-                <span>Download</span>
-              </v-tooltip>
-              <!-- Delete (only error) -->
-              <v-tooltip location="top">
-                <template #activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon
-                    size="small"
-                    color="primary"
-                    variant="text"
-                    :disabled="publishDone"
-                    @click="confirmDelete(file.id)"
-                  >
-                    <v-icon>mdi-delete</v-icon>
-                  </v-btn>
-                </template>
-                <span>Delete file</span>
-              </v-tooltip>
-            </td>
+      <!-- === PUBLISH PROGRESS AND ERROR === -->
+      <div v-if="isPublishing" class="px-4 pb-3">
+        <div class="text-caption mb-1">Publishing in the repository… {{ publishProgress }} %</div>
+        <v-progress-linear :model-value="publishProgress" color="primary" height="6" rounded />
+      </div>
+      <v-alert v-if="publishError" type="error" variant="tonal" class="mx-4 mb-3" closable>
+        {{ publishError }} You can try again with the button above.
+      </v-alert>
 
-            <td>
-              <v-chip v-if="file.status === 'pending'" color="grey" label small>
-                ⏳ Pending
-              </v-chip>
+      <!-- === FILES === -->
+      <ul v-if="files.length > 0" class="file-list">
+        <li v-for="file in files" :key="file.id" class="file-row">
+          <div class="file-main">
+            <div class="file-name">{{ file.name }}</div>
+            <div class="file-meta">{{ fileMeta(file) }}</div>
 
-              <v-chip v-else-if="file.status === 'processing'" color="blue" label small>
-                🔄 Processing
-              </v-chip>
+            <div v-if="file.status === 'processing'" class="file-progress">
+              <v-progress-linear
+                :model-value="file.progress ?? 0"
+                :indeterminate="!file.progress"
+                color="primary"
+                height="6"
+                rounded
+              />
+              <span class="text-caption text-medium-emphasis">
+                Sending to {{ file.repository?.name ?? 'the repository' }}
+                <template v-if="file.progress">· {{ file.progress }} %</template>
+              </span>
+            </div>
+            <div v-else-if="file.status === 'error'" class="file-error">
+              {{
+                file.error_message || 'The file could not be sent. Delete it and upload it again.'
+              }}
+            </div>
+          </div>
 
-              <v-chip v-else-if="file.status === 'done' && !publishDone" color="green" label small>
-                ✅ Ready (unshared)
-              </v-chip>
+          <v-chip v-if="file.status === 'pending'" size="small" label variant="tonal">
+            <v-icon start size="16">mdi-clock-outline</v-icon>Pending
+          </v-chip>
+          <v-chip
+            v-else-if="file.status === 'processing'"
+            size="small"
+            label
+            variant="tonal"
+            color="primary"
+          >
+            <v-icon start size="16">mdi-cloud-upload-outline</v-icon>Sending
+          </v-chip>
+          <v-chip
+            v-else-if="file.status === 'done' && !publishDone"
+            size="small"
+            label
+            variant="tonal"
+            color="success"
+          >
+            <v-icon start size="16">mdi-check-circle-outline</v-icon>Ready
+          </v-chip>
+          <v-chip
+            v-else-if="file.status === 'done' && publishDone"
+            size="small"
+            label
+            variant="tonal"
+            color="teal"
+            :href="file.external_url || undefined"
+            target="_blank"
+            rel="noopener"
+          >
+            <v-icon start size="16">mdi-earth</v-icon>Shared
+            <v-icon v-if="file.external_url" end size="14">mdi-open-in-new</v-icon>
+          </v-chip>
+          <v-chip
+            v-else-if="file.status === 'error'"
+            size="small"
+            label
+            variant="tonal"
+            color="error"
+          >
+            <v-icon start size="16">mdi-alert-circle-outline</v-icon>Error
+          </v-chip>
 
-              <v-chip v-else-if="file.status === 'done' && publishDone" color="teal" label small>
-                <a
-                  :href="file.external_url || undefined"
-                  target="_blank"
-                  rel="noopener"
-                  class="ml-1 hover:opacity-80"
-                  style="text-decoration: none; color: inherit"
-                >
-                  🌍 Shared
-                </a>
-                <v-icon
-                  v-if="file.external_url"
-                  size="16"
-                  class="ml-1 cursor-pointer"
-                  @click.stop="openExternalUrl(file.external_url)"
-                >
-                  mdi-open-in-new
-                </v-icon>
-              </v-chip>
+          <div class="file-actions">
+            <v-tooltip location="top">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  icon="mdi-pencil-outline"
+                  size="small"
+                  variant="text"
+                  :disabled="file.status !== 'done' || publishDone"
+                  @click.stop="editFile(file)"
+                />
+              </template>
+              <span>Edit file</span>
+            </v-tooltip>
+            <v-tooltip location="top">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  icon="mdi-download-outline"
+                  size="small"
+                  variant="text"
+                  :disabled="file.status !== 'done' || !publishDone"
+                  @click="openFileLink(file.link)"
+                />
+              </template>
+              <span>Download</span>
+            </v-tooltip>
+            <v-tooltip location="top">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  icon="mdi-delete-outline"
+                  size="small"
+                  variant="text"
+                  :disabled="publishDone"
+                  @click="confirmDelete(file.id)"
+                />
+              </template>
+              <span>Delete file</span>
+            </v-tooltip>
+          </div>
+        </li>
+      </ul>
 
-              <v-chip v-else-if="file.status === 'error'" color="red" label small>
-                ❌ Error
-              </v-chip>
-            </td>
-          </tr>
-        </tbody>
-      </v-table>
-
-      <p v-else>No files found for this session.</p>
+      <p v-else class="file-empty">
+        No file yet. Add the recording files of this session: the metadata are filled in from the
+        file as far as possible.
+      </p>
 
       <v-pagination
         v-model="currentPageNumber"
@@ -750,5 +796,53 @@ async function deleteFile() {
 .share-pending {
   margin: 12px 0 0;
   padding-left: 18px;
+}
+
+/* the files: one rounded line each, like the choice cards of the other steps */
+.file-list {
+  list-style: none;
+  margin: 0 16px 16px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.file-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1.5px solid #e4e4e4;
+  border-radius: 16px;
+  background: #fff;
+}
+.file-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.file-meta {
+  font-size: 0.85rem;
+  color: #666;
+}
+.file-progress {
+  margin-top: 8px;
+  max-width: 420px;
+}
+.file-error {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: rgb(var(--v-theme-error));
+}
+.file-empty {
+  color: #666;
+  margin: 0 16px 16px;
+}
+@media (max-width: 600px) {
+  .file-row {
+    grid-template-columns: 1fr auto;
+  }
+  .file-actions {
+    grid-column: 1 / -1;
+  }
 }
 </style>
