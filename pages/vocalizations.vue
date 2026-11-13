@@ -18,6 +18,8 @@ import debounce from 'lodash-es/debounce';
 import { AudioLines } from '@lucide/vue';
 import { useAuth } from '@/composables/useAuth';
 import { useRouter } from 'vue-router';
+import ListFilters from '@/components/ListFilters.vue';
+import ActiveFilters from '@/components/ActiveFilters.vue';
 
 const { currentUser, token, id_user, fetchUser } = useAuth();
 
@@ -33,14 +35,20 @@ const previous = ref(null);
 const count = ref(0);
 const currentPage = ref(1);
 const perPage = ref(10);
+const emptyFilters = () => ({
+  valid_link: true,
+  species: [],
+  sex: [],
+  age: [],
+  file_format: [],
+  repository: [],
+});
+const filters = ref(emptyFilters());
+const filterOptions = ref({ species: [], sex: [], age: [], format: [], repository: [] });
 const showFilters = ref(false);
-const filters = ref(['is_valid_link']);
 const apiBaseUrl = useApiBaseUrl();
 const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
 const viewMode = ref('cards');
-const showFiltersMobile = ref(false);
-const showFiltersDesktop = ref(false);
-const isDesktop = ref(window.innerWidth >= 960);
 const userProfile = ref(null);
 const router = useRouter();
 
@@ -48,10 +56,64 @@ const router = useRouter();
 // METHODS
 ////////////////////////////////
 
-function updateIsDesktop() {
-  isDesktop.value = window.innerWidth >= 960;
-  if (!isDesktop.value) {
-    showFiltersDesktop.value = false;
+/** The URL of the list for the search, the filters and a page (the first one by default). */
+const buildUrl = (page = 1) => {
+  const params = new URLSearchParams({ page_size: perPage.value, page });
+  if (search.value) params.set('search', search.value);
+  if (filters.value.valid_link) params.set('filter', 'is_valid_link');
+  for (const [name, values] of Object.entries(filters.value)) {
+    if (Array.isArray(values) && values.length) params.set(name, values.join(','));
+  }
+  return `${apiBaseUrl}/file/?${params}`;
+};
+
+const resetFilters = () => {
+  filters.value = emptyFilters();
+};
+const filterToggles = [
+  {
+    key: 'valid_link',
+    label: 'Only files that can be downloaded',
+    chip: 'Including files without a download link',
+    default: true,
+  },
+];
+const filterGroups = computed(() => [
+  {
+    key: 'species',
+    title: 'Species',
+    icon: 'mdi-paw',
+    options: filterOptions.value.species,
+    labels: { 'Mus musculus': 'Mouse', 'Rattus norvegicus': 'Rat' },
+  },
+  { key: 'sex', title: 'Sex', icon: 'mdi-gender-male-female', options: filterOptions.value.sex },
+  {
+    key: 'age',
+    title: 'Age',
+    icon: 'mdi-timeline-clock-outline',
+    options: filterOptions.value.age,
+  },
+  {
+    key: 'file_format',
+    title: 'File format',
+    icon: 'mdi-file-music-outline',
+    options: filterOptions.value.format,
+  },
+  {
+    key: 'repository',
+    title: 'Repository',
+    icon: 'mdi-database-outline',
+    options: filterOptions.value.repository,
+  },
+]);
+const activeFilters = ref(null);
+
+async function fetchFilterOptions() {
+  try {
+    filterOptions.value = (await axios.get(`${apiBaseUrl}/file/filters/`)).data;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('error while loading the filter options :', error);
   }
 }
 
@@ -59,9 +121,7 @@ function updateIsDesktop() {
  * Fetch files from the API
  * @param {string} url - The URL to fetch data from
  */
-const fetchFiles = async (
-  url = `${apiBaseUrl}/file/?page_size=${perPage.value}&filter=${filters.value.join(',')}`
-) => {
+const fetchFiles = async (url = buildUrl()) => {
   dataLoaded.value = false;
   try {
     const response = await axios.get(url);
@@ -83,35 +143,15 @@ const fetchFiles = async (
  * @param {string} searchTerm - The search term to filter files
  */
 const onSearch = debounce(() => {
-  fetchFiles(
-    `${apiBaseUrl}/file/?search=${encodeURIComponent(search.value)}&page_size=${perPage.value}&filter=${filters.value.join(',')}`
-  );
+  fetchFiles(buildUrl());
 }, 600);
-
-const toggleFilter = (filterName) => {
-  const index = filters.value.indexOf(filterName);
-  if (index > -1) {
-    filters.value.splice(index, 1);
-  } else {
-    filters.value.push(filterName);
-  }
-  onSearch();
-};
 
 const incrementDownloads = async (fileId, fileLink) => {
   try {
-    const response = await axios.patch(`${apiBaseUrl}/file/${fileId}/`, {
-      downloads: 'increment',
-    });
-
-    if (response.status === 200) {
-      const updatedFile = response.data;
-      // Update the downloads count in the local files array
-      const fileIndex = files.value.findIndex((file) => file.id === fileId);
-      if (fileIndex !== -1) {
-        files.value[fileIndex].downloads = updatedFile.downloads;
-      }
-    }
+    // open to visitors too; the server counts a visitor once per file and hour
+    const { data } = await axios.post(`${apiBaseUrl}/file/${fileId}/download/`);
+    const file = files.value.find((f) => f.id === fileId);
+    if (file) file.downloads = data.downloads;
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Error updating downloads:', error);
@@ -123,13 +163,8 @@ const incrementDownloads = async (fileId, fileLink) => {
 
 const lastPage = computed(() => Math.ceil(count.value / perPage.value));
 
-const lastPageUrl = computed(() => {
-  return `${apiBaseUrl}/file/?page=${lastPage.value}&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`;
-});
-
-const firstPageUrl = computed(() => {
-  return `${apiBaseUrl}/file/?page=1&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`;
-});
+const lastPageUrl = computed(() => buildUrl(lastPage.value));
+const firstPageUrl = computed(() => buildUrl(1));
 
 async function fetchUserProfile() {
   if (!id_user.value || !token.value) return;
@@ -167,6 +202,14 @@ watch(perPage, async () => {
   await fetchFiles();
 });
 
+watch(
+  filters,
+  async () => {
+    await fetchFiles();
+  },
+  { deep: true }
+);
+
 watch(search, async (newSearch) => {
   if (newSearch === null) {
     search.value = '';
@@ -179,13 +222,10 @@ watch(search, async (newSearch) => {
 ////////////////////////////////
 
 onMounted(async () => {
+  fetchFilterOptions();
   await loadUserPreferences();
-  window.addEventListener('resize', updateIsDesktop);
 });
 
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateIsDesktop);
-});
 // Ontology terms attached to a file: the animals (sex, stage, treatment) and the session
 // (behaviors recorded), each linking to its definition.
 const termsOf = (file) => {
@@ -246,47 +286,18 @@ const facts = (file) => {
   <v-main>
     <v-container fluid>
       <v-row>
-        <!-- Drawer Mobile -->
-        <v-navigation-drawer
-          v-model="showFiltersMobile"
-          location="left"
-          temporary
-          class="d-md-none"
-        >
-          <v-sheet color="grey-lighten-4" class="pa-4">
-            <div class="d-flex justify-space-between align-center mb-2">
-              <h3 class="text-subtitle-1 mb-2">Filters</h3>
-              <v-chip v-if="count > 0" class="me-1 my-1 mx-2">{{ count }}</v-chip>
-            </div>
-            <v-checkbox
-              :model-value="filters.includes('is_valid_link')"
-              @change="() => toggleFilter('is_valid_link')"
-              label="Valid links"
-              density="compact"
-              hide-details
-              class="py-0"
-            />
-          </v-sheet>
+        <!-- Filters -->
+        <v-navigation-drawer v-model="showFilters" location="left" temporary width="360">
+          <ListFilters
+            v-model="filters"
+            :groups="filterGroups"
+            :toggles="filterToggles"
+            noun="vocalization(s)"
+            :total="count"
+            @reset="resetFilters"
+            @close="showFilters = false"
+          />
         </v-navigation-drawer>
-
-        <!-- Sidebar desktop (panel filtre) -->
-        <v-sheet v-if="showFiltersDesktop && isDesktop" class="filter-overlay" elevation="8">
-          <v-btn
-            icon="mdi-close"
-            @click="showFiltersDesktop = false"
-            variant="text"
-            aria-label="Close filter panel"
-          />
-          <h3>Filters</h3>
-          <v-checkbox
-            :model-value="filters.includes('is_valid_link')"
-            @change="() => toggleFilter('is_valid_link')"
-            label="Valid links"
-            density="compact"
-            hide-details
-            class="py-0"
-          />
-        </v-sheet>
         <v-col>
           <v-card variant="flat" class="mx-auto" max-width="1000">
             <div class="d-flex align-center justify-space-between mt-1 mb-4">
@@ -328,7 +339,13 @@ const facts = (file) => {
                 hide-details
                 :autofocus="true"
               />
-              <v-spacer></v-spacer>
+              <ActiveFilters
+                ref="activeFilters"
+                v-model="filters"
+                :groups="filterGroups"
+                :toggles="filterToggles"
+                @reset="resetFilters"
+              />
               <v-btn
                 icon
                 variant="text"
@@ -349,15 +366,21 @@ const facts = (file) => {
                 :menu-props="{ contentClass: 'select-dropdown-zfix' }"
                 hide-details
               />
-              <v-btn
-                icon="mdi-filter-variant"
-                @click="
-                  isDesktop
-                    ? (showFiltersDesktop = !showFiltersDesktop)
-                    : (showFiltersMobile = true)
-                "
-                variant="text"
-              />
+              <v-badge
+                :content="activeFilters?.total"
+                :model-value="!!activeFilters?.total"
+                color="primary"
+                offset-x="6"
+                offset-y="6"
+                class="me-2"
+              >
+                <v-btn
+                  icon="mdi-filter-variant"
+                  variant="text"
+                  aria-label="Filters"
+                  @click="showFilters = !showFilters"
+                />
+              </v-badge>
             </v-toolbar>
             <!-- Loading spinner  -->
             <v-progress-circular
@@ -919,47 +942,11 @@ const facts = (file) => {
 .ror-link:hover {
   text-decoration: underline;
 }
-.filter-overlay {
-  position: fixed;
-  top: 80px;
-  left: 20px;
-  width: 320px;
-  max-height: calc(100vh - 100px);
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  padding: 24px 24px 32px;
-  z-index: 1500;
-  overflow-y: auto;
-  transition:
-    transform 0.25s ease,
-    opacity 0.25s ease;
 }
-
-.filter-overlay .v-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  color: #666;
-  transition: color 0.2s ease;
 }
-
-.filter-overlay .v-btn:hover {
-  color: #d32f2f;
 }
-
-.filter-overlay h3 {
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 20px;
-  user-select: none;
 }
-
-.filter-overlay .v-select {
-  --v-theme-primary: #d32f2f;
-  margin-top: 0 !important;
 }
-
 .hover-effect:hover {
   transform: scale(1.05);
   background-color: #f7e2e2;

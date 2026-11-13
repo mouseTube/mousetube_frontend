@@ -17,6 +17,8 @@ import debounce from 'lodash-es/debounce';
 import { Mic, MicVocal, Speaker, BoomBox, Microchip } from '@lucide/vue';
 import { useAuth } from '@/composables/useAuth';
 import { useRouter } from 'vue-router';
+import ListFilters from '@/components/ListFilters.vue';
+import ActiveFilters from '@/components/ActiveFilters.vue';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
 
 const { currentUser, token, id_user, fetchUser } = useAuth();
@@ -32,13 +34,18 @@ const count = ref(0);
 const currentPage = ref(1);
 const perPage = ref(10);
 const showFilters = ref(false);
-const filters = ref(['all']);
+const emptyFilters = () => ({
+  type: [],
+  used: false,
+  documented: false,
+  favorites: false,
+  mine: false,
+});
+const filters = ref(emptyFilters());
+const activeFilters = ref(null);
 const apiBaseUrl = useApiBaseUrl();
 const search = ref('');
 const viewMode = ref('cards');
-const showFiltersMobile = ref(false);
-const showFiltersDesktop = ref(false);
-const isDesktop = ref(window.innerWidth >= 960);
 const userProfile = ref(null);
 const router = useRouter();
 const showHardwareModal = ref(false);
@@ -62,23 +69,49 @@ function onHardwareSaved(hardwareId) {
   }
 }
 
-function updateIsDesktop() {
-  isDesktop.value = window.innerWidth >= 960;
-  if (!isDesktop.value) {
-    showFiltersDesktop.value = false;
+/** The URL of the list for the search, the filters and a page (the first one by default). */
+const buildUrl = (page = 1) => {
+  const params = new URLSearchParams({ page_size: perPage.value, page });
+  if (search.value) params.set('search', search.value);
+  if (filters.value.type.length) params.set('type', filters.value.type.join(','));
+  for (const name of ['used', 'documented', 'favorites', 'mine']) {
+    if (filters.value[name]) params.set(name, '1');
   }
-}
+  // the list shows what was validated; "my entries" also shows the drafts of the user
+  if (!filters.value.mine) params.set('status', 'validated');
+  return `${apiBaseUrl}/hardware/?${params}`;
+};
 
-/**
- * Fetch hardware data from the API
- * @param {string} url - The URL to fetch hardware data from
- */
-const fetchHardware = async (
-  url = `${apiBaseUrl}/hardware/?page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}&status=validated`
-) => {
+const resetFilters = () => {
+  filters.value = emptyFilters();
+};
+const filterToggles = computed(() => [
+  { key: 'used', label: 'Used in vocalizations', default: false },
+  { key: 'documented', label: 'With documentation', default: false },
+  ...(currentUser.value
+    ? [
+        { key: 'favorites', label: 'My favorites', default: false },
+        { key: 'mine', label: 'My entries (with drafts)', default: false },
+      ]
+    : []),
+]);
+const filterGroups = [
+  {
+    key: 'type',
+    title: 'Type',
+    icon: 'mdi-shape-outline',
+    options: ['microphone', 'speaker', 'soundcard', 'amplifier'],
+  },
+];
+
+const fetchHardware = async (url = buildUrl()) => {
   dataLoaded.value = false;
   try {
-    const response = await axios.get(url);
+    // signed in: the server also knows who asks (favorites, own entries)
+    const response = await axios.get(
+      url,
+      token.value ? { headers: { Authorization: `Bearer ${token.value}` } } : {}
+    );
     hardwareList.value = response.data.results;
     next.value = response.data.next;
     previous.value = response.data.previous;
@@ -97,20 +130,12 @@ const fetchHardware = async (
  * @param {string} searchTerm - The search term to filter hardware
  */
 const onSearch = debounce(() => {
-  fetchHardware(
-    `${apiBaseUrl}/hardware/?search=${encodeURIComponent(search.value)}&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`
-  );
+  fetchHardware(buildUrl());
 }, 600);
 
 const lastPage = computed(() => Math.ceil(count.value / perPage.value));
-
-const lastPageUrl = computed(() => {
-  return `${apiBaseUrl}/hardware/?page=${lastPage.value}&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`;
-});
-
-const firstPageUrl = computed(() => {
-  return `${apiBaseUrl}/hardware/?page=1&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`;
-});
+const lastPageUrl = computed(() => buildUrl(lastPage.value));
+const firstPageUrl = computed(() => buildUrl(1));
 
 async function fetchUserProfile() {
   if (!id_user.value || !token.value) return;
@@ -156,21 +181,15 @@ watch(search, async (newSearch) => {
 });
 
 // Watch filters value and trigger fetchHardware
-watch(filters, () => {
-  fetchHardware();
-});
 
 //////////////////////////////
 // ON MOUNTED
 //////////////////////////////
 // Fetch hardware when the component is mounted
+watch(filters, () => fetchHardware(), { deep: true });
+
 onMounted(async () => {
   await loadUserPreferences();
-  window.addEventListener('resize', updateIsDesktop);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateIsDesktop);
 });
 </script>
 
@@ -178,47 +197,19 @@ onBeforeUnmount(() => {
   <v-main>
     <v-container fluid>
       <v-row>
-        <!-- Drawer Mobile -->
-        <v-navigation-drawer
-          v-model="showFiltersMobile"
-          location="left"
-          temporary
-          class="d-md-none"
-        >
-          <v-sheet color="grey-lighten-4" class="pa-4">
-            <div class="d-flex justify-space-between align-center mb-2">
-              <h3 class="text-subtitle-1 mb-2">Filters</h3>
-              <v-chip v-if="count > 0" class="me-1 my-1 mx-2">{{ count }}</v-chip>
-            </div>
-            <v-select
-              v-model="filters"
-              :items="['all', 'microphone', 'soundcard', 'speaker', 'amplifier']"
-              label="Filter by Hardware Type"
-              dense
-              hide-details
-              class="py-0"
-            />
-          </v-sheet>
+        <!-- Filters -->
+        <v-navigation-drawer v-model="showFilters" location="left" temporary width="360">
+          <ListFilters
+            v-model="filters"
+            :groups="filterGroups"
+            :toggles="filterToggles"
+            noun="hardware"
+            :total="count"
+            @reset="resetFilters"
+            @close="showFilters = false"
+          />
         </v-navigation-drawer>
 
-        <!-- Sidebar desktop (panel filtre) -->
-        <v-sheet v-if="showFiltersDesktop && isDesktop" class="filter-overlay" elevation="8">
-          <v-btn
-            icon="mdi-close"
-            @click="showFiltersDesktop = false"
-            variant="text"
-            aria-label="Close filter panel"
-          />
-          <h3>Filters</h3>
-          <v-select
-            v-model="filters"
-            :items="['all', 'microphone', 'soundcard', 'speaker', 'amplifier']"
-            label="Filter by Hardware Type"
-            dense
-            hide-details
-            class="py-0"
-          />
-        </v-sheet>
         <v-col>
           <v-card variant="flat" class="mx-auto" max-width="1000">
             <div class="d-flex align-center justify-space-between mt-1 mb-4">
@@ -260,7 +251,13 @@ onBeforeUnmount(() => {
                 style="max-width: 300px"
                 variant="solo"
               ></v-text-field>
-              <v-spacer></v-spacer>
+              <ActiveFilters
+                ref="activeFilters"
+                v-model="filters"
+                :groups="filterGroups"
+                :toggles="filterToggles"
+                @reset="resetFilters"
+              />
 
               <v-btn
                 icon
@@ -285,15 +282,21 @@ onBeforeUnmount(() => {
                 hide-details
               />
 
-              <v-btn
-                icon="mdi-filter-variant"
-                @click="
-                  isDesktop
-                    ? (showFiltersDesktop = !showFiltersDesktop)
-                    : (showFiltersMobile = true)
-                "
-                variant="text"
-              />
+              <v-badge
+                :content="activeFilters?.total"
+                :model-value="!!activeFilters?.total"
+                color="primary"
+                offset-x="6"
+                offset-y="6"
+                class="me-2"
+              >
+                <v-btn
+                  icon="mdi-filter-variant"
+                  variant="text"
+                  aria-label="Filters"
+                  @click="showFilters = !showFilters"
+                />
+              </v-badge>
             </v-toolbar>
 
             <!-- Loading spinner  -->
@@ -533,47 +536,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.filter-overlay {
-  position: fixed;
-  top: 80px;
-  left: 20px;
-  width: 320px;
-  max-height: calc(100vh - 100px);
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  padding: 24px 24px 32px;
-  z-index: 1500;
-  overflow-y: auto;
-  transition:
-    transform 0.25s ease,
-    opacity 0.25s ease;
-}
-
-.filter-overlay .v-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  color: #666;
-  transition: color 0.2s ease;
-}
-
-.filter-overlay .v-btn:hover {
-  color: #d32f2f;
-}
-
-.filter-overlay h3 {
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 20px;
-  user-select: none;
-}
-
-.filter-overlay .v-select {
-  --v-theme-primary: #d32f2f;
-  margin-top: 0 !important;
-}
-
 .hover-effect:hover {
   transform: scale(1.05);
   background-color: #f7e2e2;
