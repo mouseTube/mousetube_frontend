@@ -36,6 +36,35 @@ const links = [
 
 const isMenuOpen = ref(false);
 
+// what can be added: a title and a line saying what it is for
+const addItems = [
+  {
+    key: 'vocalization',
+    title: 'Vocalization',
+    text: 'Describe a recording and upload its files.',
+    icon: AudioLines,
+    run: () => refreshPage(),
+  },
+  {
+    key: 'software',
+    title: 'Software',
+    text: 'A tool used to record or analyse vocalizations.',
+    icon: MonitorCog,
+    run: () => openSoftwareModal(),
+  },
+  {
+    key: 'hardware',
+    title: 'Hardware',
+    text: 'A microphone, soundcard, speaker or amplifier.',
+    icon: Mic,
+    run: () => openHardwareModal(),
+  },
+];
+const chooseAdd = (item) => {
+  isMenuOpen.value = false;
+  item.run();
+};
+
 const handleLogout = async () => {
   logout();
   router.push('/account/login');
@@ -116,7 +145,7 @@ function refreshPage() {
       <!-- Login button -->
       <v-col cols="auto" v-if="!smAndDown" class="d-flex align-center flex-nowrap">
         <template v-if="currentUser">
-          <v-menu v-model="isMenuOpen" offset-y>
+          <v-menu v-model="isMenuOpen" location="bottom end" :offset="10" content-class="add-menu">
             <template #activator="{ props }">
               <v-btn
                 color="white"
@@ -133,26 +162,31 @@ function refreshPage() {
               </v-btn>
             </template>
 
-            <v-list bg-color="black" class="text-white">
-              <v-list-item @click="refreshPage">
-                <template #prepend>
-                  <AudioLines size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
-                </template>
-                <v-list-item-title>Vocalization</v-list-item-title>
-              </v-list-item>
-              <v-list-item @click="() => openSoftwareModal()">
-                <template #prepend>
-                  <MonitorCog size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
-                </template>
-                <v-list-item-title>Software</v-list-item-title>
-              </v-list-item>
-              <v-list-item @click="() => openHardwareModal()">
-                <template #prepend>
-                  <Mic size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
-                </template>
-                <v-list-item-title>Hardware</v-list-item-title>
-              </v-list-item>
-            </v-list>
+            <div class="add-panel">
+              <div class="add-title">Add to mouseTube</div>
+              <button
+                v-for="item in addItems"
+                :key="item.key"
+                type="button"
+                class="add-item"
+                @click="chooseAdd(item)"
+              >
+                <span class="add-icon"><component :is="item.icon" size="20" /></span>
+                <span class="add-text">
+                  <strong>{{ item.title }}</strong>
+                  <span>{{ item.text }}</span>
+                </span>
+                <v-icon size="18" class="add-go">mdi-chevron-right</v-icon>
+              </button>
+              <nuxt-link
+                to="/account/details?tab=vocalizations"
+                class="add-foot"
+                @click="isMenuOpen = false"
+              >
+                <v-icon size="16">mdi-folder-open-outline</v-icon>
+                Pick up one of my drafts
+              </nuxt-link>
+            </div>
           </v-menu>
           <nuxt-link
             to="/account/details"
@@ -521,5 +555,98 @@ function refreshPage() {
 .nav-item {
   display: inline-flex;
   align-items: center;
+}
+</style>
+
+<style>
+/* the menu of the "Add" button (rendered in an overlay, so not scoped) */
+.add-menu.v-overlay__content {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+.add-panel {
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  padding: 8px;
+  background: #fff;
+  color: #111;
+}
+.add-title {
+  padding: 8px 12px 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #777;
+}
+.add-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.add-item:hover,
+.add-item:focus-visible {
+  background: #f4f4f4;
+  outline: none;
+}
+.add-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #fbeaea;
+  color: rgb(var(--v-theme-primary));
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.add-item:hover .add-icon,
+.add-item:focus-visible .add-icon {
+  background: rgb(var(--v-theme-primary));
+  color: #fff;
+}
+.add-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.add-text strong {
+  font-size: 0.98rem;
+}
+.add-text span {
+  font-size: 0.82rem;
+  color: #666;
+}
+.add-go {
+  color: #aaa;
+}
+.add-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 4px 2px;
+  padding: 10px 12px;
+  border-top: 1px solid #eee;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444 !important;
+  text-decoration: none;
+}
+.add-foot:hover {
+  color: rgb(var(--v-theme-primary)) !important;
 }
 </style>
