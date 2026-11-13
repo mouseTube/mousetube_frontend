@@ -1,4 +1,5 @@
 <script setup>
+import OrcidIcon from '@/components/OrcidIcon.vue';
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
@@ -300,7 +301,7 @@ onMounted(async () => {
               reloading this page does not renew it. Sign in with ORCID again to continue.
               <div class="mt-2">
                 <v-btn size="small" color="success" variant="outlined" @click="restartOrcid">
-                  <v-icon start>mdi-orcid</v-icon>
+                  <v-icon start :icon="OrcidIcon" />
                   Sign in with ORCID again
                 </v-btn>
               </div>
@@ -347,7 +348,7 @@ onMounted(async () => {
             readonly
             variant="outlined"
             density="comfortable"
-            prepend-inner-icon="mdi-orcid"
+            :prepend-inner-icon="OrcidIcon"
             hint="Verified by ORCID"
             persistent-hint
             :error-messages="errors.orcid"

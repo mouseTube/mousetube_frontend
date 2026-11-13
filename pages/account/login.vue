@@ -1,4 +1,5 @@
 <script setup>
+import OrcidIcon from '@/components/OrcidIcon.vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -242,7 +243,7 @@ onMounted(() => {
             size="large"
             @click="redirectToOrcid"
           >
-            <v-icon start>mdi-orcid</v-icon>
+            <v-icon start :icon="OrcidIcon" />
             Log in with ORCID
           </v-btn>
           <p class="text-caption text-center mt-2 mb-0" style="color: #666">

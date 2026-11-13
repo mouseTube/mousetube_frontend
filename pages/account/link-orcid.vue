@@ -1,4 +1,5 @@
 <script setup>
+import OrcidIcon from '@/components/OrcidIcon.vue';
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
@@ -66,7 +67,7 @@ const cancelLink = () => {
       "
     >
       <v-card-title class="text-h6 font-weight-medium mb-4 d-flex align-center">
-        <v-icon color="green darken-2" size="28" class="mr-2">mdi-orcid</v-icon>
+        <v-icon color="green darken-2" size="28" class="mr-2" :icon="OrcidIcon" />
         Link your ORCID account
       </v-card-title>
 

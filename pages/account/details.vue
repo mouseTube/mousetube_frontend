@@ -1,4 +1,5 @@
 <script setup>
+import OrcidIcon from '@/components/OrcidIcon.vue';
 ////////////////////////////
 // IMPORTS
 ////////////////////////////
@@ -297,7 +298,6 @@ watch(
           <span class="title-bar" aria-hidden="true"></span>
           <span class="text-overline">Account</span>
         </div>
-        <h1>My account</h1>
 
         <!-- Who you are -->
         <v-card variant="outlined" rounded="xl" class="profile-head mt-4 pa-5">
@@ -307,7 +307,7 @@ watch(
             </v-avatar>
             <div class="flex-grow-1">
               <div class="d-flex align-center flex-wrap ga-2">
-                <span class="text-h6 font-weight-bold">{{ displayName }}</span>
+                <h1 class="text-h6 font-weight-bold">{{ displayName }}</h1>
                 <v-chip v-if="isStaff" size="small" variant="tonal" color="primary" label>
                   Administrator
                 </v-chip>
@@ -339,14 +339,14 @@ watch(
                 color="success"
                 label
               >
-                <v-icon start size="16">mdi-orcid</v-icon>
+                <v-icon start size="16" :icon="OrcidIcon" />
                 {{ userProfile.orcid }}
               </v-chip>
               <v-btn
                 v-else-if="userProfile"
                 size="small"
                 variant="outlined"
-                prepend-icon="mdi-orcid"
+                :prepend-icon="OrcidIcon"
                 @click="linkOrcid"
               >
                 Link my ORCID
