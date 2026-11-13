@@ -263,7 +263,10 @@ function isFieldReadOnly(field: FieldSchema) {
               </h3>
 
               <template v-for="key in section.keys" :key="key">
-                <template v-for="field in [schema!.properties[key]]" :key="key">
+                <template
+                  v-for="(field, fieldIndex) in [schema!.properties[key]]"
+                  :key="fieldIndex"
+                >
                   <!-- text -->
                   <v-text-field
                     v-if="field.type === 'string' && !field.enum && field.format !== 'textarea'"

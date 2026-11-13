@@ -198,7 +198,7 @@ async function confirmDelete() {
       if (remainingVersions.length) {
         onVersionSelected(softwareId, remainingVersions.at(-1)!);
       } else {
-        delete selectedVersionBySoftware.value[softwareId];
+        Reflect.deleteProperty(selectedVersionBySoftware.value, softwareId);
         selectedSoftwareIds.value = selectedSoftwareIds.value.filter((id) => id !== softwareId);
         internalSelectedVersionIds.value = internalSelectedVersionIds.value.filter(
           (id) => id !== deletedVersionId
@@ -225,7 +225,7 @@ async function confirmDeleteSoftware() {
   selectedSoftwareIds.value = selectedSoftwareIds.value.filter(
     (id) => id !== deleteSoftwareTarget.value!.id
   );
-  delete selectedVersionBySoftware.value[deleteSoftwareTarget.value.id];
+  Reflect.deleteProperty(selectedVersionBySoftware.value, deleteSoftwareTarget.value.id);
   internalSelectedVersionIds.value = internalSelectedVersionIds.value.filter(
     (id) =>
       !groupedSoftware.value.some(

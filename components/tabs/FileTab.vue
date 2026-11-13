@@ -350,9 +350,6 @@ function openFileLink(link: string) {
   window.open(link, '_blank');
 }
 
-function openExternalUrl(url?: string | null) {
-  if (url) window.open(url, '_blank');
-}
 function fetchPage(page: number) {
   if (!props.selectedRecordingSessionId) return;
   currentPageNumber.value = page;
@@ -418,9 +415,9 @@ async function deleteFile() {
               <div class="text-subtitle-1 font-weight-medium">Repository selection</div>
 
               <v-menu>
-                <template #activator="{ props }">
+                <template #activator="{ props: activatorProps }">
                   <v-btn
-                    v-bind="props"
+                    v-bind="activatorProps"
                     variant="outlined"
                     color="primary"
                     class="text-none"
@@ -703,9 +700,9 @@ async function deleteFile() {
 
           <div class="entry-actions">
             <v-tooltip location="top">
-              <template #activator="{ props }">
+              <template #activator="{ props: activatorProps }">
                 <v-btn
-                  v-bind="props"
+                  v-bind="activatorProps"
                   icon="mdi-pencil-outline"
                   size="small"
                   variant="text"
@@ -716,9 +713,9 @@ async function deleteFile() {
               <span>Edit file</span>
             </v-tooltip>
             <v-tooltip location="top">
-              <template #activator="{ props }">
+              <template #activator="{ props: activatorProps }">
                 <v-btn
-                  v-bind="props"
+                  v-bind="activatorProps"
                   icon="mdi-download-outline"
                   size="small"
                   variant="text"
@@ -729,9 +726,9 @@ async function deleteFile() {
               <span>Download</span>
             </v-tooltip>
             <v-tooltip location="top">
-              <template #activator="{ props }">
+              <template #activator="{ props: activatorProps }">
                 <v-btn
-                  v-bind="props"
+                  v-bind="activatorProps"
                   icon="mdi-delete-outline"
                   size="small"
                   variant="text"

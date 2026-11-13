@@ -18,7 +18,7 @@ export function useAuth() {
     if (token.value) {
       try {
         await fetchUser();
-      } catch (e) {
+      } catch {
         console.warn('[auth] Token invalid, logging out');
         logout();
       }
@@ -80,9 +80,9 @@ export function useAuth() {
       await favoriteStore.fetchAllFavorites();
 
       return true;
-    } catch (error: any) {
+    } catch (error) {
       logout();
-      throw new Error('Invalid token');
+      throw new Error('Invalid token', { cause: error });
     }
   };
 

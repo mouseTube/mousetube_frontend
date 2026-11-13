@@ -240,7 +240,7 @@ async function submit() {
     }
     emit('saved');
     emit('update:modelValue', false);
-  } catch (e) {
+  } catch {
     snackbarMessage.value = store.error ?? 'Error saving software';
     snackbar.value = true;
   } finally {
@@ -353,16 +353,16 @@ onMounted(async () => {
           <v-card-subtitle class="mb-2">References</v-card-subtitle>
           <div class="chip-list d-flex flex-wrap align-center mb-4">
             <v-chip
-              v-for="ref in selectedReferences"
-              :key="ref.id"
+              v-for="reference in selectedReferences"
+              :key="reference.id"
               variant="outlined"
               closable
               class="ma-1"
               @click:close="
-                selectedReferenceIds = selectedReferenceIds.filter((id) => id !== ref.id)
+                selectedReferenceIds = selectedReferenceIds.filter((id) => id !== reference.id)
               "
             >
-              {{ ref.name }}
+              {{ reference.name }}
             </v-chip>
 
             <v-chip color="primary" variant="flat" class="ma-1" @click="showReferenceModal = true">

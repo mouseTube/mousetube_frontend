@@ -3,7 +3,6 @@ import PickerFrame from '@/components/modals/PickerFrame.vue';
 import { ref, watch, computed } from 'vue';
 import debounce from 'lodash-es/debounce';
 import { useProtocolStore, type Protocol } from '@/stores/protocol';
-import type { DataTableSortItem } from 'vuetify';
 import { useAuth } from '@/composables/useAuth';
 import { useFavoriteStore } from '@/stores/favorite';
 
@@ -73,10 +72,6 @@ const headers = [
   { title: 'Status', key: 'status', sortable: false },
   { title: 'Actions', key: 'actions', sortable: false },
 ];
-
-const fieldMap: Record<string, string> = {
-  name: 'name',
-};
 
 // ----------------------
 // Computed
@@ -240,8 +235,12 @@ function close() {
           </v-btn>
 
           <v-menu offset-y>
-            <template #activator="{ props }">
-              <v-btn v-bind="props" variant="tonal" class="split-btn-right match-search-height">
+            <template #activator="{ props: activatorProps }">
+              <v-btn
+                v-bind="activatorProps"
+                variant="tonal"
+                class="split-btn-right match-search-height"
+              >
                 <v-icon>mdi-chevron-down</v-icon>
               </v-btn>
             </template>
@@ -513,14 +512,14 @@ function close() {
   <!-- Snackbars -->
   <v-snackbar v-model="snackbarSuccess" color="green" timeout="3000">
     {{ successMessage }}
-    <template #actions="{ isActive }">
+    <template #actions>
       <v-btn variant="text" @click="snackbarSuccess = false">Close</v-btn>
     </template>
   </v-snackbar>
 
   <v-snackbar v-model="snackbarError" color="red" timeout="5000">
     {{ errorMessage }}
-    <template #actions="{ isActive }">
+    <template #actions>
       <v-btn variant="text" @click="snackbarError = false">Close</v-btn>
     </template>
   </v-snackbar>

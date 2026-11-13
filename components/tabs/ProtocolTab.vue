@@ -580,7 +580,7 @@ onMounted(async () => {
       @update:model-value="handleProtocolSelection"
       :disabled="sessionLocked"
     >
-      <template #selection="{ item, index }">
+      <template #selection>
         <span>
           {{
             selectedProtocolObject?.name ||

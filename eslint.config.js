@@ -16,7 +16,7 @@ export default createConfigForNuxt({
     'vue/v-bind-style': 'off',
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/no-unused-vars': 'warn',
-    'vue/valid-v-slot': 'warn',
+    'vue/valid-v-slot': ['warn', { allowModifiers: true }], // Vuetify slots like #item.name
     'vue/no-unused-vars': 'warn',
     'vue/no-mutating-props': 'warn',
     'vue/valid-v-for': 'warn',

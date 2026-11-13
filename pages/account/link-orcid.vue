@@ -1,6 +1,6 @@
 <script setup>
 import OrcidIcon from '@/components/OrcidIcon.vue';
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
@@ -17,7 +17,6 @@ const orcid = route.query.orcid;
 const orcidProof = route.query.orcid_proof; // signed by the API after the ORCID login
 const firstName = route.query.first_name;
 const lastName = route.query.last_name;
-const userId = route.query.user_id;
 
 const confirmLink = async () => {
   loading.value = true;

@@ -92,7 +92,7 @@ function openSoftwareModal() {
   showSoftwareModal.value = true;
 }
 
-function onSoftwareSaved(softwareId) {
+function onSoftwareSaved(_softwareId) {
   showSoftwareModal.value = false;
 
   if (newSoftwareFromSoftware.value) {
@@ -106,7 +106,7 @@ function openHardwareModal() {
   showHardwareModal.value = true;
 }
 
-function onHardwareSaved(hardwareId) {
+function onHardwareSaved(_hardwareId) {
   showHardwareModal.value = false;
 
   if (newHardwareFromHardware.value) {
@@ -163,12 +163,12 @@ function refreshPage() {
       <v-col cols="auto" v-if="!smAndDown" class="d-flex align-center flex-nowrap">
         <template v-if="currentUser">
           <v-menu v-model="isMenuOpen" location="bottom end" :offset="10" content-class="add-menu">
-            <template #activator="{ props }">
+            <template #activator="{ props: activatorProps }">
               <v-btn
                 color="white"
                 size="small"
                 variant="outlined"
-                v-bind="props"
+                v-bind="activatorProps"
                 class="mr-4 nav-icon audio-hover-icon nav-item add-button"
                 aria-haspopup="menu"
                 :aria-expanded="isMenuOpen"
@@ -289,8 +289,8 @@ function refreshPage() {
           </v-list-item-title>
         </v-list-item>
         <v-list-group v-if="currentUser">
-          <template #activator="{ props, isOpen }">
-            <v-list-item v-bind="props">
+          <template #activator="{ props: activatorProps }">
+            <v-list-item v-bind="activatorProps">
               <template #prepend>
                 <Plus
                   size="20"

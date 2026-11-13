@@ -52,7 +52,7 @@ function openSoftwareModal() {
   showSoftwareModal.value = true;
 }
 
-function onSoftwareSaved(softwareId) {
+function onSoftwareSaved(_softwareId) {
   showSoftwareModal.value = false;
 
   if (newSoftwareFromSoftware.value) {

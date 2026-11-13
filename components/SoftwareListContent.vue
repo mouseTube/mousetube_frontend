@@ -159,24 +159,6 @@ function toggleFavorite(softwareId: number) {
   favoriteStore.toggleFavorite('software', softwareId);
 }
 
-const truncate = (text: string, length = 40) => {
-  if (!text) return '';
-  return text.length > length ? text.slice(0, length - 1) + '…' : text;
-};
-
-function getStatusColor(status: string) {
-  switch (status) {
-    case 'draft':
-      return 'grey';
-    case 'waiting validation':
-      return 'orange';
-    case 'validated':
-      return 'green';
-    default:
-      return 'grey';
-  }
-}
-
 onMounted(async () => {
   await softwareStore.fetchAllSoftware();
   await softwareStore.fetchAllSoftwareVersions();

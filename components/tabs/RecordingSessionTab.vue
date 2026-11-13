@@ -390,7 +390,7 @@ async function fetchSelectableData() {
       .catch(() => {
         showSnackbar('Error loading hardware/software options.', 'warning');
       });
-  } catch (e) {
+  } catch {
     showSnackbar('Error loading selectable data.', 'error');
   }
 }
@@ -706,7 +706,6 @@ watch(selectedSessionId, (newId, oldId) => {
     emit('session-selected', null);
     return;
   }
-  const idNum = Number(newId);
 });
 
 const formInitialized = ref(false);
@@ -1049,13 +1048,13 @@ onMounted(async () => {
             transition="scale-transition"
             offset-y
           >
-            <template #activator="{ props }">
+            <template #activator="{ props: activatorProps }">
               <v-text-field
                 v-model="formattedDate"
                 readonly
                 variant="outlined"
                 class="mb-4"
-                v-bind="props"
+                v-bind="activatorProps"
                 :disabled="isShared"
                 :rules="[
                   (v: string) => formData.is_multiple || !!v || 'Recording Date is required',
@@ -1197,14 +1196,14 @@ onMounted(async () => {
               :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
             >
               <v-chip
-                v-for="ref in referencesDisplay"
-                :key="ref.id"
+                v-for="reference in referencesDisplay"
+                :key="reference.id"
                 variant="outlined"
                 closable
-                @click:close="removeReference(ref.id)"
+                @click:close="removeReference(reference.id)"
                 class="ma-1"
               >
-                {{ ref.label }}
+                {{ reference.label }}
               </v-chip>
               <v-chip
                 v-if="referencesDisplay.length > 0"

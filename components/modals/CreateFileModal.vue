@@ -11,7 +11,7 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:modelValue', 'saved']);
 const fileStore = useFileStore();
-const { currentUser, fetchUser } = useAuth();
+const { fetchUser } = useAuth();
 const isAdmin = ref(false);
 
 interface FormDataType {

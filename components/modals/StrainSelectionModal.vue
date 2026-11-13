@@ -137,7 +137,12 @@ function selectStrain(item: Strain) {
 </script>
 
 <template>
-  <v-dialog v-model="props.show" max-width="1000px" @click:outside="emit('update:show', false)">
+  <v-dialog
+    :model-value="props.show"
+    max-width="1000px"
+    @update:model-value="emit('update:show', $event)"
+    @click:outside="emit('update:show', false)"
+  >
     <PickerFrame
       title="Select a strain"
       subtitle="Click a row to choose it"
@@ -187,8 +192,8 @@ function selectStrain(item: Strain) {
                 </v-icon>
               </v-btn>
               <v-tooltip location="top">
-                <template #activator="{ props }">
-                  <span v-bind="props">
+                <template #activator="{ props: activatorProps }">
+                  <span v-bind="activatorProps">
                     {{
                       item.name.length > truncateLengths.name
                         ? item.name.slice(0, truncateLengths.name) + '…'
@@ -204,8 +209,8 @@ function selectStrain(item: Strain) {
           <!-- Background -->
           <template #item.background="{ item }">
             <v-tooltip location="top" v-if="item.background">
-              <template #activator="{ props }">
-                <span v-bind="props">
+              <template #activator="{ props: activatorProps }">
+                <span v-bind="activatorProps">
                   {{
                     item.background.length > truncateLengths.background
                       ? item.background.slice(0, truncateLengths.background) + '…'
@@ -220,8 +225,8 @@ function selectStrain(item: Strain) {
           <!-- Bibliography -->
           <template #item.bibliography="{ item }">
             <v-tooltip location="top" v-if="item.bibliography">
-              <template #activator="{ props }">
-                <span v-bind="props">
+              <template #activator="{ props: activatorProps }">
+                <span v-bind="activatorProps">
                   {{
                     item.bibliography.length > truncateLengths.bibliography
                       ? item.bibliography.slice(0, truncateLengths.bibliography) + '…'

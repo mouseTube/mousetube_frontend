@@ -4,7 +4,7 @@ import { useSubjectStore } from '@/stores/subject';
 import { useAnimalProfileStore } from '@/stores/animalProfile';
 import CreateAnimalProfileModal from '@/components/modals/CreateAnimalProfileModal.vue';
 
-const props = defineProps<{ modelValue: boolean }>();
+defineProps<{ modelValue: boolean }>();
 const emit = defineEmits(['update:modelValue', 'created']);
 
 const subjectStore = useSubjectStore();

@@ -126,7 +126,6 @@ const saveViewMode = async (newMode) => {
 };
 
 const linkOrcid = () => {
-  const state = btoa(JSON.stringify({ process: 'connect' }));
   window.location.href = `${baseUrl.value}/accounts/orcid/login/?process=connect`;
 };
 

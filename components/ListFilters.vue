@@ -22,7 +22,7 @@ defineProps<{
   total: number;
   noun: string;
 }>();
-defineEmits<{ (e: 'reset'): void; (e: 'close'): void }>();
+defineEmits<{ (e: 'reset' | 'close'): void }>();
 
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 </script>

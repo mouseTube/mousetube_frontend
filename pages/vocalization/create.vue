@@ -132,7 +132,7 @@ watch(selectedRecordingSessionId, (id, before) => {
 });
 watch(tab, (index) => {
   if (!stepRestored) return;
-  rememberInAddress({ step: STEP_OF_TAB[tabs[index]?.name] });
+  rememberInAddress({ step: STEP_OF_TAB[tabs[index]?.name ?? ''] });
 });
 
 // === VALIDATION HANDLER ===

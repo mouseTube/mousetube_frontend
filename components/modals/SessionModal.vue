@@ -358,9 +358,9 @@ onMounted(async () => {
           <template #item.actions="{ item }">
             <div class="d-flex gap-2">
               <v-tooltip top>
-                <template #activator="{ props }">
+                <template #activator="{ props: activatorProps }">
                   <v-btn
-                    v-bind="props"
+                    v-bind="activatorProps"
                     icon="mdi-content-copy"
                     size="small"
                     color="primary"
@@ -372,9 +372,9 @@ onMounted(async () => {
               </v-tooltip>
 
               <v-tooltip top>
-                <template #activator="{ props }">
+                <template #activator="{ props: activatorProps }">
                   <v-btn
-                    v-bind="props"
+                    v-bind="activatorProps"
                     icon="mdi-delete"
                     size="small"
                     color="error"
@@ -427,7 +427,7 @@ onMounted(async () => {
             transition="scale-transition"
             offset-y
           >
-            <template #activator="{ props }">
+            <template #activator>
               <v-text-field v-model="formattedDate" readonly variant="outlined" class="mb-4">
                 <template #label>Recording Date</template>
               </v-text-field>

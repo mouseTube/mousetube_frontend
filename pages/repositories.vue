@@ -21,7 +21,6 @@ import { Warehouse } from '@lucide/vue';
 // DATA
 ////////////////////////////////
 
-const loading = ref(true);
 const dataLoaded = ref(false);
 const search = ref('');
 const repositoriesList = ref([]);
@@ -30,8 +29,6 @@ const previous = ref(null);
 const count = ref(0);
 const currentPage = ref(1);
 const perPage = ref(10);
-const showFilters = ref(false);
-const filters = ref(['all']);
 const apiBaseUrl = useApiBaseUrl();
 
 const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));

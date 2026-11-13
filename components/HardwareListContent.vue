@@ -6,7 +6,7 @@ import { useFavoriteStore } from '@/stores/favorite';
 import AccountListHeader from '@/components/AccountListHeader.vue';
 import SortButtons, { type Sort } from '@/components/SortButtons.vue';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
-import { Mic, MicVocal, Speaker, BoomBox, Microchip } from '@lucide/vue';
+import { MicVocal, Speaker, BoomBox, Microchip } from '@lucide/vue';
 
 const hardwareStore = useHardwareStore();
 const favoriteStore = useFavoriteStore();
@@ -64,11 +64,6 @@ const typeIcon = (type?: string | null) =>
     type ?? ''
   ];
 
-function truncate(text: string, length = 60) {
-  if (!text) return '—';
-  return text.length > length ? text.slice(0, length) + '…' : text;
-}
-
 function editHardware(hw: Hardware) {
   editingHardwareId.value = hw.id ?? null;
   showEditModal.value = true;
@@ -108,19 +103,6 @@ async function toggleFavorite(hardwareId: number) {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Failed to toggle favorite:', err);
-  }
-}
-
-function getStatusColor(status: string) {
-  switch (status) {
-    case 'draft':
-      return 'grey';
-    case 'waiting validation':
-      return 'orange';
-    case 'validated':
-      return 'green';
-    default:
-      return 'grey';
   }
 }
 

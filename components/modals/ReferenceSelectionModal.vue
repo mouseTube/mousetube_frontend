@@ -39,7 +39,7 @@ internalSelectedReferences.value = normalizeToIds(props.selectedReferences);
 // 🔄 When internal change → send to parent
 watch(
   internalSelectedReferences,
-  (val, oldVal) => {
+  (val) => {
     const normalized = normalizeToIds(val);
     if (JSON.stringify(normalized) !== JSON.stringify(normalizeToIds(props.selectedReferences))) {
       emit('update:selectedReferences', [...normalized]);
@@ -166,21 +166,21 @@ async function toggleFavorite(refId: number) {
       </template>
 
       <v-row v-if="filteredReferences.length > 0" dense>
-        <v-col v-for="ref in filteredReferences" :key="ref.id" cols="12" sm="6" md="4">
+        <v-col v-for="reference in filteredReferences" :key="reference.id" cols="12" sm="6" md="4">
           <v-card
             :class="[
               'pick-card',
-              { 'pick-card--selected': internalSelectedReferences.includes(ref.id) },
+              { 'pick-card--selected': internalSelectedReferences.includes(reference.id) },
             ]"
             tabindex="0"
             role="checkbox"
-            :aria-checked="internalSelectedReferences.includes(ref.id)"
-            @click="toggleSelection(ref.id)"
-            @keydown.enter.prevent="toggleSelection(ref.id)"
-            @keydown.space.prevent="toggleSelection(ref.id)"
+            :aria-checked="internalSelectedReferences.includes(reference.id)"
+            @click="toggleSelection(reference.id)"
+            @keydown.enter.prevent="toggleSelection(reference.id)"
+            @keydown.space.prevent="toggleSelection(reference.id)"
           >
             <v-icon
-              v-if="internalSelectedReferences.includes(ref.id)"
+              v-if="internalSelectedReferences.includes(reference.id)"
               class="pick-check"
               color="primary"
               size="24"
@@ -192,24 +192,30 @@ async function toggleFavorite(refId: number) {
                 size="x-small"
                 density="comfortable"
                 :icon="
-                  favoriteStore.isFavorite('reference', ref.id ?? -1)
+                  favoriteStore.isFavorite('reference', reference.id ?? -1)
                     ? 'mdi-star'
                     : 'mdi-star-outline'
                 "
-                :color="favoriteStore.isFavorite('reference', ref.id ?? -1) ? 'warning' : 'grey'"
+                :color="
+                  favoriteStore.isFavorite('reference', reference.id ?? -1) ? 'warning' : 'grey'
+                "
                 title="Toggle favorite"
                 aria-label="Toggle favorite"
                 class="me-1"
-                @click.stop="ref.id && toggleFavorite(ref.id)"
+                @click.stop="reference.id && toggleFavorite(reference.id)"
               />
-              <span class="text-truncate">{{ ref.name }}</span>
+              <span class="text-truncate">{{ reference.name }}</span>
             </div>
-            <div class="pick-text" :title="ref.description || ''">
-              {{ truncate(ref.description || '') }}
+            <div class="pick-text" :title="reference.description || ''">
+              {{ truncate(reference.description || '') }}
             </div>
             <div class="pick-foot">
-              <v-chip size="small" label :color="ref.status === 'validated' ? 'green' : 'grey'">
-                {{ ref.status || '—' }}
+              <v-chip
+                size="small"
+                label
+                :color="reference.status === 'validated' ? 'green' : 'grey'"
+              >
+                {{ reference.status || '—' }}
               </v-chip>
               <span class="pick-tools">
                 <v-btn
@@ -219,7 +225,7 @@ async function toggleFavorite(refId: number) {
                   color="grey-darken-1"
                   title="Edit reference"
                   aria-label="Edit reference"
-                  @click.stop="onEditReference(ref)"
+                  @click.stop="onEditReference(reference)"
                 />
                 <v-btn
                   icon="mdi-delete-outline"
@@ -228,7 +234,7 @@ async function toggleFavorite(refId: number) {
                   color="grey-darken-1"
                   title="Delete reference"
                   aria-label="Delete reference"
-                  @click.stop="onDeleteReference(ref)"
+                  @click.stop="onDeleteReference(reference)"
                 />
               </span>
             </div>

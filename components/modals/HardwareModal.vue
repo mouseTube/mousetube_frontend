@@ -166,8 +166,8 @@ function resetForm() {
 }
 
 async function saveHardware() {
-  const { valid } = await formRef.value?.validate();
-  if (!valid) {
+  const result = await formRef.value?.validate();
+  if (!result?.valid) {
     showSnackbar('Please fill all required fields.', 'error');
     return;
   }

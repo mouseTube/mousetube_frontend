@@ -115,7 +115,7 @@ async function updateAnimalProfiles() {
     if (selectedAnimalProfiles.value.length > 0) {
       emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
     }
-  } catch (err) {
+  } catch {
     snackbarText.value = 'Failed to update animal profiles.';
     snackbarColor.value = 'error';
     snackbar.value = true;

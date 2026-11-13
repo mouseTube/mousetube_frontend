@@ -122,7 +122,7 @@ async function submit() {
     }
     emit('saved');
     emit('update:modelValue', false);
-  } catch (e) {
+  } catch {
     snackbarMessage.value = store.error ?? 'Error saving software version';
     snackbar.value = true;
   } finally {

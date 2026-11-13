@@ -60,7 +60,7 @@ function openHardwareModal() {
   showHardwareModal.value = true;
 }
 
-function onHardwareSaved(hardwareId) {
+function onHardwareSaved(_hardwareId) {
   showHardwareModal.value = false;
 
   if (newHardwareFromHardware.value) {
@@ -479,10 +479,11 @@ onMounted(async () => {
                     <v-card-actions v-if="hard.raw.references && hard.raw.references.length > 0">
                       <v-btn
                         color="rgba(198, 40, 40, 0.9)"
-                        v-for="ref in hard.raw.references"
+                        v-for="(reference, referenceIndex) in hard.raw.references"
+                        :key="referenceIndex"
                         prepend-icon="mdi-link-variant"
                       >
-                        <a :href="ref.url" target="_blank"> {{ ref.name }}</a>
+                        <a :href="reference.url" target="_blank"> {{ reference.name }}</a>
                       </v-btn>
                     </v-card-actions>
                   </v-card>

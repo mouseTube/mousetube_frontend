@@ -45,7 +45,7 @@ const resetPassword = async () => {
     setTimeout(() => {
       router.push('/account/login');
     }, 3000);
-  } catch (err) {
+  } catch {
     errorMessage.value = 'Invalid or expired link.';
   } finally {
     loading.value = false;

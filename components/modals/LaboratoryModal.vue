@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import ReviewStatus from '@/components/ReviewStatus.vue';
 import OntologyField from '@/components/OntologyField.vue';
-import { ref, onMounted, watch } from 'vue';
-import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
-import { useAuth } from '@/composables/useAuth';
+import { ref, watch } from 'vue';
 import { useLaboratoryStore, type Laboratory } from '@/stores/laboratory';
 
 import countriesList from '@/data/countries';
@@ -67,8 +65,8 @@ async function loadLaboratory() {
 }
 
 async function save() {
-  const { valid } = await formRef.value?.validate();
-  if (!valid) {
+  const result = await formRef.value?.validate();
+  if (!result?.valid) {
     showSnackbar('Please fill all required fields.', 'error');
     return;
   }
@@ -150,7 +148,7 @@ watch(
         Until an administrator validates it, only you can see this entry.
       </v-card-subtitle>
       <v-card-text>
-        <v-form ref="formRef" v-slot="{ validate }">
+        <v-form ref="formRef">
           <v-text-field
             variant="outlined"
             v-model="form.name"
