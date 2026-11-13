@@ -572,10 +572,10 @@ async function deleteFile() {
         </v-sheet>
 
         <!-- 🔹 Title + Buttons -->
-        <div class="d-flex justify-space-between align-center w-100">
+        <div class="d-flex flex-wrap justify-space-between align-center ga-2 w-100">
           <h3 class="ma-0 pa-0">Files</h3>
 
-          <div class="d-flex align-center" style="gap: 1.5rem">
+          <div class="d-flex flex-wrap align-center" style="gap: 0.75rem 1.5rem">
             <!-- 🔹 Share Button -->
             <div class="d-flex flex-row justify-end align-center">
               <v-btn
@@ -825,6 +825,7 @@ async function deleteFile() {
 }
 
 .share-panel {
+  white-space: normal; /* the tab inherits nowrap: the sentences must wrap, not be cut */
   padding: 16px;
   background: #f6f6f6;
   border: 1px solid #e4e4e4;
