@@ -265,11 +265,18 @@ function refreshPage() {
   </v-app-bar>
 
   <!-- Drawer mobile -->
-  <v-navigation-drawer v-model="drawer" temporary location="left" color="black" class="text-white">
+  <v-navigation-drawer
+    v-model="drawer"
+    temporary
+    location="left"
+    color="black"
+    class="text-white"
+    :width="300"
+  >
     <div class="d-flex flex-column h-100">
       <v-list nav dense>
         <template v-for="link in links" :key="link.to">
-          <v-list-item :to="link.to" exact-active-class="active-link">
+          <v-list-item :to="link.to" exact-active-class="active-link" @click="drawer = false">
             <template #prepend>
               <component
                 :is="link.icon"
@@ -280,47 +287,64 @@ function refreshPage() {
             <v-list-item-title>{{ link.label }}</v-list-item-title>
           </v-list-item>
         </template>
-        <v-list-item v-if="isStaff" to="/review">
-          <template #prepend>
-            <User class="me-3 nav-icon audio-icon audio-hover-icon" size="20" />
-          </template>
-          <v-list-item-title>
-            Review<span v-if="reviewCount" class="ms-2">({{ reviewCount }})</span>
-          </v-list-item-title>
-        </v-list-item>
         <v-list-group v-if="currentUser">
           <template #activator="{ props: activatorProps }">
             <v-list-item v-bind="activatorProps">
               <template #prepend>
-                <Plus
-                  size="20"
-                  class="me-3 nav-icon audio-hover-icon"
-                  :class="{ 'rotate-icon': isMenuOpen }"
-                />
+                <Plus size="20" class="me-3 nav-icon audio-hover-icon" />
               </template>
-              <v-list-item-title>Add</v-list-item-title>
+              <v-list-item-title>
+                Add
+                <span
+                  v-if="isStaff && reviewCount"
+                  class="add-dot ms-2"
+                  title="Things wait for your review"
+                  >{{ reviewCount }}</span
+                >
+              </v-list-item-title>
             </v-list-item>
           </template>
 
-          <v-list-item class="nuxt-link nav-item px-2" @click="refreshPage">
+          <!-- the same choices as the Add button of the bar -->
+          <v-list-item
+            v-for="item in addItems"
+            :key="item.key"
+            @click="
+              drawer = false;
+              chooseAdd(item);
+            "
+          >
             <template #prepend>
-              <AudioLines size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
+              <component
+                :is="item.icon"
+                size="20"
+                class="me-3 nav-icon audio-icon audio-hover-icon"
+              />
             </template>
-            <v-list-item-title>Vocalization</v-list-item-title>
+            <v-list-item-title>{{ item.title }}</v-list-item-title>
+            <v-list-item-subtitle
+              class="text-wrap text-grey-lighten-1"
+              style="-webkit-line-clamp: 2; line-clamp: 2"
+            >
+              {{ item.text }}
+            </v-list-item-subtitle>
           </v-list-item>
 
-          <v-list-item @click="() => openSoftwareModal()">
+          <v-list-item to="/account/details?tab=vocalizations" @click="drawer = false">
             <template #prepend>
-              <MonitorCog size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
+              <v-icon size="20" class="me-3">mdi-folder-open-outline</v-icon>
             </template>
-            <v-list-item-title>Software</v-list-item-title>
+            <v-list-item-title class="text-wrap">Pick up one of my drafts</v-list-item-title>
           </v-list-item>
 
-          <v-list-item @click="() => openHardwareModal()">
+          <v-list-item v-if="isStaff" to="/review" @click="drawer = false">
             <template #prepend>
-              <Mic size="20" class="me-3 nav-icon audio-icon audio-hover-icon" />
+              <v-icon size="20" class="me-3">mdi-clipboard-check-outline</v-icon>
             </template>
-            <v-list-item-title>Hardware</v-list-item-title>
+            <v-list-item-title class="text-wrap">
+              Review what waits for validation
+              <span v-if="reviewCount" class="add-dot ms-2">{{ reviewCount }}</span>
+            </v-list-item-title>
           </v-list-item>
         </v-list-group>
       </v-list>
@@ -331,26 +355,24 @@ function refreshPage() {
 
       <v-list nav dense>
         <template v-if="currentUser">
-          <v-list-item>
+          <v-list-item
+            to="/account/details"
+            exact-active-class="active-link"
+            @click="drawer = false"
+          >
             <template #prepend>
               <User class="me-3 nav-icon audio-icon audio-hover-icon" size="20" />
             </template>
-            <nuxt-link
-              to="/account/details"
-              class="nuxt-link nav-item px-2"
-              exact-active-class="active-link"
-            >
-              <v-list-item-title>{{ currentUser }}</v-list-item-title>
-            </nuxt-link>
+            <v-list-item-title>{{ currentUser }}</v-list-item-title>
             <template #append>
-              <v-btn color="primary" variant="text" size="small" @click="handleLogout">
+              <v-btn color="primary" variant="text" size="small" @click.stop.prevent="handleLogout">
                 Log out
               </v-btn>
             </template>
           </v-list-item>
         </template>
         <template v-else>
-          <v-list-item to="/account/login" exact-active-class="active-link">
+          <v-list-item to="/account/login" exact-active-class="active-link" @click="drawer = false">
             <template #prepend>
               <User class="me-3 nav-icon audio-icon audio-hover-icon" size="20" />
             </template>
