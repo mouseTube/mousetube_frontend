@@ -8,9 +8,10 @@ Code under GPL v3.0 licence
 -->
 <script setup>
 import { Users, AudioLines, MonitorCog, Mic, Warehouse, Database, User, Plus } from '@lucide/vue';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useDisplay } from 'vuetify';
-import { useAuth } from '@/composables/useAuth';
+import { useAuth, isStaff } from '@/composables/useAuth';
+import axios from 'axios';
 import { useRouter } from 'vue-router';
 import SoftwareModal from '@/components/modals/SoftwareModal.vue';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
@@ -35,6 +36,22 @@ const links = [
 ];
 
 const isMenuOpen = ref(false);
+
+// administrators: how many things wait for their decision (the "Review" page)
+const reviewCount = ref(0);
+const { token } = useAuth();
+async function loadReviewCount() {
+  if (!isStaff.value || !token.value) return;
+  try {
+    const { data } = await axios.get(`${useApiBaseUrl()}/review/`, {
+      headers: { Authorization: `Bearer ${token.value}` },
+    });
+    reviewCount.value = data.total;
+  } catch {
+    reviewCount.value = 0;
+  }
+}
+watch([isStaff, () => route.path], loadReviewCount, { immediate: true });
 
 // what can be added: a title and a line saying what it is for
 const addItems = [
@@ -159,6 +176,13 @@ function refreshPage() {
                   :class="{ 'rotate-icon': isMenuOpen }"
                 />
                 Add
+                <span
+                  v-if="isStaff && reviewCount"
+                  class="add-dot"
+                  title="Things wait for your review"
+                >
+                  {{ reviewCount }}
+                </span>
               </v-btn>
             </template>
 
@@ -178,6 +202,16 @@ function refreshPage() {
                 </span>
                 <v-icon size="18" class="add-go">mdi-chevron-right</v-icon>
               </button>
+              <nuxt-link
+                v-if="isStaff"
+                to="/review"
+                class="add-foot add-review"
+                @click="isMenuOpen = false"
+              >
+                <v-icon size="16">mdi-clipboard-check-outline</v-icon>
+                Review what waits for validation
+                <span v-if="reviewCount" class="add-count">{{ reviewCount }}</span>
+              </nuxt-link>
               <nuxt-link
                 to="/account/details?tab=vocalizations"
                 class="add-foot"
@@ -240,6 +274,14 @@ function refreshPage() {
             <v-list-item-title>{{ link.label }}</v-list-item-title>
           </v-list-item>
         </template>
+        <v-list-item v-if="isStaff" to="/review">
+          <template #prepend>
+            <User class="me-3 nav-icon audio-icon audio-hover-icon" size="20" />
+          </template>
+          <v-list-item-title>
+            Review<span v-if="reviewCount" class="ms-2">({{ reviewCount }})</span>
+          </v-list-item-title>
+        </v-list-item>
         <v-list-group v-if="currentUser">
           <template #activator="{ props, isOpen }">
             <v-list-item v-bind="props">
@@ -630,6 +672,37 @@ function refreshPage() {
 .add-text span {
   font-size: 0.82rem;
   color: #666;
+}
+/* on the button itself the count floats over the corner: it must not widen the header */
+.add-dot {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgb(var(--v-theme-primary));
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.add-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgb(var(--v-theme-primary));
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 .add-go {
   color: #aaa;

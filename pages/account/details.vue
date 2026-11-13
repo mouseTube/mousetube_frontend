@@ -29,6 +29,7 @@ const softwareStore = useSoftwareStore();
 
 // the number on each tab: the same lists as the tabs show
 const vocalizationCount = ref(null);
+const reviewCount = ref(0); // administrators: what waits for a decision
 const hardwareLoaded = ref(false);
 const softwareLoaded = ref(false);
 const hardwareCount = computed(() =>
@@ -45,6 +46,12 @@ async function loadCounts() {
     })
     .then((res) => (vocalizationCount.value = res.data.count))
     .catch(() => {});
+  if (isStaff.value) {
+    axios
+      .get(`${apiBaseUrl}/review/`, { headers: { Authorization: `Bearer ${token.value}` } })
+      .then((res) => (reviewCount.value = res.data.total))
+      .catch(() => {});
+  }
   hardwareStore
     .fetchAllHardware()
     .then(() => (hardwareLoaded.value = true))
@@ -311,6 +318,18 @@ watch(
               </div>
             </div>
             <div class="d-flex align-center ga-2">
+              <!-- administrators only: what waits for their decision -->
+              <v-btn
+                v-if="isStaff"
+                to="/review"
+                color="primary"
+                variant="flat"
+                size="small"
+                prepend-icon="mdi-clipboard-check-outline"
+              >
+                Review
+                <span v-if="reviewCount" class="review-count">{{ reviewCount }}</span>
+              </v-btn>
               <v-chip
                 v-if="userProfile?.orcid"
                 :href="`https://orcid.org/${userProfile.orcid}`"
@@ -646,6 +665,20 @@ h1 {
   font-size: 0.75rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+.review-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #fff;
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 .account-tabs .v-tab--selected .tab-count {
   background: rgb(var(--v-theme-primary));
