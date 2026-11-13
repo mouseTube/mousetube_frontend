@@ -307,4 +307,83 @@ h1 {
   opacity: 1;
   color: #666;
 }
+/* the choices of the selection modals: a card with the red edge of the lists, tinted when chosen */
+.pick-card.v-card {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e4e4e4;
+  border-left: 4px solid rgb(var(--v-theme-primary));
+  border-radius: 12px;
+  box-shadow: none;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.pick-card.v-card:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+.pick-card.v-card:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+.pick-card.pick-card--static.v-card {
+  cursor: default;
+}
+.pick-card .pick-foot--line {
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 4px;
+  border-top: 1px dashed #eee;
+}
+.pick-card--selected.v-card {
+  border-color: rgb(var(--v-theme-primary));
+  background: #fdf4f3;
+}
+.pick-card .pick-title {
+  padding: 12px 40px 0 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: normal;
+}
+.pick-card .pick-text {
+  padding: 4px 14px 8px;
+  color: #555;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pick-card .pick-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding: 6px 12px 6px 14px;
+  color: #777;
+  font-size: 0.75rem;
+}
+.pick-card .pick-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.pick-card .pick-tools {
+  display: flex;
+  gap: 2px;
+}
+.pick-card .pick-tools .v-btn {
+  color: #777;
+}
+.pick-card .pick-tools .v-btn:hover {
+  color: rgb(var(--v-theme-primary));
+}
 </style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PickerFrame from '@/components/modals/PickerFrame.vue';
 import { ref, watch, onMounted, computed } from 'vue';
 import debounce from 'lodash-es/debounce';
 import { useStrainStore, type Strain } from '@/stores/strain';
@@ -136,21 +137,27 @@ function selectStrain(item: Strain) {
 </script>
 
 <template>
-  <v-dialog v-model="props.show" max-width="1600px" @click:outside="emit('update:show', false)">
-    <v-card class="pa-3" style="max-height: 80vh; overflow-y: auto">
-      <!-- Title + Search -->
-      <v-card-title class="d-flex align-center justify-space-between">
-        <span class="text-h6 font-weight-bold">Strains</span>
+  <v-dialog v-model="props.show" max-width="1000px" @click:outside="emit('update:show', false)">
+    <PickerFrame
+      title="Select a strain"
+      subtitle="Click a row to choose it"
+      icon="mdi-dna"
+      done-label="Close"
+      @close="emit('update:show', false)"
+    >
+      <template #toolbar>
         <v-text-field
           v-model="search"
-          label="Search"
-          density="compact"
+          placeholder="Search strains..."
+          density="comfortable"
+          variant="outlined"
           hide-details
-          style="max-width: 250px"
+          clearable
+          prepend-inner-icon="mdi-magnify"
         />
-      </v-card-title>
+      </template>
 
-      <v-card-text>
+      <div>
         <!-- Data Table -->
         <v-data-table
           :items="strains"
@@ -238,22 +245,24 @@ function selectStrain(item: Strain) {
             <v-btn
               v-if="isEditable(item)"
               icon
-              color="primary"
+              color="grey-darken-1"
               size="small"
               variant="text"
+              aria-label="Edit strain"
               @click.stop="editStrain(item)"
             >
-              <v-icon>mdi-pencil</v-icon>
+              <v-icon>mdi-pencil-outline</v-icon>
             </v-btn>
             <v-btn
               v-if="isEditable(item)"
               icon
-              color="error"
+              color="grey-darken-1"
               size="small"
               variant="text"
+              aria-label="Delete strain"
               @click.stop="confirmDeleteStrain(item)"
             >
-              <v-icon>mdi-delete</v-icon>
+              <v-icon>mdi-delete-outline</v-icon>
             </v-btn>
           </template>
         </v-data-table>
@@ -262,15 +271,14 @@ function selectStrain(item: Strain) {
         <div class="d-flex justify-center mt-2">
           <v-pagination v-model="page" :length="totalPages" :total-visible="7" color="primary" />
         </div>
-      </v-card-text>
+      </div>
 
-      <v-card-actions class="justify-space-between">
-        <v-btn color="primary" variant="flat" @click="openCreateModal">
-          <v-icon start>mdi-plus</v-icon> Create
+      <template #actions>
+        <v-btn color="primary" variant="tonal" prepend-icon="mdi-plus" @click="openCreateModal">
+          Create a strain
         </v-btn>
-        <v-btn color="primary" variant="flat" @click="emit('update:show', false)">Close</v-btn>
-      </v-card-actions>
-    </v-card>
+      </template>
+    </PickerFrame>
   </v-dialog>
 
   <!-- Création / édition -->
@@ -295,18 +303,8 @@ function selectStrain(item: Strain) {
     </v-card>
   </v-dialog>
 </template>
-
 <style scoped>
-.scrollable-content {
-  max-height: calc(100vh - 160px);
-  overflow-y: auto;
-}
-
-.v-card-actions {
-  position: sticky;
-  bottom: 0;
-  background: white;
-  z-index: 1;
-  padding: 12px;
+.cursor-pointer :deep(tbody tr) {
+  cursor: pointer;
 }
 </style>

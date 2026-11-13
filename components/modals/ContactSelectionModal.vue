@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PickerFrame from '@/components/modals/PickerFrame.vue';
 import { ref, computed, watch, onMounted, type Ref } from 'vue';
 import { useContactStore, type Contact } from '@/stores/contact';
 import CreateContactModal from '@/components/modals/CreateContactModal.vue';
@@ -134,113 +135,106 @@ async function toggleFavorite(id: number) {
 
 <template>
   <v-dialog v-model="localDialog" max-width="900px">
-    <v-card class="pa-3">
-      <v-card-title class="d-flex align-center font-weight-bold">
-        <span>Select Contacts</span>
-        <v-spacer />
+    <PickerFrame
+      title="Select contacts"
+      :subtitle="`${filteredContacts.length} shown · ${internalSelectedContacts.length} selected`"
+      icon="mdi-account-multiple-outline"
+      :selected="internalSelectedContacts.length"
+      @close="localDialog = false"
+    >
+      <template #toolbar>
         <v-text-field
           v-model="searchQuery"
           placeholder="Search contacts..."
-          density="compact"
+          density="comfortable"
           variant="outlined"
           hide-details
+          clearable
           prepend-inner-icon="mdi-magnify"
-          class="ml-4"
-          style="max-width: 300px"
         />
-      </v-card-title>
+      </template>
 
-      <v-card-text>
-        <v-row v-if="filteredContacts.length > 0" dense>
-          <v-col v-for="c in filteredContacts" :key="c.id" cols="12" sm="6" md="4">
-            <v-card
-              :elevation="internalSelectedContacts.includes(c.id) ? 8 : 1"
-              class="cursor-pointer h-100 d-flex flex-column justify-space-between position-relative"
-              :class="{ 'border-primary': internalSelectedContacts.includes(c.id) }"
-              @click="toggleSelection(c.id)"
-            >
-              <v-chip
-                small
-                :color="c.status === 'validated' ? 'green' : 'grey'"
-                text-color="white"
-                class="position-absolute bottom-2 left-2"
-              >
+      <v-row v-if="filteredContacts.length > 0" dense>
+        <v-col v-for="c in filteredContacts" :key="c.id" cols="12" sm="6" md="4">
+          <v-card
+            :class="[
+              'pick-card',
+              { 'pick-card--selected': internalSelectedContacts.includes(c.id) },
+            ]"
+            tabindex="0"
+            role="checkbox"
+            :aria-checked="internalSelectedContacts.includes(c.id)"
+            @click="toggleSelection(c.id)"
+            @keydown.enter.prevent="toggleSelection(c.id)"
+            @keydown.space.prevent="toggleSelection(c.id)"
+          >
+            <v-icon
+              v-if="internalSelectedContacts.includes(c.id)"
+              class="pick-check"
+              color="primary"
+              size="24"
+              icon="mdi-check-circle"
+            />
+            <div class="pick-title d-flex align-center">
+              <v-btn
+                variant="text"
+                size="x-small"
+                density="comfortable"
+                :icon="
+                  favoriteStore.isFavorite?.('contact', c.id ?? -1)
+                    ? 'mdi-star'
+                    : 'mdi-star-outline'
+                "
+                :color="favoriteStore.isFavorite?.('contact', c.id ?? -1) ? 'warning' : 'grey'"
+                title="Toggle favorite"
+                aria-label="Toggle favorite"
+                class="me-1"
+                @click.stop="c.id && toggleFavorite(c.id)"
+              />
+              <span class="text-truncate">{{ c.first_name }} {{ c.last_name }}</span>
+            </div>
+            <div class="pick-text">
+              {{ c.email || '—' }}<br /><small>{{ c.institution || '' }}</small>
+            </div>
+            <div class="pick-foot">
+              <v-chip size="small" label :color="c.status === 'validated' ? 'green' : 'grey'">
                 {{ c.status || '—' }}
               </v-chip>
-
-              <v-icon
-                v-if="internalSelectedContacts.includes(c.id)"
-                color="primary"
-                size="24"
-                class="check-icon"
-                >mdi-check-circle</v-icon
-              >
-
-              <div style="flex-grow: 1; padding: 16px">
-                <div class="d-flex align-center mb-1">
-                  <v-btn
-                    variant="text"
-                    size="small"
-                    :icon="
-                      favoriteStore.isFavorite?.('contact', c.id ?? -1)
-                        ? 'mdi-star'
-                        : 'mdi-star-outline'
-                    "
-                    :color="favoriteStore.isFavorite?.('contact', c.id ?? -1) ? 'warning' : 'grey'"
-                    @click.stop="c.id && toggleFavorite(c.id)"
-                    title="Toggle favorite"
-                    style="min-width: 32px; margin: 0; padding: 0"
-                  />
-                  <div class="text-h6 font-weight-medium ms-1" style="margin: 0">
-                    {{ c.first_name }} {{ c.last_name }}
-                  </div>
-                </div>
-
-                <v-card-text class="pa-0 mt-2 text-body-2">
-                  <div class="ps-4 pe-4 pb-4">
-                    {{ c.email || '—' }}
-                    <div class="text-caption mt-1">{{ c.institution || '' }}</div>
-                  </div>
-                </v-card-text>
-              </div>
-
-              <v-card-actions class="justify-end pt-0">
-                <v-icon
-                  color="primary"
-                  @click.stop="onEditContact(c)"
+              <span class="pick-tools">
+                <v-btn
+                  icon="mdi-pencil-outline"
+                  variant="text"
+                  size="small"
+                  color="grey-darken-1"
                   title="Edit contact"
-                  class="mr-2 cursor-pointer hover-icon"
-                  >mdi-pencil</v-icon
-                >
-                <v-icon
-                  color="error"
-                  @click.stop="onDeleteContact(c)"
+                  aria-label="Edit contact"
+                  @click.stop="onEditContact(c)"
+                />
+                <v-btn
+                  icon="mdi-delete-outline"
+                  variant="text"
+                  size="small"
+                  color="grey-darken-1"
                   title="Delete contact"
-                  class="cursor-pointer hover-icon"
-                  >mdi-delete</v-icon
-                >
-              </v-card-actions>
-            </v-card>
-          </v-col>
-        </v-row>
+                  aria-label="Delete contact"
+                  @click.stop="onDeleteContact(c)"
+                />
+              </span>
+            </div>
+          </v-card>
+        </v-col>
+      </v-row>
 
-        <v-alert v-else type="info" variant="tonal" class="mt-4">
-          No contacts found matching your search
-        </v-alert>
-      </v-card-text>
+      <v-alert v-else type="info" variant="tonal" class="mt-4">
+        No contacts found matching your search
+      </v-alert>
 
-      <v-card-actions class="justify-space-between">
-        <v-btn color="primary" variant="flat" @click="openCreateContact">
-          <v-icon start>mdi-plus</v-icon> Add Contact
+      <template #actions>
+        <v-btn color="primary" variant="tonal" prepend-icon="mdi-plus" @click="openCreateContact">
+          Add contact
         </v-btn>
-        <div>
-          <v-btn variant="text" @click="localDialog = false">Cancel</v-btn>
-          <v-btn color="primary" variant="flat" @click="localDialog = false" class="ml-2"
-            >Done</v-btn
-          >
-        </div>
-      </v-card-actions>
-    </v-card>
+      </template>
+    </PickerFrame>
 
     <CreateContactModal
       v-model="showCreateContactModal"
@@ -249,41 +243,3 @@ async function toggleFavorite(id: number) {
     />
   </v-dialog>
 </template>
-
-<style scoped>
-.cursor-pointer {
-  cursor: pointer;
-}
-.h-100 {
-  height: 100%;
-}
-.hover-icon:hover {
-  color: #000 !important;
-  transform: scale(1.05);
-  transition:
-    transform 0.15s,
-    color 0.15s;
-}
-.v-card {
-  border: 2px solid transparent;
-  border-radius: 8px;
-  position: relative;
-}
-.border-primary {
-  border: 2px solid rgb(var(--v-theme-primary));
-}
-.check-icon {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
-.position-absolute {
-  position: absolute;
-}
-.bottom-2 {
-  bottom: 8px;
-}
-.left-2 {
-  left: 8px;
-}
-</style>

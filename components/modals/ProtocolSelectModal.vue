@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PickerFrame from '@/components/modals/PickerFrame.vue';
 import { ref, watch, computed } from 'vue';
 import debounce from 'lodash-es/debounce';
 import { useProtocolStore, type Protocol } from '@/stores/protocol';
@@ -208,25 +209,27 @@ function close() {
 </script>
 
 <template>
-  <v-dialog :model-value="props.modelValue" max-width="1700px" @click:outside="close">
-    <v-card class="pa-3" style="max-height: 80vh; overflow-y: auto">
-      <v-card-title class="d-flex align-center gap-2">
-        <span class="text-h6 font-weight-bold">Protocols</span>
-
-        <v-spacer />
-        <!-- Search Field -->
+  <v-dialog :model-value="props.modelValue" max-width="1400px" @click:outside="close">
+    <PickerFrame
+      title="Select a protocol"
+      subtitle="Click a row to choose it. Filter with the headers of the columns."
+      icon="mdi-clipboard-text-outline"
+      done-label="Close"
+      @close="close"
+    >
+      <template #toolbar>
         <v-text-field
           v-model="search"
           placeholder="Search protocol"
           clearable
-          append-inner-icon="mdi-magnify"
+          prepend-inner-icon="mdi-magnify"
           density="comfortable"
+          variant="outlined"
           hide-details
-          class="search-field"
         />
-        <div class="d-flex ml-4">
+        <div class="d-flex">
           <v-btn
-            color="primary"
+            variant="tonal"
             @click="toggleFavoritesOrdering"
             :title="`Sort favorites ${favoritesSortOrder === 'asc' ? 'ascending' : 'descending'}`"
             class="split-btn-left match-search-height"
@@ -238,7 +241,7 @@ function close() {
 
           <v-menu offset-y>
             <template #activator="{ props }">
-              <v-btn v-bind="props" color="primary" class="split-btn-right match-search-height">
+              <v-btn v-bind="props" variant="tonal" class="split-btn-right match-search-height">
                 <v-icon>mdi-chevron-down</v-icon>
               </v-btn>
             </template>
@@ -253,9 +256,9 @@ function close() {
             </v-list>
           </v-menu>
         </div>
-      </v-card-title>
+      </template>
 
-      <v-card-text>
+      <div>
         <v-data-table
           :headers="headers"
           :items="protocols"
@@ -270,7 +273,11 @@ function close() {
             :class="{ 'protocol-selected': selectedProtocolId === item.id }"
             -->
           <template #item="{ item }">
-            <tr @click="selectProtocol(item)">
+            <tr
+              class="protocol-row"
+              :class="{ 'protocol-selected': selectedProtocolId === item.id }"
+              @click="selectProtocol(item)"
+            >
               <!-- Name with tooltip -->
               <td>
                 <div class="d-flex align-center gap-2">
@@ -328,9 +335,10 @@ function close() {
                 <div class="d-flex gap-2">
                   <v-btn
                     v-if="item.created_by === id_user"
-                    icon="mdi-delete"
+                    icon="mdi-delete-outline"
                     variant="text"
-                    color="error"
+                    color="grey-darken-1"
+                    aria-label="Delete protocol"
                     @click.stop="openDeleteDialog(item)"
                   />
                 </div>
@@ -482,13 +490,8 @@ function close() {
           class="mt-4"
           color="primary"
         />
-      </v-card-text>
-
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="close">Close</v-btn>
-      </v-card-actions>
-    </v-card>
+      </div>
+    </PickerFrame>
   </v-dialog>
 
   <!-- Delete Dialog -->
@@ -524,18 +527,17 @@ function close() {
 </template>
 
 <style scoped>
-.search-field {
-  min-width: 350px;
-  max-width: 450px;
+.protocol-row {
+  cursor: pointer;
 }
-
-.cursor-pointer tr:hover {
-  background-color: #e0f7fa;
+.protocol-row:hover {
+  background-color: #fafafa;
 }
-
-/* .protocol-selected {
-  background-color: #fffafa !important;
-} */
+.protocol-selected,
+.protocol-selected:hover {
+  background-color: #fdf4f3;
+  box-shadow: inset 4px 0 0 rgb(var(--v-theme-primary));
+}
 .v-data-table-header th {
   overflow: visible !important;
   height: auto;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PickerFrame from '@/components/modals/PickerFrame.vue';
 import { ref, computed, watch, onMounted } from 'vue';
 import debounce from 'lodash-es/debounce';
 import { type AnimalProfile, useAnimalProfileStore } from '@/stores/animalProfile';
@@ -216,9 +217,6 @@ function handleEdit(profile: any) {
   showCreateModal.value = true;
 }
 
-const maxNameLength = 32;
-const isTruncated = (name: string) => name.length > maxNameLength;
-
 // ----------------------------
 // Infinite scroll Strains
 // ----------------------------
@@ -270,232 +268,212 @@ function loadMoreStrains() {
 </script>
 
 <template>
-  <v-dialog v-model="localDialog" max-width="1600px">
-    <v-card class="pa-3" style="max-height: 80vh; overflow-y: auto">
-      <v-card-title class="d-flex justify-space-between align-center">
-        <span class="text-h6 font-weight-bold">Animal Profiles</span>
-        <div class="d-flex align-center" style="gap: 12px">
+  <v-dialog v-model="localDialog" max-width="1100px">
+    <PickerFrame
+      title="Select animal profiles"
+      :subtitle="`${totalCount} available · ${selectedAnimalProfiles.length} selected`"
+      icon="mdi-paw"
+      :selected="selectedAnimalProfiles.length"
+      @close="localDialog = false"
+    >
+      <template #toolbar>
+        <div class="d-flex flex-wrap align-center ga-2 w-100">
+          <v-text-field
+            v-model="searchQuery"
+            clearable
+            placeholder="Search profiles..."
+            prepend-inner-icon="mdi-magnify"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            class="ap-filter ap-filter--search"
+          />
           <v-select
             v-model="selectedSpecies"
             :items="speciesStore.species"
             item-title="name"
             item-value="id"
             density="comfortable"
+            variant="outlined"
+            hide-details
             clearable
             label="Species"
-            style="min-width: 150px; max-width: 250px"
-            class="match-search-height"
+            class="ap-filter"
           />
-          <v-text-field
-            v-model="searchQuery"
+          <v-autocomplete
+            v-model="selectedStrain"
+            :items="strains"
+            item-title="name"
+            item-value="id"
             clearable
-            label="Search"
-            prepend-inner-icon="mdi-magnify"
             density="comfortable"
-            style="min-width: 250px; max-width: 300px"
-            class="match-search-height"
+            variant="outlined"
+            hide-details
+            label="Strain"
+            :loading="strainsLoading"
+            hide-selected
+            :return-object="false"
+            :auto-select-first="false"
+            class="ap-filter"
+            @update:search-input="onSearch"
+          >
+            <template v-slot:append-item>
+              <div v-if="strains.length > 0" v-intersect="loadMoreStrains" class="text-center pa-2">
+                <v-progress-circular
+                  v-if="strainsLoading"
+                  indeterminate
+                  size="20"
+                  color="primary"
+                />
+              </div>
+            </template>
+          </v-autocomplete>
+          <v-select
+            v-model="selectedSex"
+            :items="['male', 'female']"
+            clearable
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            label="Sex"
+            class="ap-filter ap-filter--small"
+          />
+          <v-select
+            v-model="selectedAge"
+            :items="['pup', 'juvenile', 'adult']"
+            clearable
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            label="Age"
+            class="ap-filter ap-filter--small"
+          />
+          <v-select
+            v-model="selectedStatus"
+            :items="['draft', 'waiting validation', 'validated']"
+            clearable
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            label="Status"
+            class="ap-filter"
           />
         </div>
-      </v-card-title>
+      </template>
 
-      <v-card-text class="scrollable-content">
-        <!-- Header -->
-        <v-row class="font-weight-bold">
-          <v-col cols="3" class="d-flex justify-center">Name</v-col>
-          <v-col cols="2" class="d-flex justify-center">
-            <v-autocomplete
-              v-model="selectedStrain"
-              :items="strains"
-              item-title="name"
-              item-value="id"
-              clearable
+      <div class="ap-table">
+        <div class="ap-row ap-row--head" aria-hidden="true">
+          <span>Name</span>
+          <span>Strain</span>
+          <span>Sex</span>
+          <span>Age</span>
+          <span>Genotype</span>
+          <span>Treatment</span>
+          <span>Status</span>
+          <span />
+        </div>
+
+        <div v-if="paginatedProfiles.length === 0" class="text-center text-medium-emphasis pa-6">
+          No data available
+        </div>
+
+        <div
+          v-for="profile in paginatedProfiles"
+          :key="profile.id"
+          class="ap-row ap-row--item"
+          :class="{ 'ap-row--selected': isSelected(profile) }"
+          tabindex="0"
+          role="checkbox"
+          :aria-checked="isSelected(profile)"
+          @click="toggleProfile(profile)"
+          @keydown.enter.prevent="toggleProfile(profile)"
+          @keydown.space.prevent="toggleProfile(profile)"
+        >
+          <span class="ap-name">
+            <v-icon
+              :icon="isSelected(profile) ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline'"
+              :color="isSelected(profile) ? 'primary' : 'grey'"
+              size="22"
+              class="me-1"
+            />
+            <v-btn
+              variant="text"
+              size="x-small"
               density="comfortable"
-              label="Strain"
-              :loading="strainsLoading"
-              hide-selected
-              :return-object="false"
-              :auto-select-first="false"
-              @update:search-input="onSearch"
-              style="min-width: 130px; max-width: 180px"
+              :icon="isFavorite(profile.id) ? 'mdi-star' : 'mdi-star-outline'"
+              :color="isFavorite(profile.id) ? 'warning' : 'grey'"
+              title="Toggle favorite"
+              aria-label="Toggle favorite"
+              class="me-1"
+              @click.stop="toggleFavorite(profile.id)"
+            />
+            <span class="truncate-name" :title="profile.name">{{ profile.name }}</span>
+          </span>
+          <span>{{ profile.strain?.name || '-' }}</span>
+          <span>{{ profile.sex || '-' }}</span>
+          <span>{{ profile.age || '-' }}</span>
+          <span>{{ profile.genotype || '-' }}</span>
+          <span>{{ profile.treatment || '-' }}</span>
+          <span>
+            <v-chip
+              size="small"
+              label
+              :color="
+                profile.status === 'draft'
+                  ? 'grey'
+                  : profile.status === 'validated'
+                    ? 'green'
+                    : 'blue'
+              "
             >
-              <template v-slot:append-item>
-                <div
-                  v-if="strains.length > 0"
-                  v-intersect="loadMoreStrains"
-                  class="text-center pa-2"
-                >
-                  <v-progress-circular
-                    v-if="strainsLoading"
-                    indeterminate
-                    size="20"
-                    color="primary"
-                  />
-                </div>
-              </template>
-            </v-autocomplete>
-          </v-col>
-          <v-col cols="1" class="d-flex justify-center">
-            <v-select
-              v-model="selectedSex"
-              :items="['male', 'female']"
-              clearable
-              density="comfortable"
-              label="Sex"
-              style="min-width: 100px; max-width: 150px"
-            />
-          </v-col>
-          <v-col cols="1" class="d-flex justify-center">
-            <v-select
-              v-model="selectedAge"
-              :items="['pup', 'juvenile', 'adult']"
-              clearable
-              density="comfortable"
-              label="Age"
-              style="min-width: 100px; max-width: 150px"
-            />
-          </v-col>
-          <v-col cols="2" class="d-flex justify-center">Genotype</v-col>
-          <v-col cols="1" class="d-flex justify-center">Treatment</v-col>
-          <v-col cols="1" class="d-flex justify-center">
-            <v-select
-              v-model="selectedStatus"
-              :items="['draft', 'waiting validation', 'validated']"
-              clearable
-              density="comfortable"
-              label="Status"
-            />
-          </v-col>
-          <v-col cols="1" class="d-flex justify-center">Actions</v-col>
-        </v-row>
+              {{ profile.status }}
+            </v-chip>
+          </span>
+          <span class="ap-tools">
+            <template v-if="profile.status === 'draft'">
+              <v-btn
+                icon="mdi-pencil-outline"
+                size="small"
+                variant="text"
+                color="grey-darken-1"
+                aria-label="Edit profile"
+                @click.stop="handleEdit(profile)"
+              />
+              <v-btn
+                icon="mdi-delete-outline"
+                size="small"
+                variant="text"
+                color="grey-darken-1"
+                aria-label="Delete profile"
+                @click.stop="handleDelete(profile)"
+              />
+            </template>
+          </span>
+        </div>
+      </div>
 
-        <!-- Liste -->
-        <v-list dense>
-          <template v-if="paginatedProfiles.length === 0">
-            <v-list-item>
-              <v-list-item-title class="text-center w-100"> No data available </v-list-item-title>
-            </v-list-item>
-          </template>
-          <template v-else v-for="profile in paginatedProfiles" :key="profile.id">
-            <v-divider />
-            <v-list-item class="align-center fixed-row" @click="toggleProfile(profile)">
-              <v-row class="align-center" style="width: 100%" no-gutters>
-                <!-- Name + Checkbox + Favorite -->
-                <v-col cols="3" class="d-flex align-center">
-                  <v-checkbox
-                    :model-value="isSelected(profile)"
-                    hide-details
-                    density="compact"
-                    @click.stop="toggleProfile(profile)"
-                    class="me-1"
-                  />
-                  <v-btn
-                    icon
-                    variant="text"
-                    size="small"
-                    class="me-1"
-                    @click.stop="toggleFavorite(profile.id)"
-                  >
-                    <v-icon :color="isFavorite(profile.id) ? 'yellow' : 'grey'">
-                      {{ isFavorite(profile.id) ? 'mdi-star' : 'mdi-star-outline' }}
-                    </v-icon>
-                  </v-btn>
-                  <span class="truncate-name">{{ profile.name }}</span>
-                  <v-tooltip v-if="isTruncated(profile.name)" activator="parent" location="top">
-                    {{ profile.name }}
-                  </v-tooltip>
-                </v-col>
+      <v-pagination
+        v-model="currentPage"
+        :length="totalPages"
+        :total-visible="7"
+        class="mt-2"
+        color="primary"
+      />
 
-                <v-col cols="2" class="d-flex justify-center align-center">
-                  {{ profile.strain?.name || '-' }}
-                </v-col>
-
-                <v-col cols="1" class="d-flex justify-center align-center">
-                  {{ profile.sex || '-' }}
-                </v-col>
-
-                <v-col cols="1" class="d-flex justify-center align-center">
-                  {{ profile.age || '-' }}
-                </v-col>
-
-                <v-col cols="2" class="d-flex justify-center align-center">
-                  {{ profile.genotype || '-' }}
-                </v-col>
-
-                <v-col cols="1" class="d-flex justify-center align-center">
-                  {{ profile.treatment || '-' }}
-                </v-col>
-
-                <v-col cols="1" class="d-flex justify-center align-center">
-                  <v-chip
-                    size="small"
-                    :color="
-                      profile.status === 'draft'
-                        ? 'grey'
-                        : profile.status === 'validated'
-                          ? 'green'
-                          : 'blue'
-                    "
-                    text-color="white"
-                  >
-                    {{ profile.status }}
-                  </v-chip>
-                </v-col>
-
-                <v-col cols="1" class="d-flex justify-center align-center">
-                  <template v-if="profile.status === 'draft'">
-                    <v-btn
-                      icon
-                      size="small"
-                      variant="text"
-                      color="red"
-                      @click.stop="handleEdit(profile)"
-                      class="me-1"
-                    >
-                      <v-icon>mdi-pencil</v-icon>
-                    </v-btn>
-                    <v-btn
-                      icon
-                      size="small"
-                      variant="text"
-                      color="red"
-                      @click.stop="handleDelete(profile)"
-                    >
-                      <v-icon>mdi-delete</v-icon>
-                    </v-btn>
-                  </template>
-                </v-col>
-              </v-row>
-            </v-list-item>
-          </template>
-        </v-list>
-
-        <!-- Pagination -->
-        <v-pagination
-          v-model="currentPage"
-          :length="totalPages"
-          :total-visible="7"
-          class="mt-2"
-          color="primary"
-        />
-      </v-card-text>
-      <v-card-actions class="justify-space-between">
+      <template #actions>
         <v-btn
           color="primary"
-          variant="flat"
+          variant="tonal"
+          prepend-icon="mdi-plus"
           @click="
             profileToEdit = null;
             showCreateModal = true;
           "
         >
-          <v-icon start>mdi-plus</v-icon>
-          Create
+          Create a profile
         </v-btn>
-
-        <div>
-          <v-btn color="primary" variant="flat" @click="localDialog = false"> Close </v-btn>
-        </div>
-      </v-card-actions>
-    </v-card>
+      </template>
+    </PickerFrame>
 
     <CreateAnimalProfileModal
       v-model="showCreateModal"
@@ -526,55 +504,70 @@ function loadMoreStrains() {
 </template>
 
 <style scoped>
-.fixed-dialog {
-  min-height: 850px;
-  max-height: 80vh;
+.ap-filter {
+  flex: 1 1 150px;
+  min-width: 140px;
+  max-width: 220px;
+}
+.ap-filter--search {
+  flex-basis: 220px;
+  max-width: 280px;
+}
+.ap-filter--small {
+  flex-basis: 110px;
+  min-width: 100px;
+}
+.ap-table {
+  overflow-x: auto;
+}
+.ap-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 3fr) 1.6fr 0.8fr 0.9fr 1.4fr 1.2fr 1.4fr 84px;
+  align-items: center;
+  gap: 8px;
+  min-width: 860px;
+  padding: 6px 8px;
+  font-size: 0.9rem;
+}
+.ap-row--head {
+  color: #777;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #e4e4e4;
+}
+.ap-row--item {
+  min-height: 52px;
+  border-bottom: 1px solid #f0f0f0;
+  border-left: 4px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.ap-row--item:hover {
+  background: #fafafa;
+}
+.ap-row--item:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+}
+.ap-row--selected,
+.ap-row--selected:hover {
+  background: #fdf4f3;
+  border-left-color: rgb(var(--v-theme-primary));
+}
+.ap-name {
   display: flex;
-  flex-direction: column;
-}
-.scrollable-content {
-  flex: 1;
-  overflow-y: auto;
-}
-.fixed-row {
-  min-height: 50px;
+  align-items: center;
+  min-width: 0;
 }
 .truncate-name {
-  max-width: 300px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: inline-block;
 }
-.match-search-height .v-field {
-  min-height: 40px !important;
-  height: 40px !important;
-}
-.v-select .v-field__input {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.select-column {
-  max-width: 160px;
-  min-width: 140px;
-  width: 100%;
-}
-.fixed-row > .v-row {
-  margin: 0;
-  padding-top: 2px;
-  padding-bottom: 2px;
-}
-.scrollable-content {
-  max-height: calc(100vh - 160px);
-  overflow-y: auto;
-}
-
-.v-card-actions {
-  position: sticky;
-  bottom: 0;
-  background: white;
-  z-index: 1;
-  padding: 12px;
+.ap-tools {
+  display: flex;
+  justify-content: flex-end;
 }
 </style>
