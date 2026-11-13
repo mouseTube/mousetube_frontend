@@ -1,50 +1,28 @@
-import vue from 'eslint-plugin-vue';
-import nuxt from 'eslint-plugin-nuxt';
+import { createConfigForNuxt } from '@nuxt/eslint-config/flat';
 import prettier from 'eslint-plugin-prettier';
-import vueParser from 'vue-eslint-parser';
-import tsParser from '@typescript-eslint/parser';
-import globals from 'globals';
 
-export default [
-  {
-    ignores: ['node_modules', '.nuxt'],
+export default createConfigForNuxt({
+  features: { stylistic: false },
+}).append({
+  plugins: { prettier },
+  rules: {
+    'no-console': 'warn',
+    'no-undef': 'off', // composables are auto-imported by Nuxt
+    'vue/no-multiple-template-root': 'off',
+    'vue/no-v-html': 'off',
+    'vue/html-self-closing': 'off',
+    'vue/attributes-order': 'off',
+    'vue/v-slot-style': 'off',
+    'vue/v-bind-style': 'off',
+    '@typescript-eslint/no-explicit-any': 'warn',
+    '@typescript-eslint/no-unused-vars': 'warn',
+    'vue/valid-v-slot': ['warn', { allowModifiers: true }], // Vuetify slots like #item.name
+    'vue/no-unused-vars': 'warn',
+    'vue/no-mutating-props': 'warn',
+    'vue/valid-v-for': 'warn',
+    'no-unsafe-optional-chaining': 'warn',
+    'preserve-caught-error': 'warn',
+    '@typescript-eslint/no-dynamic-delete': 'warn',
+    'prettier/prettier': 'error',
   },
-  {
-    files: ['**/*.vue', '**/*.js'],
-    languageOptions: {
-      parser: vueParser,
-      parserOptions: {
-        parser: tsParser,
-        ecmaVersion: 2022,
-        sourceType: 'module',
-        ecmaFeatures: {
-          jsx: true,
-        },
-      },
-      globals: {
-        ...globals.browser,
-        ...globals.node,
-      },
-    },
-    plugins: {
-      vue,
-      nuxt,
-      prettier,
-    },
-    rules: {
-      'no-console': 'warn',
-      'no-undef': 'off',
-
-      'vue/no-multiple-template-root': 'off',
-      'vue/no-v-html': 'off',
-
-      'nuxt/no-env-in-hooks': 'error',
-      'nuxt/no-globals-in-created': 'error',
-
-      'prettier/prettier': 'error',
-    },
-    settings: {
-      'vue/setup-compiler-macros': true,
-    },
-  },
-];
+});

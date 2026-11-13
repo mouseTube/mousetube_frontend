@@ -22,6 +22,40 @@ const dataLoaded = ref(false);
 const apiBaseUrl = useApiBaseUrl();
 const filters = ref(['is_valid_link']);
 
+const tiles = [
+  {
+    to: '/vocalizations',
+    icon: 'mdi-waveform',
+    title: 'Vocalizations',
+    text: 'Search recordings by species, protocol or equipment.',
+  },
+  {
+    to: '/dataset',
+    icon: 'mdi-database',
+    title: 'Datasets',
+    text: 'Curated collections with their metadata, ready to cite.',
+  },
+  {
+    to: '/software',
+    icon: 'mdi-application-cog',
+    title: 'Software',
+    text: 'Tools used to record and analyse vocalizations.',
+  },
+  {
+    to: '/hardware',
+    icon: 'mdi-microphone',
+    title: 'Hardware',
+    text: 'Microphones, sound cards and speakers.',
+  },
+  {
+    to: '/repositories',
+    icon: 'mdi-warehouse',
+    title: 'Repositories',
+    text: 'Where the files are stored and how to reach them.',
+  },
+];
+const fair = ['Findable', 'Accessible', 'Interoperable', 'Reusable'];
+
 ////////////////////////////////
 // METHODS
 ////////////////////////////////
@@ -44,228 +78,415 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-main>
-    <v-container>
-      <v-row class="d-flex" align="stretch">
-        <v-col cols="12" md="6" class="h-100">
-          <v-card variant="flat" class="mx-auto flex-grow-1 mt-5">
-            <v-row justify="center" no-gutters>
-              <v-img
-                contain
-                height="250"
-                src="/logo_mousetube_big.png"
-                alt="logo MouseTube"
-                class="d-flex justify-center mx-10"
-              ></v-img>
-            </v-row>
-            <!-- <v-card-title class="text-h2 mt-5">Welcome to MouseTube</v-card-title> -->
-            <v-card-text class="mt-10">
-              <v-row justify="center" no-gutters>
-                <v-col
-                  class="text-h4 font-weight-bold d-flex align-center justify-center flex-column"
-                  v-if="dataLoaded"
-                >
-                  <div class="soundwaves mb-10">
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                  </div>
-                  <nuxt-link to="/vocalizations" style="color: black">
-                    {{ numberOfFiles }} vocalization files available
-                  </nuxt-link>
-                </v-col>
-                <v-col v-else>
-                  <v-progress-circular color="red-darken-4" indeterminate></v-progress-circular>
-                </v-col>
-              </v-row>
-            </v-card-text>
-          </v-card>
-          <v-card
-            class="mx-4 py-2 px-2 flex-grow-1 mt-8 rounded-lg border elevation-3"
-            variant="tonal"
-          >
-            <v-card-title class="font-weight-bold mx-4 my-4">
-              <v-icon class="me-2">mdi-handshake-outline</v-icon>
-              Call for papers
-            </v-card-title>
-            <v-card-text class="text-justify">
-              Working on ultrasonic vocalizations? Together, Dr. Elodie Ey and Dr. Markus Wöhr are
-              serving as guest editors for a Behavioural Brain Research special issue on Ultrasonic
-              Communication in Rodents. They are more than happy to learn about your most recent
-              discoveries.<br />
-              <br />
-              More information here:
-              <nuxt-link
-                href="https://www.sciencedirect.com/special-issue/317071/ultrasonic-communication-in-rodents"
-                target="_blank"
-                >Behavioural Brain Research - Ultrasonic Communication in Rodents</nuxt-link
-              >
-            </v-card-text>
-          </v-card>
-        </v-col>
-        <v-col cols="12" md="6" class="h-100">
-          <v-card
-            class="mx-4 py-2 px-2 flex-grow-1 mt-2 rounded-lg border elevation-3"
-            variant="tonal"
-          >
-            <v-card-title class="font-weight-bold mx-4 my-4">
-              <v-icon class="me-2">mdi-rodent</v-icon>
-              What is MouseTube?
-            </v-card-title>
-            <v-card-text class="text-justify">
-              Rodents communicate with each other through their various sensory modalities:
-              olfaction (scent marking, glands), vision (postures), touch (contacts) and hearing
-              (vocalizations). In the latter case, vocalizations are mainly emitted in the
-              ultrasonic range, beyond human perception capabilities (<nuxt-link
-                href="https://doi.org/10.1126/science.119.3101.808"
-                target="_blank"
-                >Anderson, 1954</nuxt-link
-              >; Brudzynski,
-              <nuxt-link href="https://doi.org/10.1007/s10519-004-0858-3" target="_blank"
-                >2005</nuxt-link
-              >,
-              <nuxt-link href="https://doi.org/10.3390/brainsci11050605" target="_blank"
-                >2021</nuxt-link
-              >;
-              <nuxt-link
-                href="https://www.metris.nl/media/documents/TypesandFunctionsofUSVinLabRatsandMice.pdf"
-                target="_blank"
-                >Portfors, 2007</nuxt-link
-              >;
-              <nuxt-link href="https://doi.org/10.7554/eLife.54020" target="_blank"
-                >Schweinfurth, 2020</nuxt-link
-              >). Ultrasonic vocalizations are emitted in various contexts: by isolated pups during
-              the first two weeks of life, by juveniles and adults during same-sex social
-              interactions, by males in the presence of females, and by individuals in aversive or
-              appetitive situations (restraint stress, anticipation of pain, social play, food
-              rewards) and exploring an unfamiliar environment. These ultrasonic vocalizations are
-              used as markers of motivation and social communication (<nuxt-link
-                href="https://doi.org/10.1111/j.1601-183X.2010.00610.x"
-                target="_blank"
-                >Fischer and Hammerschmidt, 2010</nuxt-link
-              >;
-              <nuxt-link href="https://doi.org/10.7554/eLife.54020" target="_blank"
-                >Schweinfurth, 2020</nuxt-link
-              >), or of susceptibility to stress or anxiety, depending on the type of signal
-              examined (<nuxt-link href="https://doi.org/10.1007/s10519-004-0858-3" target="_blank"
-                >Brudzynski, 2005</nuxt-link
-              >). Ultrasonic vocalizations are therefore routinely measured in rodent models of
-              neuropsychiatric conditions (<nuxt-link
-                href="https://doi.org/10.1111/ejn.15957"
-                target="_blank"
-                >Premoli et al., 2023</nuxt-link
-              >).
-            </v-card-text>
-            <v-card-text class="text-justify">
-              The mechanisms of production, the temporal organization into sequences, the
-              significance of the acoustic features and the effect on the recipient are far from
-              elucidated. Understanding the complexity of this communication system requires a vast
-              amount of data to explore with high-performance analysis methods. For that purpose, we
-              developed <strong>MouseTube</strong>, a database designed to facilitate sharing,
-              archiving and analysing raw recording files of rodent ultrasonic vocalizations
-              following the FAIR (Findable, Accessible, Interoperable, Reusable) principles
-              (<nuxt-link href="https://doi.org/10.1038/sdata.2016.18" target="_blank"
-                >Wilkinson et al., 2016</nuxt-link
-              >).
-            </v-card-text>
-          </v-card>
-          <!-- <v-card
-            class="mx-4 py-2 px-2 flex-grow-1 mt-8 rounded-lg border elevation-3"
-            variant="tonal"
-          >
-            <v-card-title class="font-weight-bold mx-4 my-4">
-              <v-icon class="me-2">mdi-newspaper-variant-multiple-outline</v-icon>
-              MouseTube's publications
-            </v-card-title>
-            <v-card-text class="text-justify">
-              Torquet N., de Chaumont F., Faure P., Bourgeron T., Ey E. MouseTube – a database to
-              collaboratively unravel mouse ultrasonic communication [version 1; peer review: 2
-              approved]. F1000Research 2016, 5:2332 (<nuxt-link
-                href="https://doi.org/10.12688/f1000research.9439.1"
-                target="_blank"
-                >https://doi.org/10.12688/f1000research.9439.1</nuxt-link
-              >) (2016). Ferhat A. T., Torquet N., Le Sourd A. M., de Chaumont F., Olivo-Marin J.
-              C., Faure P., Bourgeron T., Ey E. Recording Mouse Ultrasonic Vocalizations to Evaluate
-              Social Communication. J. Vis. Exp. (112), e53871,
-              <nuxt-link href="https://dx.doi.org/10.3791/53871" target="_blank"
-                >doi:10.3791/53871</nuxt-link
-              >
-              (2016).
-            </v-card-text>
-            <v-card-actions>
-              <nuxt-link to="https://mastodon.social/@mousetube" target="_blank" class="nuxt-link"
-                ><v-btn prepend-icon="mdi-mastodon">Follow MouseTube on Mastodon</v-btn></nuxt-link
-              >
-            </v-card-actions>
-          </v-card> -->
-        </v-col>
-      </v-row>
+  <v-main class="w-100 home">
+    <!-- Hero -->
+    <section class="hero">
+      <v-container class="pt-5 pb-8 pb-md-10">
+        <v-row align="center">
+          <v-col cols="12" md="7">
+            <div class="eyebrow">
+              <span class="title-bar" aria-hidden="true"></span>
+              <span class="text-overline">Open science</span>
+            </div>
+            <h1 class="hero-title">
+              Share, find and reuse<br />
+              rodent ultrasonic vocalizations
+            </h1>
+            <p class="hero-lead">
+              MouseTube is an open database of raw recordings, with the protocols, animals and
+              equipment behind each of them.
+            </p>
+            <nuxt-link to="/vocalizations" class="stat mt-6" aria-live="polite">
+              <div class="soundwaves" aria-hidden="true">
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+              </div>
+              <span v-if="dataLoaded">
+                <strong>{{ numberOfFiles }}</strong> vocalization files available
+              </span>
+              <v-progress-circular v-else color="primary" size="16" width="2" indeterminate />
+            </nuxt-link>
+          </v-col>
+          <v-col cols="12" md="5" class="d-flex justify-center">
+            <img src="/logo_mousetube_big.png" alt="MouseTube logo" class="hero-logo" />
+          </v-col>
+        </v-row>
+      </v-container>
+    </section>
+
+    <v-container class="py-8">
+      <!-- Where to go -->
       <v-row>
-        <logo-strip></logo-strip>
+        <v-col v-for="tile in tiles" :key="tile.to" cols="12" sm="6" md="4" class="tile-col">
+          <v-card :to="tile.to" variant="outlined" class="tile h-100" rounded="xl">
+            <v-card-text class="d-flex flex-column ga-2">
+              <v-avatar color="grey-darken-3" variant="tonal" size="44">
+                <v-icon class="tile-icon">{{ tile.icon }}</v-icon>
+              </v-avatar>
+              <div class="text-subtitle-1 font-weight-bold">{{ tile.title }}</div>
+              <div class="text-body-2 text-medium-emphasis">{{ tile.text }}</div>
+            </v-card-text>
+          </v-card>
+        </v-col>
       </v-row>
+
+      <!-- What's new -->
+      <v-card class="news mt-8" variant="flat" rounded="xl">
+        <v-card-text class="d-flex flex-column flex-md-row ga-4 pa-6">
+          <v-avatar color="grey-darken-3" size="52"
+            ><v-icon size="28">mdi-newspaper-variant-outline</v-icon></v-avatar
+          >
+          <div>
+            <div class="text-h6 font-weight-bold mb-3">What’s new?</div>
+            <div class="news-item">
+              <div class="news-date">09/10/2026</div>
+              <p class="mb-0 text-body-1">
+                A publication in The Biologist, the magazine from the Royal Society of Biology
+                (RSB), presents the original framework of MouseTube and its perspectives. Read how
+                mouseTube integrates into the scientific landscape
+                <nuxt-link
+                  href="https://biologist.rsb.org.uk/can_you_squeak_up_please.html"
+                  target="_blank"
+                  >here</nuxt-link
+                >.
+              </p>
+            </div>
+            <div class="news-item">
+              <div class="news-date">10/06/2026</div>
+              <p class="mb-0 text-body-1">
+                Two datasets were added: one with mouse vocalisation recordings and one with rat
+                vocalisation recordings. These recordings are manually annotated by two experts and
+                automatically analysed by six algorithms with basic settings (DeepSqueak, Avisoft
+                SASLab Pro, Sonotrack, LMT USV Toolbox, UsvSeg, RatRec). Annotations and
+                segmentations are available for benchmarking or to challenge your own application.
+              </p>
+            </div>
+          </div>
+        </v-card-text>
+      </v-card>
+
+      <!-- About -->
+      <v-row class="mt-6">
+        <v-col cols="12" md="4">
+          <h2 class="text-h5 font-weight-bold d-flex align-center">
+            <v-icon class="me-2">mdi-rodent</v-icon>
+            What is MouseTube?
+          </h2>
+          <div class="accent mt-3"></div>
+        </v-col>
+        <v-col cols="12" md="8">
+          <p class="prose">
+            Rodents communicate with each other through their various sensory modalities: olfaction
+            (scent marking, glands), vision (postures), touch (contacts) and hearing
+            (vocalizations). In the latter case, vocalizations are mainly emitted in the ultrasonic
+            range, beyond human perception capabilities (<nuxt-link
+              href="https://doi.org/10.1126/science.119.3101.808"
+              target="_blank"
+              >Anderson, 1954</nuxt-link
+            >; Brudzynski,
+            <nuxt-link href="https://doi.org/10.1007/s10519-004-0858-3" target="_blank"
+              >2005</nuxt-link
+            >,
+            <nuxt-link href="https://doi.org/10.3390/brainsci11050605" target="_blank"
+              >2021</nuxt-link
+            >;
+            <nuxt-link
+              href="https://www.metris.nl/media/documents/TypesandFunctionsofUSVinLabRatsandMice.pdf"
+              target="_blank"
+              >Portfors, 2007</nuxt-link
+            >;
+            <nuxt-link href="https://doi.org/10.7554/eLife.54020" target="_blank"
+              >Schweinfurth, 2020</nuxt-link
+            >). Ultrasonic vocalizations are emitted in various contexts: by isolated pups during
+            the first two weeks of life, by juveniles and adults during same-sex social
+            interactions, by males in the presence of females, and by individuals in aversive or
+            appetitive situations (restraint stress, anticipation of pain, social play, food
+            rewards) and exploring an unfamiliar environment. These ultrasonic vocalizations are
+            used as markers of motivation and social communication (<nuxt-link
+              href="https://doi.org/10.1111/j.1601-183X.2010.00610.x"
+              target="_blank"
+              >Fischer and Hammerschmidt, 2010</nuxt-link
+            >;
+            <nuxt-link href="https://doi.org/10.7554/eLife.54020" target="_blank"
+              >Schweinfurth, 2020</nuxt-link
+            >), or of susceptibility to stress or anxiety, depending on the type of signal examined
+            (<nuxt-link href="https://doi.org/10.1007/s10519-004-0858-3" target="_blank"
+              >Brudzynski, 2005</nuxt-link
+            >). Ultrasonic vocalizations are therefore routinely measured in rodent models of
+            neuropsychiatric conditions (<nuxt-link
+              href="https://doi.org/10.1111/ejn.15957"
+              target="_blank"
+              >Premoli et al., 2023</nuxt-link
+            >).
+          </p>
+          <p class="prose">
+            The mechanisms of production, the temporal organization into sequences, the significance
+            of the acoustic features and the effect on the recipient are far from elucidated.
+            Understanding the complexity of this communication system requires a vast amount of data
+            to explore with high-performance analysis methods. For that purpose, we developed
+            <strong>MouseTube</strong>, a database designed to facilitate sharing, archiving and
+            analysing raw recording files of rodent ultrasonic vocalizations following the FAIR
+            (Findable, Accessible, Interoperable, Reusable) principles (<nuxt-link
+              href="https://doi.org/10.1038/sdata.2016.18"
+              target="_blank"
+              >Wilkinson et al., 2016</nuxt-link
+            >).
+          </p>
+          <div class="d-flex flex-wrap ga-2 mt-2">
+            <v-chip v-for="p in fair" :key="p" variant="tonal">{{ p }}</v-chip>
+          </div>
+        </v-col>
+      </v-row>
+
+      <!-- Partners -->
+      <div class="text-overline text-medium-emphasis text-center mt-10">With the support of</div>
+      <logo-strip />
     </v-container>
   </v-main>
 </template>
 
 <style scoped>
 a {
-  text-decoration: none;
-  color: #b71c1c;
+  color: #222;
+  text-decoration: underline;
+  text-decoration-color: #bbb;
+  text-underline-offset: 3px;
 }
 
 a:hover {
-  text-decoration: underline;
+  text-decoration-color: #c62828;
 }
 
+.hero {
+  background: linear-gradient(180deg, #fff 0%, #f6f6f6 100%);
+  border-bottom: 1px solid #ececec;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  color: #555;
+}
+
+.title-bar {
+  width: 40px;
+  height: 4px;
+  border-radius: 4px;
+  background: rgb(var(--v-theme-primary));
+}
+
+.hero-title {
+  font-size: clamp(1.9rem, 4vw, 3rem);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.hero-lead {
+  max-width: 34rem;
+  margin-top: 16px;
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: #555;
+}
+
+.hero-logo {
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+}
+
+.stat,
+.tile {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.stat:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+  border-color: #222;
+}
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1.5px solid #cfcfcf;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  color: #111;
+  font-size: 1rem;
+  text-decoration: none;
+}
+
+.stat strong {
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.stat:hover .soundwaves div {
+  animation-duration: 0.6s;
+}
+
+.tile {
+  color: rgb(var(--v-theme-on-surface));
+  text-decoration: none;
+  border-color: #e4e4e4;
+}
+
+.tile:hover :deep(.v-card__overlay) {
+  opacity: 0;
+}
+
+.tile:hover .tile-icon {
+  color: rgb(var(--v-theme-primary));
+  animation: wiggle 0.5s ease-in-out;
+}
+
+@keyframes wiggle {
+  0% {
+    transform: rotate(0deg) scaleY(1);
+  }
+  25% {
+    transform: rotate(-3deg) scaleY(1.1);
+  }
+  50% {
+    transform: rotate(3deg) scaleY(1.05);
+  }
+  75% {
+    transform: rotate(-2deg) scaleY(1.08);
+  }
+  100% {
+    transform: rotate(0deg) scaleY(1);
+  }
+}
+
+.tile:hover {
+  text-decoration: none;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  border-color: #222;
+}
+
+.news {
+  background: #f6f6f6;
+  border: 1px solid #e4e4e4;
+}
+
+.news-item + .news-item {
+  margin-top: 16px;
+}
+
+.news-date {
+  margin-bottom: 2px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #666;
+}
+
+.accent {
+  width: 56px;
+  height: 4px;
+  border-radius: 4px;
+  background: #222;
+}
+
+.prose {
+  max-width: 46rem;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #333;
+}
+
+/* five tiles on one row on large screens (Vuetify has no 1/5 column) */
+@media (min-width: 1280px) {
+  .tile-col {
+    flex: 0 0 20%;
+    max-width: 20%;
+  }
+}
+
+/* small equalizer in the counter pill: thin bars that stay inside it */
 .soundwaves {
   display: flex;
-  gap: 4px;
-  height: 10px;
+  gap: 3px;
+  height: 16px;
   align-items: center;
 }
 
 .soundwaves div {
-  width: 3px;
+  width: 2px;
   height: 100%;
-  background-color: rgb(230, 45, 45);
-  animation: wave 1s infinite ease-in-out;
+  background-color: rgb(var(--v-theme-primary));
+  animation: wave 1.1s infinite ease-in-out;
   transform-origin: center center;
-  border-radius: 10px;
+  border-radius: 2px;
+  transform: scaleY(0.35);
 }
 
 .soundwaves div:nth-child(1) {
-  animation-delay: 0s;
+  animation-delay: -0.2s;
 }
 .soundwaves div:nth-child(2) {
-  animation-delay: 0.2s;
+  animation-delay: -0.7s;
+  animation-duration: 0.9s;
 }
 .soundwaves div:nth-child(3) {
-  animation-delay: 0.4s;
+  animation-delay: -0.4s;
+  animation-duration: 1.3s;
 }
 .soundwaves div:nth-child(4) {
-  animation-delay: 0.6s;
+  animation-delay: -0.9s;
 }
 .soundwaves div:nth-child(5) {
-  animation-delay: 0.8s;
+  animation-delay: -0.1s;
+  animation-duration: 1s;
 }
 .soundwaves div:nth-child(6) {
-  animation-delay: 1s;
+  animation-delay: -0.6s;
+  animation-duration: 1.2s;
 }
 
 @keyframes wave {
   0%,
   100% {
-    transform: scaleY(1);
+    transform: scaleY(0.3);
   }
   50% {
-    transform: scaleY(3);
+    transform: scaleY(1);
   }
 }
 
-:deep(.v-expansion-panel-title) {
-  padding: 7px 7px;
+@media (prefers-reduced-motion: reduce) {
+  .soundwaves div {
+    animation: none;
+  }
+  .soundwaves div:nth-child(odd) {
+    transform: scaleY(0.9);
+  }
+  .soundwaves div:nth-child(even) {
+    transform: scaleY(0.5);
+  }
+  .tile,
+  .stat {
+    transition: none;
+  }
+  .tile:hover .tile-icon {
+    animation: none;
+  }
 }
 </style>

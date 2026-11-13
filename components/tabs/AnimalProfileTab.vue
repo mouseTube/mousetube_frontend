@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import { type AnimalProfile } from '@/stores/animalProfile';
+import type { AnimalProfile } from '@/stores/animalProfile';
 import { useRecordingSessionStore } from '@/stores/recordingSession';
 import AnimalProfileSelectionModal from '@/components/modals/AnimalProfileSelectionModal.vue';
-import { cloneDeep } from 'lodash';
+import { cloneDeep } from 'lodash-es';
 
 // ----------------------
 // Props & Emits
@@ -41,7 +41,7 @@ const isDirty = computed(() => {
 });
 
 const currentSession = ref<any>(null);
-const isShared = computed(() => currentSession.value?.status === 'shared');
+const isShared = computed(() => isLockedStatus(currentSession.value?.status)); // locked: under review, shared or published
 
 // ----------------------
 // Functions
@@ -62,6 +62,16 @@ async function loadAnimalProfilesFromSession(sessionId: number) {
     emit('animal-selected', { animalProfileId: null });
     emit('animal-saved', { saved: false });
   }
+}
+
+/* Put the list back as it is saved for the session: what was added or removed since is dropped. */
+async function undoChanges() {
+  if (props.selectedRecordingSessionId === null) return;
+  await loadAnimalProfilesFromSession(props.selectedRecordingSessionId);
+  emit('animal-dirty', { dirty: false });
+  snackbarText.value = 'Changes undone.';
+  snackbarColor.value = 'info';
+  snackbar.value = true;
 }
 
 function removeAnimalProfile(id: number) {
@@ -105,7 +115,7 @@ async function updateAnimalProfiles() {
     if (selectedAnimalProfiles.value.length > 0) {
       emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
     }
-  } catch (err) {
+  } catch {
     snackbarText.value = 'Failed to update animal profiles.';
     snackbarColor.value = 'error';
     snackbar.value = true;
@@ -159,12 +169,27 @@ watch(
 
 <template>
   <v-container>
+    <v-alert v-if="isShared" type="info" variant="tonal" class="mb-4">
+      {{ lockedExplanation(currentSession?.status, 'The animals of the session') }}
+    </v-alert>
     <v-card outlined class="pa-6 mb-5">
       <v-card-title class="d-flex justify-space-between align-center mb-4">
         <h3>Animal Profiles</h3>
-        <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isShared || !isDirty">
-          Save
-        </v-btn>
+        <div>
+          <v-btn
+            color="grey"
+            variant="outlined"
+            prepend-icon="mdi-undo"
+            class="mr-2"
+            :disabled="isShared || !isDirty"
+            @click="undoChanges"
+          >
+            Undo changes
+          </v-btn>
+          <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isShared || !isDirty">
+            Save
+          </v-btn>
+        </div>
       </v-card-title>
 
       <v-card-text>
@@ -222,8 +247,8 @@ watch(
 
     <AnimalProfileSelectionModal
       v-model="showSelectionModal"
-      :selectedAnimalProfiles="selectedAnimalProfiles"
-      @update:selectedAnimalProfiles="onUpdateSelectedAnimalProfiles"
+      :selected-animal-profiles="selectedAnimalProfiles"
+      @update:selected-animal-profiles="onUpdateSelectedAnimalProfiles"
     />
 
     <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000" location="top right">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PickerFrame from '@/components/modals/PickerFrame.vue';
 import { ref, computed, watch } from 'vue';
 import { useSoftwareStore } from '@/stores/software';
 import { useFavoriteStore } from '@/stores/favorite';
@@ -197,7 +198,7 @@ async function confirmDelete() {
       if (remainingVersions.length) {
         onVersionSelected(softwareId, remainingVersions.at(-1)!);
       } else {
-        delete selectedVersionBySoftware.value[softwareId];
+        Reflect.deleteProperty(selectedVersionBySoftware.value, softwareId);
         selectedSoftwareIds.value = selectedSoftwareIds.value.filter((id) => id !== softwareId);
         internalSelectedVersionIds.value = internalSelectedVersionIds.value.filter(
           (id) => id !== deletedVersionId
@@ -224,7 +225,7 @@ async function confirmDeleteSoftware() {
   selectedSoftwareIds.value = selectedSoftwareIds.value.filter(
     (id) => id !== deleteSoftwareTarget.value!.id
   );
-  delete selectedVersionBySoftware.value[deleteSoftwareTarget.value.id];
+  Reflect.deleteProperty(selectedVersionBySoftware.value, deleteSoftwareTarget.value.id);
   internalSelectedVersionIds.value = internalSelectedVersionIds.value.filter(
     (id) =>
       !groupedSoftware.value.some(
@@ -314,207 +315,202 @@ onMounted(async () => {
 
 <template>
   <v-dialog v-model="localDialog" max-width="900px">
-    <v-card class="pa-3">
-      <!-- Header -->
-      <v-card-title class="d-flex align-center font-weight-bold">
-        <span>Select Acquisition Software Version</span>
-        <v-spacer />
+    <PickerFrame
+      title="Select acquisition software version"
+      :subtitle="`${groupedSoftware.length} available · ${internalSelectedVersionIds.length} selected`"
+      icon="mdi-monitor-dashboard"
+      :selected="internalSelectedVersionIds.length"
+      @close="localDialog = false"
+    >
+      <template #toolbar>
         <v-text-field
           v-model="searchQuery"
           placeholder="Search software..."
-          density="compact"
+          density="comfortable"
           variant="outlined"
           hide-details
+          clearable
           prepend-inner-icon="mdi-magnify"
-          style="max-width: 300px"
         />
         <v-btn
-          @click="toggleSortOrder"
-          size="small"
-          class="ml-2"
-          :icon="sortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'"
+          icon
+          variant="tonal"
           :title="sortOrder === 'asc' ? 'Ascending' : 'Descending'"
-        />
-      </v-card-title>
-
-      <!-- Body -->
-      <v-card-text>
-        <v-row dense v-if="paginatedGroups.length">
-          <v-col v-for="group in paginatedGroups" :key="group.software.id" cols="12" sm="6" md="4">
-            <v-card
-              class="software-card"
-              :class="{ 'selected-card': selectedSoftwareIds.includes(group.software.id) }"
-              outlined
-            >
-              <!-- Card header -->
-              <v-card-title class="d-flex justify-space-between align-center pa-2">
-                <div class="d-flex align-center flex-grow-1" style="min-width: 0">
-                  <v-btn
-                    variant="text"
-                    size="small"
-                    :icon="
-                      favoriteStore.isFavorite('software', group.software.id)
-                        ? 'mdi-star'
-                        : 'mdi-star-outline'
-                    "
-                    :color="
-                      favoriteStore.isFavorite('software', group.software.id) ? 'warning' : 'grey'
-                    "
-                    @click.stop="toggleFavorite(group.software.id)"
-                    title="Toggle favorite"
-                    class="favorite-btn me-2"
-                  />
-
-                  <v-tooltip location="top">
-                    <template #activator="{ props }">
-                      <div
-                        v-bind="props"
-                        class="font-weight-medium text-truncate"
-                        style="
-                          display: block;
-                          overflow: hidden;
-                          text-overflow: ellipsis;
-                          white-space: nowrap;
-                          min-width: 0;
-                          flex: 1;
-                        "
-                      >
-                        {{ truncate(group.software.name, 40) }}
-                      </div>
-                    </template>
-                    <span>{{ group.software.name }}</span>
-                  </v-tooltip>
-                </div>
-
-                <div
-                  class="d-flex align-center gap-1 flex-shrink-0"
-                  v-if="group.software.created_by === id_user"
-                >
-                  <v-icon
-                    small
-                    color="primary"
-                    class="hover-icon"
-                    @click.stop="onEditSoftware(group.software.id)"
-                  >
-                    mdi-pencil
-                  </v-icon>
-                  <v-icon
-                    small
-                    color="primary"
-                    class="hover-icon"
-                    @click.stop="onDeleteSoftware(group.software.id, group.software.name)"
-                  >
-                    mdi-delete
-                  </v-icon>
-                </div>
-              </v-card-title>
-
-              <!-- Version selector -->
-              <v-card-text>
-                <v-autocomplete
-                  v-model="selectedVersionBySoftware[group.software.id]"
-                  :items="group.versions"
-                  item-title="version"
-                  item-value="id"
-                  label="Select Version"
-                  dense
-                  outlined
-                  @update:model-value="(val: number) => onVersionSelected(group.software.id, val)"
-                />
-              </v-card-text>
-
-              <!-- Card actions -->
-              <v-card-actions class="justify-space-between align-center">
-                <v-chip
-                  v-if="group.software.status"
-                  :color="getStatusColor(group.software.status)"
-                  size="small"
-                  class="ms-2 text-white"
-                  label
-                >
-                  {{ group.software.status }}
-                </v-chip>
-                <div class="d-flex align-center" style="gap: 4px">
-                  <div
-                    class="selection-box"
-                    :class="{ selected: selectedSoftwareIds.includes(group.software.id) }"
-                    @click.stop="toggleCardSelection(group)"
-                  >
-                    <v-icon
-                      v-if="selectedSoftwareIds.includes(group.software.id)"
-                      small
-                      color="primary"
-                      >mdi-check</v-icon
-                    >
-                  </div>
-                  <v-icon
-                    small
-                    color="primary"
-                    class="hover-icon"
-                    @click.stop="onCreateVersion(group.software.id)"
-                    >mdi-plus</v-icon
-                  >
-                  <v-icon
-                    small
-                    color="primary"
-                    class="hover-icon"
-                    @click.stop="onEditVersion(selectedVersionBySoftware[group.software.id])"
-                    >mdi-pencil</v-icon
-                  >
-                  <v-icon
-                    small
-                    color="primary"
-                    class="hover-icon"
-                    @click.stop="
-                      onDeleteVersion({
-                        id: selectedVersionBySoftware[group.software.id],
-                        softwareName: group.software.name,
-                        version:
-                          group.versions.find(
-                            (v: { id: number; version: string | null }) =>
-                              v.id === selectedVersionBySoftware[group.software.id]
-                          )?.version ?? null,
-                      })
-                    "
-                    >mdi-delete</v-icon
-                  >
-                </div>
-              </v-card-actions>
-            </v-card>
-          </v-col>
-        </v-row>
-
-        <!-- Empty state -->
-        <v-alert v-else type="info" variant="tonal" class="mt-4">
-          No software found matching your search criteria
-        </v-alert>
-
-        <!-- Pagination -->
-        <v-pagination
-          v-if="groupedSoftware.length > itemsPerPage"
-          v-model="page"
-          :length="Math.ceil(groupedSoftware.length / itemsPerPage)"
-          class="mt-4"
-          total-visible="5"
-        />
-      </v-card-text>
-
-      <!-- Footer -->
-      <v-card-actions class="justify-space-between">
-        <v-btn color="primary" variant="flat" @click="onAddSoftware" title="Add new software">
-          <v-icon start>mdi-plus</v-icon> Add Software
+          @click="toggleSortOrder"
+        >
+          <v-icon>{{ sortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending' }}</v-icon>
         </v-btn>
+      </template>
+
+      <v-row dense v-if="paginatedGroups.length">
+        <v-col v-for="group in paginatedGroups" :key="group.software.id" cols="12" sm="6" md="4">
+          <v-card
+            :class="[
+              'pick-card pick-card--static',
+              { 'pick-card--selected': selectedSoftwareIds.includes(group.software.id) },
+            ]"
+          >
+            <div class="pick-title d-flex align-center">
+              <v-btn
+                variant="text"
+                size="x-small"
+                density="comfortable"
+                :icon="
+                  favoriteStore.isFavorite('software', group.software.id)
+                    ? 'mdi-star'
+                    : 'mdi-star-outline'
+                "
+                :color="
+                  favoriteStore.isFavorite('software', group.software.id) ? 'warning' : 'grey'
+                "
+                title="Toggle favorite"
+                aria-label="Toggle favorite"
+                class="me-1"
+                @click.stop="toggleFavorite(group.software.id)"
+              />
+              <span class="text-truncate" :title="group.software.name">{{
+                truncate(group.software.name, 40)
+              }}</span>
+            </div>
+
+            <div class="px-3 pt-3 pb-2">
+              <v-autocomplete
+                v-model="selectedVersionBySoftware[group.software.id]"
+                :items="group.versions"
+                item-title="version"
+                item-value="id"
+                label="Version"
+                density="comfortable"
+                variant="outlined"
+                hide-details
+                @update:model-value="(val: number) => onVersionSelected(group.software.id, val)"
+              />
+            </div>
+
+            <div class="pick-foot">
+              <v-chip
+                v-if="group.software.status"
+                :color="getStatusColor(group.software.status)"
+                size="small"
+                label
+              >
+                {{ group.software.status }}
+              </v-chip>
+              <span v-else />
+              <v-btn
+                size="small"
+                :variant="selectedSoftwareIds.includes(group.software.id) ? 'flat' : 'tonal'"
+                color="primary"
+                :prepend-icon="
+                  selectedSoftwareIds.includes(group.software.id) ? 'mdi-check' : 'mdi-plus'
+                "
+                @click.stop="toggleCardSelection(group)"
+              >
+                {{ selectedSoftwareIds.includes(group.software.id) ? 'Selected' : 'Select' }}
+              </v-btn>
+            </div>
+
+            <div class="pick-foot pick-foot--line">
+              <span>Version</span>
+              <span class="pick-tools">
+                <v-btn
+                  icon="mdi-plus"
+                  variant="text"
+                  size="small"
+                  color="grey-darken-1"
+                  title="Add a version"
+                  aria-label="Add a version"
+                  @click.stop="onCreateVersion(group.software.id)"
+                />
+                <v-btn
+                  icon="mdi-pencil-outline"
+                  variant="text"
+                  size="small"
+                  color="grey-darken-1"
+                  title="Edit this version"
+                  aria-label="Edit this version"
+                  @click.stop="onEditVersion(selectedVersionBySoftware[group.software.id])"
+                />
+                <v-btn
+                  icon="mdi-delete-outline"
+                  variant="text"
+                  size="small"
+                  color="grey-darken-1"
+                  title="Delete this version"
+                  aria-label="Delete this version"
+                  @click.stop="
+                    onDeleteVersion({
+                      id: selectedVersionBySoftware[group.software.id],
+                      softwareName: group.software.name,
+                      version:
+                        group.versions.find(
+                          (v: { id: number; version: string | null }) =>
+                            v.id === selectedVersionBySoftware[group.software.id]
+                        )?.version ?? null,
+                    })
+                  "
+                />
+              </span>
+            </div>
+
+            <div v-if="group.software.created_by === id_user" class="pick-foot pick-foot--line">
+              <span>Software</span>
+              <span class="pick-tools">
+                <v-btn
+                  icon="mdi-pencil-outline"
+                  variant="text"
+                  size="small"
+                  color="grey-darken-1"
+                  title="Edit software"
+                  aria-label="Edit software"
+                  @click.stop="onEditSoftware(group.software.id)"
+                />
+                <v-btn
+                  icon="mdi-delete-outline"
+                  variant="text"
+                  size="small"
+                  color="grey-darken-1"
+                  title="Delete software"
+                  aria-label="Delete software"
+                  @click.stop="onDeleteSoftware(group.software.id, group.software.name)"
+                />
+              </span>
+            </div>
+          </v-card>
+        </v-col>
+      </v-row>
+
+      <v-alert v-else type="info" variant="tonal" class="mt-4">
+        No software found matching your search criteria
+      </v-alert>
+
+      <v-pagination
+        v-if="groupedSoftware.length > itemsPerPage"
+        v-model="page"
+        :length="Math.ceil(groupedSoftware.length / itemsPerPage)"
+        class="mt-4"
+        total-visible="5"
+      />
+
+      <template #actions>
         <v-btn
           color="primary"
-          variant="outlined"
+          variant="tonal"
+          prepend-icon="mdi-plus"
+          title="Add new software"
+          @click="onAddSoftware"
+        >
+          Add software
+        </v-btn>
+        <v-btn
+          variant="text"
           :disabled="internalSelectedVersionIds.length === 0"
           @click="clearAllSoftwareSelection"
         >
-          <v-icon start>mdi-close</v-icon> Clear All
+          Clear selection
         </v-btn>
-        <v-btn color="primary" variant="flat" @click="localDialog = false">Close</v-btn>
-      </v-card-actions>
-    </v-card>
+      </template>
+    </PickerFrame>
 
     <!-- Delete version confirmation -->
     <v-dialog v-model="showDeleteConfirm" max-width="400">
@@ -528,7 +524,7 @@ onMounted(async () => {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn text @click="showDeleteConfirm = false">Cancel</v-btn>
+          <v-btn variant="text" @click="showDeleteConfirm = false">Cancel</v-btn>
           <v-btn color="primary" @click="confirmDelete">Delete</v-btn>
         </v-card-actions>
       </v-card>
@@ -545,7 +541,7 @@ onMounted(async () => {
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn text @click="showDeleteSoftwareConfirm = false">Cancel</v-btn>
+          <v-btn variant="text" @click="showDeleteSoftwareConfirm = false">Cancel</v-btn>
           <v-btn color="primary" @click="confirmDeleteSoftware">Delete</v-btn>
         </v-card-actions>
       </v-card>
@@ -568,46 +564,3 @@ onMounted(async () => {
     />
   </v-dialog>
 </template>
-
-<style scoped>
-.software-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 220px;
-}
-
-.hover-icon:hover {
-  color: #000 !important;
-  transform: scale(1.1);
-  transition:
-    transform 0.2s,
-    color 0.2s;
-}
-
-.selected-card {
-  border: 2px solid #c62828;
-}
-
-.selection-box {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #ccc;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.selection-box.selected {
-  border-color: #c62828;
-  background-color: #ffe6e6;
-  color: #c62828;
-}
-
-.selection-box v-icon {
-  font-size: 16px;
-}
-</style>

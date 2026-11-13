@@ -54,15 +54,12 @@ const logos = [
 
 <template>
   <v-container>
-    <v-row align="center" justify="center">
-      <v-col v-for="(logo, i) in logos" :key="i" class="d-flex justify-center align-center">
-        <v-sheet class="pa-1 ma-1">
-          <nuxt-link :to="logo.link" target="_blank">
-            <img :src="logo.src" :alt="logo.alt" />
-          </nuxt-link>
-        </v-sheet>
-      </v-col>
-    </v-row>
+    <!-- same height for every logo, one line when it fits, wraps on narrow screens -->
+    <div class="d-flex flex-wrap justify-center align-center logo-row">
+      <nuxt-link v-for="logo in logos" :key="logo.src" :to="logo.link" target="_blank">
+        <img :src="logo.src" :alt="logo.alt" />
+      </nuxt-link>
+    </div>
   </v-container>
 </template>
 
@@ -76,8 +73,15 @@ const logos = [
   text-decoration: underline;
 }
 
+.logo-row {
+  gap: 16px 28px;
+}
+
 img {
-  max-width: 150px;
-  height: auto;
+  display: block;
+  height: 56px;
+  width: auto;
+  max-width: 180px;
+  object-fit: contain;
 }
 </style>

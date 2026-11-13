@@ -14,7 +14,7 @@ export interface Contact {
   unit?: string | null;
   address?: string | null;
   country?: string | null;
-  status?: 'draft' | 'waiting_validation' | 'validated' | string | null;
+  status?: 'draft' | 'waiting validation' | 'validated' | string | null;
   created_at?: string | null;
   modified_at?: string | null;
   created_by?: number | null;

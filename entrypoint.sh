@@ -9,7 +9,7 @@ if [ "$(echo "$DEBUG" | tr '[:upper:]' '[:lower:]')" = "false" ]; then
     export NODE_ENV=production
 
     echo "🔧 Installing production dependencies only..."
-    npm install --omit=dev
+    npm ci --omit=dev
 
     echo "🚀 Building Nuxt app for production..."
     npm run build

@@ -49,13 +49,14 @@ const formData = ref({
     bedding: '',
     light_cycle: '',
   },
-  status: 'draft' as 'draft' | 'awaiting validation' | 'validated' | null,
+  status: 'draft' as 'draft' | 'waiting validation' | 'validated' | null,
 });
 
 const snackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('');
 const session = ref<RecordingSession | null>(null);
+const sessionLocked = computed(() => isLockedStatus(session.value?.status));
 
 const skipNextProtocolPropWatch = ref(false);
 const skipNextSessionStoreWatch = ref(false);
@@ -98,7 +99,7 @@ const canLinkValidatedProtocol = computed(() => {
   return (
     selectedProtocolObject.value !== null &&
     selectedProtocolObject.value.status === 'validated' &&
-    session.value?.status !== 'shared' &&
+    !sessionLocked.value &&
     session.value?.protocol?.id !== selectedProtocolObject.value.id
   );
 });
@@ -116,6 +117,18 @@ function showSnackbar(message: string, color: string) {
 
 function snapshotFormData(data: typeof formData.value) {
   return JSON.stringify(JSON.parse(JSON.stringify(data)));
+}
+
+// a protocol is linked to the session: Undo goes back to it, instead of emptying the form
+const hasSavedProtocol = computed(() => !!session.value?.protocol?.id);
+
+/* Put the form back as the linked protocol is saved: what was typed or chosen since is dropped. */
+async function undoChanges() {
+  const id = session.value?.protocol?.id;
+  if (!id) return;
+  await loadProtocol(id);
+  emit('protocol-dirty', { dirty: false });
+  showSnackbar('Changes undone.', 'info');
 }
 
 function resetForm() {
@@ -552,6 +565,9 @@ onMounted(async () => {
 <template>
   <v-container>
     <!-- Protocol Selection -->
+    <v-alert v-if="sessionLocked" type="info" variant="tonal" class="mb-4">
+      {{ lockedExplanation(session?.status, 'The protocol') }}
+    </v-alert>
     <v-select
       v-model="selectedProtocolIdRef"
       :items="selectItems"
@@ -561,10 +577,10 @@ onMounted(async () => {
       outlined
       dense
       :value-comparator="(a: any, b: any) => a === b"
-      @update:modelValue="handleProtocolSelection"
-      :disabled="isValidated && session?.status === 'shared'"
+      @update:model-value="handleProtocolSelection"
+      :disabled="sessionLocked"
     >
-      <template #selection="{ item, index }">
+      <template #selection>
         <span>
           {{
             selectedProtocolObject?.name ||
@@ -583,7 +599,7 @@ onMounted(async () => {
             :color="
               formData.status === 'validated'
                 ? 'green'
-                : formData.status === 'awaiting validation'
+                : formData.status === 'waiting validation'
                   ? 'blue'
                   : 'grey'
             "
@@ -607,6 +623,18 @@ onMounted(async () => {
           </template>
           <template v-else>
             <v-btn
+              v-if="hasSavedProtocol"
+              color="grey"
+              variant="outlined"
+              prepend-icon="mdi-undo"
+              class="mr-2"
+              :disabled="!isSaveEnabled || sessionLocked"
+              @click="undoChanges"
+            >
+              Undo changes
+            </v-btn>
+            <v-btn
+              v-else
               color="grey"
               variant="outlined"
               @click="resetForm"
@@ -618,7 +646,7 @@ onMounted(async () => {
             <v-btn
               color="primary"
               @click="onSubmit"
-              :disabled="!isSaveEnabled || isValidated || isSaving"
+              :disabled="!isSaveEnabled || isValidated || isSaving || sessionLocked"
             >
               Save
             </v-btn>
@@ -756,6 +784,18 @@ onMounted(async () => {
           </template>
           <template v-else>
             <v-btn
+              v-if="hasSavedProtocol"
+              color="grey"
+              variant="outlined"
+              prepend-icon="mdi-undo"
+              class="mr-2"
+              :disabled="!isSaveEnabled || sessionLocked"
+              @click="undoChanges"
+            >
+              Undo changes
+            </v-btn>
+            <v-btn
+              v-else
               color="grey"
               variant="outlined"
               @click="resetForm"

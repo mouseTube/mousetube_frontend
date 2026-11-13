@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import ReviewStatus from '@/components/ReviewStatus.vue';
+import AccountListHeader from '@/components/AccountListHeader.vue';
+import SortButtons, { type Sort } from '@/components/SortButtons.vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useSoftwareStore } from '@/stores/software';
 import { useFavoriteStore } from '@/stores/favorite';
 import SoftwareEditModal from '@/components/modals/SoftwareModal.vue';
@@ -25,13 +28,24 @@ const deleteSoftwareTarget = ref<{ id: number; name: string } | null>(null);
 const selectedVersionBySoftware = ref<Record<number, number | null>>({});
 
 const searchQuery = ref('');
-const sortOrder = ref<'asc' | 'desc'>('asc');
+const sort = ref<Sort>({ key: 'name', dir: 'asc' });
 const page = ref(1);
 const itemsPerPage = ref(6);
 
 // ----------------------
 // Grouped software
 // ----------------------
+// the state of the entries: only yours can be a draft or wait for a review
+const STATUSES = [
+  { value: 'draft', title: 'Draft' },
+  { value: 'waiting validation', title: 'Waiting for validation' },
+  { value: 'validated', title: 'Validated' },
+];
+const status = ref<string | null>(null);
+watch([searchQuery, status, sort], () => {
+  page.value = 1;
+});
+
 const groupedSoftware = computed(() => {
   const filtered = softwareStore.softwareVersions.filter(
     (sv) => sv.software.type === 'acquisition' || sv.software.type === 'acquisition and analysis'
@@ -44,14 +58,18 @@ const groupedSoftware = computed(() => {
   });
 
   const searchLower = searchQuery.value.toLowerCase();
-  const results = Array.from(map.values()).filter((g) =>
-    g.software.name.toLowerCase().includes(searchLower)
+  const results = Array.from(map.values()).filter(
+    (g) =>
+      g.software.name.toLowerCase().includes(searchLower) &&
+      (!status.value || g.software.status === status.value)
   );
 
+  const sign = sort.value.dir === 'asc' ? 1 : -1;
+  const edited = (g: { versions: any[]; software: any }) => g.software.modified_at ?? ''; // the software itself, not its versions
   return results.sort((a, b) =>
-    sortOrder.value === 'asc'
-      ? a.software.name.localeCompare(b.software.name)
-      : b.software.name.localeCompare(a.software.name)
+    sort.value.key === 'name'
+      ? sign * a.software.name.localeCompare(b.software.name)
+      : sign * edited(a).localeCompare(edited(b))
   );
 });
 
@@ -63,10 +81,6 @@ const paginatedGroups = computed(() => {
 // ----------------------
 // Handlers
 // ----------------------
-function toggleSortOrder() {
-  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
-}
-
 function onAddSoftware() {
   editSoftwareId.value = null;
   showEditModal.value = true;
@@ -145,24 +159,6 @@ function toggleFavorite(softwareId: number) {
   favoriteStore.toggleFavorite('software', softwareId);
 }
 
-const truncate = (text: string, length = 40) => {
-  if (!text) return '';
-  return text.length > length ? text.slice(0, length - 1) + '…' : text;
-};
-
-function getStatusColor(status: string) {
-  switch (status) {
-    case 'draft':
-      return 'grey';
-    case 'waiting validation':
-      return 'orange';
-    case 'validated':
-      return 'green';
-    default:
-      return 'grey';
-  }
-}
-
 onMounted(async () => {
   await softwareStore.fetchAllSoftware();
   await softwareStore.fetchAllSoftwareVersions();
@@ -171,165 +167,160 @@ onMounted(async () => {
 
 <template>
   <div>
-    <v-card-title class="d-flex align-center font-weight-bold">
-      <span>Software</span>
-      <v-spacer />
+    <AccountListHeader
+      title="My software"
+      lead="Software you can pick in a recording. Add a version when you use a new one; edit or delete what you created."
+      add-label="Add software"
+      @add="onAddSoftware"
+    >
       <v-text-field
         v-model="searchQuery"
-        placeholder="Search software..."
-        density="compact"
+        density="comfortable"
         variant="outlined"
-        hide-details
+        placeholder="Search software"
         prepend-inner-icon="mdi-magnify"
+        clearable
+        hide-details
         style="max-width: 300px"
       />
-      <v-btn
-        @click="toggleSortOrder"
-        size="small"
-        class="ms-2"
-        :icon="sortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'"
-      />
-    </v-card-title>
+      <v-chip-group v-model="status" selected-class="text-primary">
+        <v-chip
+          v-for="state in STATUSES"
+          :key="state.value"
+          :value="state.value"
+          filter
+          variant="outlined"
+          size="small"
+        >
+          {{ state.title }}
+        </v-chip>
+      </v-chip-group>
+      <SortButtons v-model="sort" class="ms-auto" />
+    </AccountListHeader>
 
-    <v-row dense v-if="paginatedGroups.length">
-      <v-col v-for="group in paginatedGroups" :key="group.software.id" cols="12" sm="6" md="4">
-        <v-card class="software-card" outlined>
-          <v-card-title
-            class="d-flex justify-space-between align-center pa-2"
-            style="min-height: 40px"
-          >
-            <!-- Partie gauche -->
-            <div class="d-flex align-center flex-shrink-1" style="min-width: 0">
-              <v-btn
-                variant="text"
-                size="small"
-                :icon="
-                  favoriteStore.isFavorite('software', group.software.id)
-                    ? 'mdi-star'
-                    : 'mdi-star-outline'
-                "
-                :color="
-                  favoriteStore.isFavorite('software', group.software.id) ? 'warning' : 'grey'
-                "
-                @click.stop="toggleFavorite(group.software.id)"
-                title="Toggle favorite"
-                class="favorite-btn me-2 flex-shrink-0"
-              />
-
-              <v-tooltip location="top">
-                <template #activator="{ props }">
-                  <div
-                    v-bind="props"
-                    class="font-weight-medium text-truncate"
-                    style="
-                      display: block;
-                      white-space: nowrap;
-                      overflow: hidden;
-                      text-overflow: ellipsis;
-                      max-width: 220px;
-                    "
-                  >
-                    {{ group.software.name }}
-                  </div>
-                </template>
-                <span>{{ group.software.name }}</span>
-              </v-tooltip>
-            </div>
-
-            <!-- Partie droite -->
-            <div
-              class="d-flex align-center gap-1 flex-shrink-0"
-              v-if="group.software.created_by === id_user"
-            >
-              <v-icon
-                size="20"
-                color="primary"
-                class="hover-icon"
-                @click.stop="onEditSoftware(group.software.id)"
-              >
-                mdi-pencil
-              </v-icon>
-              <v-icon
-                size="20"
-                color="primary"
-                class="hover-icon"
-                @click.stop="onDeleteSoftware(group.software.id, group.software.name)"
-              >
-                mdi-delete
-              </v-icon>
-            </div>
-          </v-card-title>
-
-          <v-card-text>
-            <v-autocomplete
-              v-model="selectedVersionBySoftware[group.software.id]"
-              :items="group.versions"
-              item-title="version"
-              item-value="id"
-              label="Versions"
-              density="compact"
-              variant="outlined"
-              clearable
-            />
-          </v-card-text>
-
-          <v-card-actions class="justify-space-between align-center">
-            <v-chip
-              v-if="group.software.status"
-              :color="getStatusColor(group.software.status)"
+    <ul v-if="paginatedGroups.length" class="entry-list">
+      <li
+        v-for="group in paginatedGroups"
+        :key="group.software.id"
+        class="entry-row entry-row--versions"
+      >
+        <div class="entry-main">
+          <div class="entry-name">
+            <v-btn
+              variant="text"
               size="small"
-              class="ms-2 text-white"
-              label
-            >
-              {{ group.software.status }}
-            </v-chip>
-            <div class="d-flex gap-1">
-              <v-icon
-                small
-                color="primary"
-                class="hover-icon"
-                @click.stop="onCreateVersion(group.software.id)"
-                >mdi-plus</v-icon
-              >
-              <v-icon
-                small
-                color="primary"
-                class="hover-icon"
-                :disabled="!selectedVersionBySoftware[group.software.id]"
-                @click.stop="
-                  () => {
-                    const versionId = selectedVersionBySoftware[group.software.id];
-                    if (versionId != null) onEditVersion(versionId);
-                  }
-                "
-              >
-                mdi-pencil
-              </v-icon>
-              <v-icon
-                small
-                color="primary"
-                class="hover-icon"
-                :disabled="!selectedVersionBySoftware[group.software.id]"
-                @click.stop="
-                  () => {
-                    const versionId = selectedVersionBySoftware[group.software.id];
-                    if (versionId != null) {
-                      onDeleteVersion({
-                        id: versionId,
-                        softwareName: group.software.name,
-                        version: group.versions.find((v) => v.id === versionId)?.version ?? null,
-                      });
-                    }
-                  }
-                "
-              >
-                mdi-delete
-              </v-icon>
-            </div>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-    </v-row>
+              density="comfortable"
+              :icon="
+                favoriteStore.isFavorite('software', group.software.id)
+                  ? 'mdi-star'
+                  : 'mdi-star-outline'
+              "
+              :color="favoriteStore.isFavorite('software', group.software.id) ? 'warning' : 'grey'"
+              title="Toggle favorite"
+              @click.stop="toggleFavorite(group.software.id)"
+            />
+            {{ group.software.name }}
+          </div>
+          <div class="entry-meta">
+            {{
+              [
+                group.software.type
+                  ? group.software.type.charAt(0).toUpperCase() + group.software.type.slice(1)
+                  : '',
+                group.software.made_by,
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            }}
+          </div>
+          <div v-if="group.software.description" class="entry-help">
+            {{ group.software.description }}
+          </div>
+        </div>
+
+        <!-- versions of this software -->
+        <div class="entry-side d-flex align-center ga-1">
+          <v-autocomplete
+            v-model="selectedVersionBySoftware[group.software.id]"
+            :items="group.versions"
+            item-title="version"
+            item-value="id"
+            label="Version"
+            density="compact"
+            variant="outlined"
+            clearable
+            hide-details
+          />
+          <v-btn
+            icon="mdi-plus"
+            variant="text"
+            size="small"
+            title="Add a version"
+            @click.stop="onCreateVersion(group.software.id)"
+          />
+          <v-btn
+            icon="mdi-pencil-outline"
+            variant="text"
+            size="small"
+            title="Edit the version"
+            :disabled="!selectedVersionBySoftware[group.software.id]"
+            @click.stop="
+              () => {
+                const versionId = selectedVersionBySoftware[group.software.id];
+                if (versionId != null) onEditVersion(versionId);
+              }
+            "
+          />
+          <v-btn
+            icon="mdi-delete-outline"
+            variant="text"
+            size="small"
+            title="Delete the version"
+            :disabled="!selectedVersionBySoftware[group.software.id]"
+            @click.stop="
+              () => {
+                const versionId = selectedVersionBySoftware[group.software.id];
+                if (versionId != null) {
+                  onDeleteVersion({
+                    id: versionId,
+                    softwareName: group.software.name,
+                    version: group.versions.find((v) => v.id === versionId)?.version ?? null,
+                  });
+                }
+              }
+            "
+          />
+        </div>
+
+        <ReviewStatus
+          endpoint="software"
+          :id="group.software.id"
+          :status="group.software.status || 'draft'"
+          compact
+          @changed="group.software.status = $event"
+        />
+
+        <div class="entry-actions">
+          <template v-if="group.software.created_by === id_user">
+            <v-btn
+              icon="mdi-pencil-outline"
+              variant="text"
+              size="small"
+              title="Edit software"
+              @click.stop="onEditSoftware(group.software.id)"
+            />
+            <v-btn
+              icon="mdi-delete-outline"
+              variant="text"
+              size="small"
+              color="error"
+              title="Delete software"
+              @click.stop="onDeleteSoftware(group.software.id, group.software.name)"
+            />
+          </template>
+        </div>
+      </li>
+    </ul>
 
     <v-alert v-else type="info" variant="tonal" class="mt-4">No software found</v-alert>
 
@@ -340,13 +331,6 @@ onMounted(async () => {
       class="mt-4"
       total-visible="5"
     />
-
-    <v-card-actions class="justify-start mt-6">
-      <v-btn color="primary" variant="flat" @click="onAddSoftware">
-        <v-icon start>mdi-plus</v-icon>
-        Add Software
-      </v-btn>
-    </v-card-actions>
 
     <!-- Modals -->
     <SoftwareEditModal
@@ -397,27 +381,3 @@ onMounted(async () => {
     </v-dialog>
   </div>
 </template>
-
-<style scoped>
-.software-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.favorite-btn {
-  margin-right: 6px;
-  transition: transform 0.2s ease;
-}
-.favorite-btn:hover {
-  transform: scale(1.1);
-}
-
-.hover-icon:hover {
-  color: #000 !important;
-  transform: scale(1.1);
-  transition:
-    transform 0.2s,
-    color 0.2s;
-}
-</style>

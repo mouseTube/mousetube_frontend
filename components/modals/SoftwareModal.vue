@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ReviewStatus from '@/components/ReviewStatus.vue';
 import { ref, watch, computed, nextTick, onMounted } from 'vue';
 import { useSoftwareStore } from '@/stores/software';
 import { useReferenceStore, type Reference } from '~/stores/reference';
@@ -239,7 +240,7 @@ async function submit() {
     }
     emit('saved');
     emit('update:modelValue', false);
-  } catch (e) {
+  } catch {
     snackbarMessage.value = store.error ?? 'Error saving software';
     snackbar.value = true;
   } finally {
@@ -271,9 +272,16 @@ onMounted(async () => {
     max-width="600"
   >
     <v-card>
-      <v-card-title class="d-flex align-center">
-        {{ props.softwareId ? 'Edit Software' : 'Create Software' }}
+      <v-card-title class="form-title d-flex align-center">
+        <span class="form-icon" aria-hidden="true"><v-icon icon="mdi-monitor-dashboard" /></span>
+        <span>{{ props.softwareId ? 'Edit Software' : 'Create Software' }}</span>
       </v-card-title>
+      <div v-if="props.softwareId" class="px-6 pt-2">
+        <ReviewStatus endpoint="software" :id="props.softwareId" />
+      </div>
+      <v-card-subtitle v-if="!props.softwareId" class="modal-note">
+        Until an administrator validates it, only you can see this entry.
+      </v-card-subtitle>
 
       <v-card-text>
         <!-- Alerte lecture seule -->
@@ -297,7 +305,7 @@ onMounted(async () => {
           <v-text-field
             v-model="formData.name"
             label="Name *"
-            outlined
+            variant="outlined"
             required
             :rules="[nameRule]"
             :disabled="loading || isReadOnly"
@@ -308,7 +316,7 @@ onMounted(async () => {
             v-model="formData.type"
             :items="['acquisition', 'analysis', 'acquisition and analysis']"
             label="Type *"
-            outlined
+            variant="outlined"
             required
             :rules="[typeRule]"
             :disabled="loading || isReadOnly"
@@ -318,7 +326,7 @@ onMounted(async () => {
           <v-text-field
             v-model="formData.made_by"
             label="Made By"
-            outlined
+            variant="outlined"
             :disabled="loading || isReadOnly"
             class="mb-4"
           />
@@ -326,7 +334,7 @@ onMounted(async () => {
           <v-textarea
             v-model="formData.description"
             label="Description"
-            outlined
+            variant="outlined"
             :disabled="loading || isReadOnly"
             rows="3"
             class="mb-4"
@@ -335,7 +343,7 @@ onMounted(async () => {
           <v-textarea
             v-model="formData.technical_requirements"
             label="Technical Requirements"
-            outlined
+            variant="outlined"
             :disabled="loading || isReadOnly"
             rows="3"
             class="mb-4"
@@ -345,16 +353,16 @@ onMounted(async () => {
           <v-card-subtitle class="mb-2">References</v-card-subtitle>
           <div class="chip-list d-flex flex-wrap align-center mb-4">
             <v-chip
-              v-for="ref in selectedReferences"
-              :key="ref.id"
+              v-for="reference in selectedReferences"
+              :key="reference.id"
               variant="outlined"
               closable
               class="ma-1"
               @click:close="
-                selectedReferenceIds = selectedReferenceIds.filter((id) => id !== ref.id)
+                selectedReferenceIds = selectedReferenceIds.filter((id) => id !== reference.id)
               "
             >
-              {{ ref.name }}
+              {{ reference.name }}
             </v-chip>
 
             <v-chip color="primary" variant="flat" class="ma-1" @click="showReferenceModal = true">
@@ -383,21 +391,23 @@ onMounted(async () => {
 
           <ReferenceSelectionModal
             v-model="showReferenceModal"
-            v-model:selectedReferences="selectedReferenceIds"
-            @update:selectedReferences="onReferencesUpdated"
+            v-model:selected-references="selectedReferenceIds"
+            @update:selected-references="onReferencesUpdated"
           />
 
           <ContactSelectionModal
             v-model="showContactModal"
-            v-model:selectedContacts="selectedContactIds"
-            @update:selectedContacts="onContactsUpdated"
+            v-model:selected-contacts="selectedContactIds"
+            @update:selected-contacts="onContactsUpdated"
           />
         </v-form>
       </v-card-text>
 
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="close" :disabled="loading">Cancel</v-btn>
+        <v-btn variant="text" color="grey-darken-1" @click="close" :disabled="loading"
+          >Cancel</v-btn
+        >
         <v-btn
           v-show="isReadOnly"
           color="primary"
@@ -406,13 +416,19 @@ onMounted(async () => {
         >
           Duplicate
         </v-btn>
-        <v-btn color="primary" @click="submit" :loading="loading" :disabled="loading || isReadOnly">
+        <v-btn
+          color="primary"
+          variant="flat"
+          @click="submit"
+          :loading="loading"
+          :disabled="loading || isReadOnly"
+        >
           {{ props.softwareId ? 'Save Changes' : 'Create' }}
         </v-btn>
       </v-card-actions>
     </v-card>
 
-    <v-snackbar v-model="snackbar" color="error" timeout="6000" top>
+    <v-snackbar v-model="snackbar" color="error" timeout="6000" location="top">
       {{ snackbarMessage }}
       <template #actions>
         <v-btn color="white" variant="text" @click="snackbar = false"> Close </v-btn>

@@ -17,7 +17,7 @@ export interface Protocol {
     bedding: string;
     light_cycle: string;
   };
-  status: 'draft' | 'awaiting validation' | 'validated' | null;
+  status: 'draft' | 'waiting validation' | 'validated' | null;
   created_by?: number | null;
   created_at?: string | null;
   modified_at?: string | null;

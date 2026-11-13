@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import PickerFrame from '@/components/modals/PickerFrame.vue';
 import { ref, watch, computed } from 'vue';
-import debounce from 'lodash/debounce.js';
+import debounce from 'lodash-es/debounce';
 import { useProtocolStore, type Protocol } from '@/stores/protocol';
-import type { DataTableSortItem } from 'vuetify';
 import { useAuth } from '@/composables/useAuth';
 import { useFavoriteStore } from '@/stores/favorite';
 
@@ -72,10 +72,6 @@ const headers = [
   { title: 'Status', key: 'status', sortable: false },
   { title: 'Actions', key: 'actions', sortable: false },
 ];
-
-const fieldMap: Record<string, string> = {
-  name: 'name',
-};
 
 // ----------------------
 // Computed
@@ -208,25 +204,27 @@ function close() {
 </script>
 
 <template>
-  <v-dialog :model-value="props.modelValue" max-width="1700px" @click:outside="close">
-    <v-card class="pa-3" style="max-height: 80vh; overflow-y: auto">
-      <v-card-title class="d-flex align-center gap-2">
-        <span class="text-h6 font-weight-bold">Protocols</span>
-
-        <v-spacer />
-        <!-- Search Field -->
+  <v-dialog :model-value="props.modelValue" max-width="1400px" @click:outside="close">
+    <PickerFrame
+      title="Select a protocol"
+      subtitle="Click a row to choose it. Filter with the headers of the columns."
+      icon="mdi-clipboard-text-outline"
+      done-label="Close"
+      @close="close"
+    >
+      <template #toolbar>
         <v-text-field
           v-model="search"
           placeholder="Search protocol"
           clearable
-          append-inner-icon="mdi-magnify"
+          prepend-inner-icon="mdi-magnify"
           density="comfortable"
+          variant="outlined"
           hide-details
-          class="search-field"
         />
-        <div class="d-flex ml-4">
+        <div class="d-flex">
           <v-btn
-            color="primary"
+            variant="tonal"
             @click="toggleFavoritesOrdering"
             :title="`Sort favorites ${favoritesSortOrder === 'asc' ? 'ascending' : 'descending'}`"
             class="split-btn-left match-search-height"
@@ -237,8 +235,12 @@ function close() {
           </v-btn>
 
           <v-menu offset-y>
-            <template #activator="{ props }">
-              <v-btn v-bind="props" color="primary" class="split-btn-right match-search-height">
+            <template #activator="{ props: activatorProps }">
+              <v-btn
+                v-bind="activatorProps"
+                variant="tonal"
+                class="split-btn-right match-search-height"
+              >
                 <v-icon>mdi-chevron-down</v-icon>
               </v-btn>
             </template>
@@ -253,9 +255,9 @@ function close() {
             </v-list>
           </v-menu>
         </div>
-      </v-card-title>
+      </template>
 
-      <v-card-text>
+      <div>
         <v-data-table
           :headers="headers"
           :items="protocols"
@@ -270,7 +272,11 @@ function close() {
             :class="{ 'protocol-selected': selectedProtocolId === item.id }"
             -->
           <template #item="{ item }">
-            <tr @click="selectProtocol(item)">
+            <tr
+              class="protocol-row"
+              :class="{ 'protocol-selected': selectedProtocolId === item.id }"
+              @click="selectProtocol(item)"
+            >
               <!-- Name with tooltip -->
               <td>
                 <div class="d-flex align-center gap-2">
@@ -312,7 +318,7 @@ function close() {
                   :color="
                     item.status === 'validated'
                       ? 'green'
-                      : item.status === 'awaiting validation'
+                      : item.status === 'waiting validation'
                         ? 'blue'
                         : 'grey'
                   "
@@ -328,9 +334,10 @@ function close() {
                 <div class="d-flex gap-2">
                   <v-btn
                     v-if="item.created_by === id_user"
-                    icon="mdi-delete"
+                    icon="mdi-delete-outline"
                     variant="text"
-                    color="error"
+                    color="grey-darken-1"
+                    aria-label="Delete protocol"
                     @click.stop="openDeleteDialog(item)"
                   />
                 </div>
@@ -345,7 +352,7 @@ function close() {
               :items="options.animals_sex"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -360,7 +367,7 @@ function close() {
               :items="options.animals_age"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -375,7 +382,7 @@ function close() {
               :items="options.animals_housing"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -390,7 +397,7 @@ function close() {
               :items="['1', '2', '3', '4', '>4']"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -405,7 +412,7 @@ function close() {
               :items="options.context_duration"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -420,7 +427,7 @@ function close() {
               :items="options.context_cage"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -435,7 +442,7 @@ function close() {
               :items="options.context_bedding"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -450,7 +457,7 @@ function close() {
               :items="options.context_light_cycle"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -465,7 +472,7 @@ function close() {
               :items="options.status"
               dense
               hide-details
-              outlined
+              variant="outlined"
               clearable
               density="compact"
               flat
@@ -482,13 +489,8 @@ function close() {
           class="mt-4"
           color="primary"
         />
-      </v-card-text>
-
-      <v-card-actions>
-        <v-spacer />
-        <v-btn text @click="close">Close</v-btn>
-      </v-card-actions>
-    </v-card>
+      </div>
+    </PickerFrame>
   </v-dialog>
 
   <!-- Delete Dialog -->
@@ -501,7 +503,7 @@ function close() {
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="deleteDialog = false">Cancel</v-btn>
+        <v-btn variant="text" @click="deleteDialog = false">Cancel</v-btn>
         <v-btn color="error" @click="confirmDelete">Delete</v-btn>
       </v-card-actions>
     </v-card>
@@ -510,32 +512,31 @@ function close() {
   <!-- Snackbars -->
   <v-snackbar v-model="snackbarSuccess" color="green" timeout="3000">
     {{ successMessage }}
-    <template #actions="{ isActive }">
-      <v-btn text @click="snackbarSuccess = false">Close</v-btn>
+    <template #actions>
+      <v-btn variant="text" @click="snackbarSuccess = false">Close</v-btn>
     </template>
   </v-snackbar>
 
   <v-snackbar v-model="snackbarError" color="red" timeout="5000">
     {{ errorMessage }}
-    <template #actions="{ isActive }">
-      <v-btn text @click="snackbarError = false">Close</v-btn>
+    <template #actions>
+      <v-btn variant="text" @click="snackbarError = false">Close</v-btn>
     </template>
   </v-snackbar>
 </template>
 
 <style scoped>
-.search-field {
-  min-width: 350px;
-  max-width: 450px;
+.protocol-row {
+  cursor: pointer;
 }
-
-.cursor-pointer tr:hover {
-  background-color: #e0f7fa;
+.protocol-row:hover {
+  background-color: #fafafa;
 }
-
-/* .protocol-selected {
-  background-color: #fffafa !important;
-} */
+.protocol-selected,
+.protocol-selected:hover {
+  background-color: #fdf4f3;
+  box-shadow: inset 4px 0 0 rgb(var(--v-theme-primary));
+}
 .v-data-table-header th {
   overflow: visible !important;
   height: auto;

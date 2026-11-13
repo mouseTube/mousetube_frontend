@@ -6,7 +6,7 @@ import { token } from '@/composables/useAuth';
 import type { SoftwareVersion } from '@/stores/software';
 import type { AnimalProfile } from '@/stores/animalProfile';
 
-export interface Study {
+interface Study {
   id: number;
   name: string;
   description?: string | null;
@@ -15,16 +15,16 @@ export interface Study {
   created_at?: string | null;
   modified_at?: string | null;
 }
-export interface Protocol {
+interface Protocol {
   id: number;
   name: string;
 }
-export interface Hardware {
+interface Hardware {
   id: number;
   name: string;
   type: string;
 }
-export interface Laboratory {
+interface Laboratory {
   id: number;
   name: string;
   institution?: string | null;
@@ -34,7 +34,7 @@ export interface Laboratory {
   contact?: string | null;
 }
 
-export interface Reference {
+interface Reference {
   id: number;
   name: string;
   description?: string | null;
@@ -50,7 +50,7 @@ export interface RecordingSession {
   studies: Study[];
   description?: string | null;
   date?: string | null;
-  status: 'draft' | 'shared';
+  status: 'draft' | 'waiting validation' | 'shared' | 'published';
   duration?: number | null;
   laboratory?: Laboratory | null;
   animal_profiles: AnimalProfile[];
@@ -67,11 +67,10 @@ export interface RecordingSession {
 
   equipment_channels?: 'mono' | 'stereo' | 'more than 2' | null;
   equipment_sound_isolation?:
-    | 'soundproof room'
-    | 'soundproof cage'
-    | 'no specific sound isolation'
-    | null;
+    'soundproof room' | 'soundproof cage' | 'no specific sound isolation' | null;
   references?: Reference[];
+  behavior_terms?: { curie: string; label: string; iri?: string }[];
+  pending_entries?: { kind: string; id: number; name: string; status: string }[];
   created_by?: number | null;
   created_at?: string | null;
   modified_at?: string | null;
@@ -103,6 +102,7 @@ export interface RecordingSessionPayload {
     acquisition_software?: number[];
   };
   references?: number[];
+  behavior_terms?: { curie: string; label: string }[];
 }
 
 function toDjangoPayload(session: RecordingSessionPayload) {
@@ -134,6 +134,7 @@ function toDjangoPayload(session: RecordingSessionPayload) {
     context_temperature_unit: context?.temperature?.unit ?? null,
     context_brightness: context?.brightness ?? null,
     references_ids: session.references,
+    behavior_terms: session.behavior_terms ?? [],
   };
 
   // include protocol_id only when caller explicitly provided a protocol field
@@ -416,7 +417,10 @@ export const useRecordingSessionStore = defineStore('recordingSession', {
         throw err;
       }
     },
-    async updateSessionStatus(sessionId: number, status: 'draft' | 'shared') {
+    async updateSessionStatus(
+      sessionId: number,
+      status: 'draft' | 'waiting validation' | 'shared' | 'published'
+    ) {
       try {
         const apiBaseUrl = useApiBaseUrl();
         const res = await axios.get(`${apiBaseUrl}/recording-session/${sessionId}/`, {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PickerFrame from '@/components/modals/PickerFrame.vue';
 import { ref, computed, watch } from 'vue';
 import type { Study } from '@/stores/study';
 import { useStudyStore } from '@/stores/study';
@@ -135,105 +136,105 @@ watch(localDialog, handleDialogOpen, { immediate: true });
 
 <template>
   <v-dialog v-model="localDialog" max-width="900px">
-    <v-card class="pa-3">
-      <v-card-title class="d-flex align-center font-weight-bold">
-        <span>Select Studies</span>
-        <v-spacer />
+    <PickerFrame
+      title="Select studies"
+      :subtitle="`${filteredStudies.length} available · ${internalSelectedStudyIds.length} selected`"
+      icon="mdi-flask-outline"
+      :selected="internalSelectedStudyIds.length"
+      @close="localDialog = false"
+    >
+      <template #toolbar>
         <v-text-field
           v-model="searchQuery"
           placeholder="Search studies..."
-          density="compact"
+          density="comfortable"
           variant="outlined"
           hide-details
+          clearable
           prepend-inner-icon="mdi-magnify"
-          class="ml-4"
-          style="max-width: 300px"
         />
         <v-btn
           icon
-          class="ml-2"
+          variant="tonal"
           :title="sortOrder === 'asc' ? 'Ascending' : 'Descending'"
           @click="toggleSortOrder"
         >
           <v-icon>{{ sortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending' }}</v-icon>
         </v-btn>
-      </v-card-title>
+      </template>
 
-      <v-card-text>
-        <v-row v-if="paginatedStudies.length > 0" dense>
-          <v-col v-for="study in paginatedStudies" :key="study.id" cols="12" sm="6" md="4">
-            <v-card
-              :elevation="isSelected(study.id) ? 8 : 1"
-              :class="[
-                'cursor-pointer',
-                'h-100',
-                'd-flex',
-                'flex-column',
-                'justify-space-between',
-                'position-relative',
-                { 'border-primary': isSelected(study.id) },
-              ]"
-              @click="toggleSelection(study.id)"
-            >
-              <v-icon v-if="isSelected(study.id)" class="check-icon" color="primary" size="28">
-                mdi-check-circle
-              </v-icon>
+      <v-row v-if="paginatedStudies.length > 0" dense>
+        <v-col v-for="study in paginatedStudies" :key="study.id" cols="12" sm="6" md="4">
+          <v-card
+            :class="['pick-card', { 'pick-card--selected': isSelected(study.id) }]"
+            tabindex="0"
+            role="checkbox"
+            :aria-checked="isSelected(study.id)"
+            @click="toggleSelection(study.id)"
+            @keydown.enter.prevent="toggleSelection(study.id)"
+            @keydown.space.prevent="toggleSelection(study.id)"
+          >
+            <v-icon
+              v-if="isSelected(study.id)"
+              class="pick-check"
+              color="primary"
+              size="24"
+              icon="mdi-check-circle"
+            />
+            <div class="pick-title">{{ study.name }}</div>
+            <div class="pick-text">{{ truncate(study.description, 100) }}</div>
+            <div class="pick-foot">
+              <span>{{
+                study.start_date ? new Date(study.start_date).toLocaleDateString() : ''
+              }}</span>
+              <span class="pick-tools">
+                <v-btn
+                  icon="mdi-pencil-outline"
+                  variant="text"
+                  size="small"
+                  color="grey-darken-1"
+                  aria-label="Edit study"
+                  @click.stop="onEditStudy(study)"
+                />
+                <v-btn
+                  icon="mdi-delete-outline"
+                  variant="text"
+                  size="small"
+                  color="grey-darken-1"
+                  aria-label="Delete study"
+                  @click.stop="onDeleteStudy(study)"
+                />
+              </span>
+            </div>
+          </v-card>
+        </v-col>
+      </v-row>
 
-              <v-card-title>{{ study.name }}</v-card-title>
-              <v-card-text>
-                {{ truncate(study.description, 100) }}
-              </v-card-text>
+      <v-alert v-else type="info" variant="tonal" class="mt-4">
+        No studies found matching your search
+      </v-alert>
 
-              <v-spacer />
+      <v-pagination
+        v-if="filteredStudies.length > itemsPerPage"
+        v-model="page"
+        :length="Math.ceil(filteredStudies.length / itemsPerPage)"
+        class="mt-4"
+        total-visible="5"
+      />
 
-              <v-card-actions class="justify-space-between">
-                <!-- Start date -->
-                <span class="text-caption text-medium-emphasis">
-                  {{ study.start_date ? new Date(study.start_date).toLocaleDateString() : '' }}
-                </span>
-
-                <!-- Boutons -->
-                <div class="d-flex gap-2">
-                  <v-icon class="hover-icon" color="primary" @click.stop="onEditStudy(study)">
-                    mdi-pencil
-                  </v-icon>
-                  <v-icon class="hover-icon" color="error" @click.stop="onDeleteStudy(study)">
-                    mdi-delete
-                  </v-icon>
-                </div>
-              </v-card-actions>
-            </v-card>
-          </v-col>
-        </v-row>
-
-        <v-alert v-else type="info" variant="tonal" class="mt-4">
-          No studies found matching your search
-        </v-alert>
-
-        <v-pagination
-          v-if="filteredStudies.length > itemsPerPage"
-          v-model="page"
-          :length="Math.ceil(filteredStudies.length / itemsPerPage)"
-          class="mt-4"
-          total-visible="5"
-        />
-      </v-card-text>
-
-      <v-card-actions class="justify-space-between">
-        <v-btn color="primary" variant="flat" @click="resetAndOpenModal">
-          <v-icon start>mdi-plus</v-icon> Add Study
+      <template #actions>
+        <v-btn color="primary" variant="tonal" prepend-icon="mdi-plus" @click="resetAndOpenModal">
+          Add study
         </v-btn>
         <v-btn
-          color="primary"
-          variant="outlined"
+          variant="text"
           :disabled="internalSelectedStudyIds.length === 0"
           @click="internalSelectedStudyIds = []"
         >
-          <v-icon start>mdi-close</v-icon> Clear All
+          Clear selection
         </v-btn>
-        <v-btn color="primary" variant="flat" @click="localDialog = false">Close</v-btn>
-      </v-card-actions>
-    </v-card>
+      </template>
+    </PickerFrame>
 
     <CreateStudyModal
       v-model="showCreateStudyModal"
@@ -261,39 +262,10 @@ watch(localDialog, handleDialogOpen, { immediate: true });
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn text @click="showDeleteConfirm = false">Cancel</v-btn>
+          <v-btn variant="text" @click="showDeleteConfirm = false">Cancel</v-btn>
           <v-btn color="error" @click="confirmDelete">Delete</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
   </v-dialog>
 </template>
-
-<style scoped>
-.cursor-pointer {
-  cursor: pointer;
-}
-.h-100 {
-  height: 100%;
-}
-.hover-icon:hover {
-  color: #000000 !important;
-  transform: scale(1.1);
-  transition:
-    transform 0.2s,
-    color 0.2s;
-}
-.v-card {
-  border: 2px solid transparent;
-  border-radius: 8px;
-  position: relative;
-}
-.border-primary {
-  border: 2px solid rgb(var(--v-theme-primary));
-}
-.check-icon {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
-</style>

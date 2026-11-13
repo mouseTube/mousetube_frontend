@@ -2,12 +2,17 @@
 ////////////////////////////////
 // IMPORTS
 ////////////////////////////////
-import { ref, computed, onMounted, watch, defineAsyncComponent } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch, defineAsyncComponent } from 'vue';
+import OntologyField from '@/components/OntologyField.vue';
 import { useRecordingSessionStore, type RecordingSession } from '@/stores/recordingSession';
 import { useHardwareStore } from '@/stores/hardware';
 import { useSoftwareStore, type SoftwareVersion } from '@/stores/software';
 import { useStudyStore } from '@/stores/study';
 import { useLaboratoryStore } from '~/stores/laboratory';
+
+import { useAuth } from '@/composables/useAuth';
+import { useRouter } from 'vue-router';
+import { useReferenceStore, type Reference } from '~/stores/reference';
 
 // Lazy load modals for better initial performance
 const SoftwareSelectionModal = defineAsyncComponent(
@@ -31,10 +36,6 @@ const ReferenceSelectionModal = defineAsyncComponent(
   () => import('@/components/modals/ReferenceSelectionModal.vue')
 );
 
-import { useAuth } from '@/composables/useAuth';
-import { useRouter } from 'vue-router';
-import { useReferenceStore, type Reference } from '~/stores/reference';
-
 ////////////////////////////////
 // STORES
 ////////////////////////////////
@@ -55,6 +56,7 @@ const emit = defineEmits(['validate', 'session-selected', 'session-saved', 'sess
 const props = defineProps<{
   selectedRecordingSessionId?: number;
   onGoToProtocol?: () => void;
+  initialSessionId?: number; // resume this session (from "My vocalizations")
 }>();
 
 ////////////////////////////////
@@ -89,12 +91,13 @@ const showReferenceSelectionModal = ref(false);
 const selectedReferenceIds = ref<number[]>([]);
 
 const acquisitionSoftwareDisplay = ref<{ id: number; label: string }[]>([]);
-const isExistingSession = ref(false);
+const isExistingSession = ref(false); // the info banner above the form, which can be closed
+const hasSavedSession = computed(() => typeof selectedSessionId.value === 'number');
 const formData = ref({
   name: '',
   description: '',
   date: null as string | null,
-  status: 'draft' as 'draft' | 'shared' | null,
+  status: 'draft' as 'draft' | 'waiting validation' | 'shared' | 'published' | null,
   duration: null as number | null,
   studies: [] as number[],
   context: {
@@ -104,10 +107,7 @@ const formData = ref({
   equipment: {
     channels: null as 'mono' | 'stereo' | 'more than 2' | null,
     sound_isolation: null as
-      | 'soundproof room'
-      | 'soundproof cage'
-      | 'no specific sound isolation'
-      | null,
+      'soundproof room' | 'soundproof cage' | 'no specific sound isolation' | null,
     soundcards: [] as number[],
     microphones: [] as number[],
     amplifiers: [] as number[],
@@ -117,6 +117,7 @@ const formData = ref({
   laboratory: null as number | null,
   is_multiple: false,
   references: [] as number[],
+  behavior_terms: [] as { curie: string; label: string }[],
 });
 
 const newStudyDialog = ref(false);
@@ -155,7 +156,10 @@ const selectItems = computed(() => {
   return items;
 });
 
-const isShared = computed(() => formData.value.status === 'shared');
+// waiting for a review, shared or published: the owner can no longer edit the session
+const isShared = computed(() => isLockedStatus(formData.value.status));
+// files already linked to the session: the warning about them only makes sense then
+const filesCount = computed(() => Number((selectedSessionObject.value as any)?.files_count ?? 0));
 
 ////////////////////////////////
 // METHODS
@@ -302,6 +306,7 @@ function resetForm() {
     laboratory: null,
     is_multiple: false,
     references: [],
+    behavior_terms: [],
   };
 
   // --- Reset UI mirrors ---
@@ -385,7 +390,7 @@ async function fetchSelectableData() {
       .catch(() => {
         showSnackbar('Error loading hardware/software options.', 'warning');
       });
-  } catch (e) {
+  } catch {
     showSnackbar('Error loading selectable data.', 'error');
   }
 }
@@ -451,13 +456,20 @@ async function saveSession() {
         animalProfileId: firstAnimalProfileId,
       });
     } else {
+      const wasPublished = formData.value.status === 'published';
       await recordingSessionStore.updateSession(Number(selectedSessionId.value), formData.value);
-      showSnackbar('Session updated successfully!', 'success');
+      showSnackbar(
+        wasPublished
+          ? 'Session updated. Its record in the repository is being updated.'
+          : 'Session updated successfully!',
+        'success'
+      );
 
       const updated = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
       if (updated) {
         selectedSessionObject.value = updated;
         selectedSessionName.value = updated.name ?? '';
+        if ((updated as any).zenodo_state === 'pending') followZenodoUpdate();
       }
 
       const session = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
@@ -488,6 +500,37 @@ async function saveSession() {
     }
 
     showSnackbar(errorMsg, 'error');
+  }
+}
+
+// a published session: its record in the repository follows the edits, in the background
+const zenodoState = computed(() => (selectedSessionObject.value as any)?.zenodo_state ?? '');
+const zenodoMessage = computed(() => (selectedSessionObject.value as any)?.zenodo_message ?? '');
+let zenodoPoll: ReturnType<typeof setInterval> | null = null;
+function stopZenodoPoll() {
+  if (zenodoPoll) clearInterval(zenodoPoll);
+  zenodoPoll = null;
+}
+function followZenodoUpdate() {
+  stopZenodoPoll();
+  let tries = 0;
+  zenodoPoll = setInterval(async () => {
+    const id = Number(selectedSessionId.value);
+    const fresh = id ? await recordingSessionStore.getSessionById(id) : null;
+    if (fresh) selectedSessionObject.value = fresh;
+    if (!fresh || (fresh as any).zenodo_state !== 'pending' || ++tries > 30) stopZenodoPoll();
+  }, 4000);
+}
+onBeforeUnmount(stopZenodoPoll);
+
+/* Put the form of a saved session back as it is saved: what was typed since is dropped. */
+async function undoChanges() {
+  const id = Number(selectedSessionId.value);
+  if (!id) return;
+  const saved = await recordingSessionStore.getSessionById(id);
+  if (saved) {
+    await onSessionSelected(saved);
+    showSnackbar('Changes undone.', 'info');
   }
 }
 
@@ -533,6 +576,7 @@ async function onSessionSelected(session: RecordingSession) {
     laboratory: session.laboratory?.id ?? null,
     is_multiple: session.is_multiple ?? false,
     references: session.references?.map((r) => r.id) ?? [],
+    behavior_terms: (session as any).behavior_terms ?? [],
   };
 
   // set session meta
@@ -662,7 +706,6 @@ watch(selectedSessionId, (newId, oldId) => {
     emit('session-selected', null);
     return;
   }
-  const idNum = Number(newId);
 });
 
 const formInitialized = ref(false);
@@ -777,6 +820,10 @@ onMounted(async () => {
   await fetchSelectableData();
   // Prefetch first page for modal convenience (modal also fetches on open)
   await recordingSessionStore.fetchSessionsPage(1);
+  if (props.initialSessionId) {
+    const session = await recordingSessionStore.getSessionById(props.initialSessionId);
+    if (session) await onSessionSelected(session);
+  }
 });
 </script>
 
@@ -794,18 +841,18 @@ onMounted(async () => {
       </v-col>
     </v-row>
     <v-alert
-      v-if="isExistingSession"
+      v-if="isExistingSession && (isShared || filesCount > 0)"
       type="info"
       variant="outlined"
       border="start"
       class="mb-6 position-relative"
     >
-      <template v-if="formData.status === 'shared'">
-        A shared recording session cannot be edited or deleted.
+      <template v-if="isShared">
+        {{ lockedExplanation(formData.status, 'The recording session') }}
       </template>
       <template v-else>
-        Files could be linked to this recording session. Editing this session will affect those
-        linked resources.
+        {{ filesCount === 1 ? '1 file is' : `${filesCount} files are` }} linked to this recording
+        session. Editing this session will affect those linked resources.
       </template>
 
       <v-btn
@@ -830,78 +877,95 @@ onMounted(async () => {
       item-title="name"
       item-value="id"
       label="Select Recording Session"
-      outlined
-      dense
+      variant="outlined"
+      density="comfortable"
       :value-comparator="(a: string, b: string) => a === b"
-      @change="handleSessionSelection"
+      class="mb-4"
+      @update:model-value="handleSessionSelection"
     >
     </v-select>
-    <v-row align="center" justify="space-between">
-      <!-- Single Recording -->
-      <v-col cols="5" class="mb-6">
-        <div
-          class="status-card blue"
-          :class="{ active: !formData.is_multiple }"
-          @click="formData.is_multiple = false"
-          :style="isShared ? 'pointer-events: none; opacity: 0.6;' : ''"
-        >
-          <div class="status-text">
-            <strong>Single</strong>
-            <p>
-              A Single experiment where animals are recorded for a given time. The experiment is
-              done at a precise date. Several vocalization files could be recorded during this
-              experiment: a chronological order of those files could be registered.
-            </p>
-          </div>
-        </div>
-      </v-col>
+    <!-- Single / multiple: two choice cards with a small switch between them -->
+    <div class="mode-select mb-6" role="radiogroup" aria-label="Type of recording session">
+      <button
+        type="button"
+        role="radio"
+        :aria-checked="!formData.is_multiple"
+        class="mode-option"
+        :class="{ active: !formData.is_multiple }"
+        :disabled="isShared"
+        @click="formData.is_multiple = false"
+      >
+        <v-icon size="22">mdi-clock-outline</v-icon>
+        <strong>Single session</strong>
+        <span>
+          Animals are recorded at a precise date. Several vocalization files can be recorded during
+          the session, and their chronological order can be kept.
+        </span>
+      </button>
 
-      <!-- Toggle -->
-      <v-col cols="2" class="d-flex justify-center">
-        <v-switch
-          v-model="formData.is_multiple"
-          inset
-          hide-details
-          :color="formData.is_multiple ? '#ff9800' : '#1976d2'"
-          :track-color="formData.is_multiple ? '#ffcc80' : '#90caf9'"
-          class="toggle-switch"
-          :disabled="isShared"
-        ></v-switch>
-      </v-col>
+      <v-switch
+        v-model="formData.is_multiple"
+        inset
+        hide-details
+        density="compact"
+        color="grey-lighten-1"
+        :disabled="isShared"
+        aria-label="Multiple sessions"
+        class="mode-toggle flex-grow-0"
+      />
 
-      <!-- Multiple Recording -->
-      <v-col cols="5" class="mb-6">
-        <div
-          class="status-card orange"
-          :class="{ active: formData.is_multiple }"
-          @click="formData.is_multiple = true"
-          :style="isShared ? 'pointer-events: none; opacity: 0.6;' : ''"
-        >
-          <div class="status-text">
-            <strong>Multiple</strong>
-            <p>
-              A set of experiment from a single study. All those experiments shared the same
-              experimental conditions and the same animal profiles. Each experiment from this set
-              could provide one or several vocalization files. If you want to keep chronological
-              order of those file, you should use single recording session instead multiple
-              recording session.
-            </p>
-          </div>
-        </div>
-      </v-col>
-    </v-row>
+      <button
+        type="button"
+        role="radio"
+        :aria-checked="formData.is_multiple"
+        class="mode-option"
+        :class="{ active: formData.is_multiple }"
+        :disabled="isShared"
+        @click="formData.is_multiple = true"
+      >
+        <v-icon size="22">mdi-layers-outline</v-icon>
+        <strong>Multiple sessions</strong>
+        <span>
+          A set of experiments from a single study that share the same experimental conditions and
+          animal profiles. Choose a single session instead if the chronological order of the files
+          matters.
+        </span>
+      </button>
+    </div>
 
-    <v-card class="pa-6" outlined>
+    <v-card class="pa-6 section-card" variant="outlined" rounded="lg">
       <v-card-title class="d-flex justify-space-between align-center mb-4">
         <div class="d-flex align-center" style="gap: 12px">
           <h3 class="m-0">Recording Session Metadata</h3>
-          <v-chip :color="formData.status === 'shared' ? 'green' : 'grey'" dark small>
+          <v-chip
+            :color="
+              formData.status === 'shared' || formData.status === 'published'
+                ? 'success'
+                : formData.status === 'waiting validation'
+                  ? 'warning'
+                  : 'grey'
+            "
+            variant="tonal"
+            size="small"
+          >
             {{ formData.status }}
           </v-chip>
         </div>
 
         <div>
           <v-btn
+            v-if="hasSavedSession"
+            color="grey"
+            variant="outlined"
+            prepend-icon="mdi-undo"
+            class="mr-2"
+            :disabled="!isSaveEnabled || isShared"
+            @click="undoChanges"
+          >
+            Undo changes
+          </v-btn>
+          <v-btn
+            v-else
             color="grey"
             variant="outlined"
             @click="resetForm"
@@ -917,11 +981,38 @@ onMounted(async () => {
       </v-card-title>
 
       <v-card-text>
+        <v-alert
+          v-if="formData.status === 'published'"
+          :type="
+            zenodoState === 'failed' ? 'error' : zenodoState === 'blocked' ? 'warning' : 'info'
+          "
+          variant="tonal"
+          density="comfortable"
+          class="mb-4"
+        >
+          This session is published. What you change here also updates its record in the repository
+          (the description); files you add make a new version, with its own DOI.
+          <div v-if="zenodoState" class="mt-2 font-weight-medium">
+            <template v-if="zenodoState === 'pending'">
+              <v-progress-circular indeterminate size="14" width="2" class="me-2" />
+              The record is being updated…
+            </template>
+            <template v-else-if="zenodoState === 'synced'">
+              The record in the repository is up to date.
+            </template>
+            <template v-else-if="zenodoState === 'blocked'">
+              {{ zenodoMessage }} Submit the new entries for review so that it can follow.
+            </template>
+            <template v-else-if="zenodoState === 'failed'">
+              The record could not be updated: {{ zenodoMessage }} Save again to retry.
+            </template>
+          </div>
+        </v-alert>
         <v-form ref="formRef" lazy-validation>
           <!-- Name -->
           <v-text-field
             v-model="formData.name"
-            outlined
+            variant="outlined"
             required
             :rules="[(v: string) => !!v || 'Name is required']"
             class="mb-4"
@@ -934,9 +1025,20 @@ onMounted(async () => {
           <v-textarea
             v-model="formData.description"
             label="Description"
-            outlined
+            variant="outlined"
             class="mb-4"
             :disabled="isShared"
+          />
+
+          <!-- What was recorded, as terms of the Neuro Behavior Ontology -->
+          <OntologyField
+            v-model="formData.behavior_terms"
+            field="behavior"
+            label="Behaviors recorded (optional)"
+            hint="Terms of the Neuro Behavior Ontology, e.g. vocalization behavior."
+            multiple
+            :disabled="isShared"
+            class="mb-4"
           />
 
           <!-- Date / Time -->
@@ -946,13 +1048,13 @@ onMounted(async () => {
             transition="scale-transition"
             offset-y
           >
-            <template #activator="{ props }">
+            <template #activator="{ props: activatorProps }">
               <v-text-field
                 v-model="formattedDate"
                 readonly
-                outlined
+                variant="outlined"
                 class="mb-4"
-                v-bind="props"
+                v-bind="activatorProps"
                 :disabled="isShared"
                 :rules="[
                   (v: string) => formData.is_multiple || !!v || 'Recording Date is required',
@@ -981,12 +1083,12 @@ onMounted(async () => {
                 <v-col cols="6">
                   <v-date-picker
                     v-model="date"
-                    @update:modelValue="updateDate"
+                    @update:model-value="updateDate"
                     show-adjacent-months
                   />
                 </v-col>
                 <v-col cols="6">
-                  <v-time-picker v-model="time" @update:modelValue="updateTime" format="24hr" />
+                  <v-time-picker v-model="time" @update:model-value="updateTime" format="24hr" />
                 </v-col>
               </v-row>
             </v-card>
@@ -997,7 +1099,7 @@ onMounted(async () => {
             v-model="formData.duration"
             label="Duration (seconds)"
             type="number"
-            outlined
+            variant="outlined"
             class="mb-1"
             :disabled="isShared"
           />
@@ -1056,7 +1158,7 @@ onMounted(async () => {
                 item-title="name"
                 item-value="id"
                 label="Laboratory"
-                outlined
+                variant="outlined"
                 clearable
                 density="comfortable"
                 :disabled="isShared"
@@ -1094,14 +1196,14 @@ onMounted(async () => {
               :style="isShared ? { pointerEvents: 'none', opacity: 0.6 } : {}"
             >
               <v-chip
-                v-for="ref in referencesDisplay"
-                :key="ref.id"
+                v-for="reference in referencesDisplay"
+                :key="reference.id"
                 variant="outlined"
                 closable
-                @click:close="removeReference(ref.id)"
+                @click:close="removeReference(reference.id)"
                 class="ma-1"
               >
-                {{ ref.label }}
+                {{ reference.label }}
               </v-chip>
               <v-chip
                 v-if="referencesDisplay.length > 0"
@@ -1134,7 +1236,7 @@ onMounted(async () => {
                   <v-text-field
                     v-model="formData.context.temperature.value"
                     label="Temperature Value"
-                    outlined
+                    variant="outlined"
                     :disabled="isShared"
                   />
                 </v-col>
@@ -1143,7 +1245,7 @@ onMounted(async () => {
                     v-model="formData.context.temperature.unit"
                     :items="['°C', '°F']"
                     label="Temperature Unit"
-                    outlined
+                    variant="outlined"
                     :disabled="isShared"
                   />
                 </v-col>
@@ -1152,7 +1254,7 @@ onMounted(async () => {
                     v-model.number="formData.context.brightness"
                     label="Brightness (Lux)"
                     type="number"
-                    outlined
+                    variant="outlined"
                     :disabled="isShared"
                   />
                 </v-col>
@@ -1168,7 +1270,7 @@ onMounted(async () => {
                 v-model="formData.equipment.channels"
                 :items="['mono', 'stereo', 'more than 2']"
                 label="Channels"
-                outlined
+                variant="outlined"
                 class="mb-4"
                 :disabled="isShared"
               />
@@ -1176,7 +1278,7 @@ onMounted(async () => {
                 v-model="formData.equipment.sound_isolation"
                 :items="['soundproof room', 'soundproof cage', 'no specific sound isolation']"
                 label="Sound Isolation"
-                outlined
+                variant="outlined"
                 class="mb-4"
                 :disabled="isShared"
               />
@@ -1385,36 +1487,54 @@ onMounted(async () => {
 
               <ReferenceSelectionModal
                 v-model="showReferenceSelectionModal"
-                :selectedReferences="selectedReferenceIds"
-                @update:selectedReferences="onUpdateSelectedReferences"
+                :selected-references="selectedReferenceIds"
+                @update:selected-references="onUpdateSelectedReferences"
               />
 
               <StudySelectionModal
                 v-model="showStudySelectionModal"
-                :selectedStudies="formData.studies"
-                @update:selectedStudies="(newIds: number[]) => (formData.studies = newIds)"
+                :selected-studies="formData.studies"
+                @update:selected-studies="(newIds: number[]) => (formData.studies = newIds)"
               />
 
               <HardwareSelectionModal
                 v-model="showHardwareSelectionModal"
                 :hardware-type="hardwareTypeForSelection"
-                :selectedHardwareIds="selectedHardwareList"
-                @update:selectedHardwareIds="
+                :selected-hardware-ids="selectedHardwareList"
+                @update:selected-hardware-ids="
                   updateSelectedHardwareIds(currentHardwareCategory, $event)
                 "
               />
 
               <SoftwareSelectionModal
                 v-model="showSoftwareSelectionModal"
-                :selectedSoftwareVersions="formData.equipment.acquisition_software"
-                @update:selectedSoftwareVersions="onUpdateSelectedSoftwareVersions"
+                :selected-software-versions="formData.equipment.acquisition_software"
+                @update:selected-software-versions="onUpdateSelectedSoftwareVersions"
               />
             </v-card-text>
           </v-card>
         </v-form>
       </v-card-text>
       <v-card-actions class="d-flex justify-end mt-4">
-        <v-btn color="grey" variant="outlined" @click="resetForm" class="mr-2" :disabled="isShared">
+        <v-btn
+          v-if="hasSavedSession"
+          color="grey"
+          variant="outlined"
+          prepend-icon="mdi-undo"
+          class="mr-2"
+          :disabled="!isSaveEnabled || isShared"
+          @click="undoChanges"
+        >
+          Undo changes
+        </v-btn>
+        <v-btn
+          v-else
+          color="grey"
+          variant="outlined"
+          @click="resetForm"
+          class="mr-2"
+          :disabled="isShared"
+        >
           Reset
         </v-btn>
 
@@ -1479,64 +1599,85 @@ onMounted(async () => {
   margin-right: 2px;
   margin-bottom: 2px;
 }
-/* Status card */
-.status-card {
-  position: relative;
-  background-color: rgba(0, 0, 0, 0.05);
-  color: rgba(0, 0, 0, 0.7);
-  height: 180px;
-  display: flex;
+/* Single / multiple: two choice cards with a small switch between them */
+.mode-select {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: stretch;
+  gap: 12px;
+}
+.mode-toggle {
+  align-self: center;
+  transform: scale(0.75);
+  opacity: 0.8;
+}
+.mode-toggle:hover,
+.mode-toggle:focus-within {
+  opacity: 1;
+}
+.mode-option {
+  /* title on the left, icon on the right of the same line, text below */
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: center;
-  border-radius: 8px;
+  gap: 4px 12px;
+  padding: 12px 16px;
+  border: 1.5px solid #e4e4e4;
+  border-radius: 16px;
+  background: #fff;
+  text-align: left;
+  font: inherit;
+  color: #111;
   cursor: pointer;
-  transition: all 0.2s;
-  padding: 10px;
-  text-align: center;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
 }
-
-.status-card.blue {
-  background-color: rgba(25, 118, 210, 0.2);
+.mode-option strong {
+  grid-column: 1;
+  grid-row: 1;
 }
-.status-card.orange {
-  background-color: rgba(255, 152, 0, 0.2);
+.mode-option .v-icon {
+  grid-column: 2;
+  grid-row: 1;
 }
-
-.status-card.blue.active {
-  background-color: #1976d2;
-  color: white;
-}
-
-.status-card.orange.active {
-  background-color: #ff9800;
-  color: white;
-}
-
-.status-text p {
-  margin: 0;
+.mode-option span {
+  grid-column: 1 / -1;
+  grid-row: 2;
   font-size: 0.85rem;
-  color: inherit;
+  line-height: 1.5;
+  color: #555;
 }
-
-.status-card.active::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-top: 12px solid transparent;
-  border-bottom: 12px solid transparent;
+.mode-option:hover:not(:disabled) {
+  border-color: #bdbdbd;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
-
-.status-card.blue.active::after {
-  border-left: 12px solid #1976d2;
-  right: -12px;
+.mode-option.active {
+  border-color: #c62828;
+  background: #fdf3f2;
 }
-
-.status-card.orange.active::after {
-  border-right: 12px solid #ff9800;
-  left: -12px;
+.mode-option.active .v-icon {
+  color: #c62828;
+}
+.mode-option:focus-visible {
+  outline: 2px solid #c62828;
+  outline-offset: 2px;
+}
+.mode-option:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+@media (max-width: 700px) {
+  .mode-select {
+    grid-template-columns: 1fr;
+  }
+  .mode-toggle {
+    justify-self: center;
+  }
+}
+.section-card {
+  border-color: #e4e4e4;
 }
 
 .toggle-switch {

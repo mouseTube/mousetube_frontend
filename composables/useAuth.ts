@@ -1,40 +1,46 @@
-import { ref, computed } from 'vue'
-import { useStorage } from '@vueuse/core'
-import axios from 'axios'
+import { ref, computed } from 'vue';
+import { useStorage } from '@vueuse/core';
+import axios from 'axios';
 import { useFavoriteStore } from '@/stores/favorite';
 
-export const currentUser = ref<string | null>(null)
-export const id_user = ref<number | null>(null)
-export const token = useStorage<string | null>('auth_token', null, localStorage)
-export const refresh = useStorage<string | null>('refresh_token', null, localStorage)
+export const currentUser = ref<string | null>(null);
+export const id_user = ref<number | null>(null);
+export const isStaff = ref(false); // administrators see the admin-only buttons
+export const token = useStorage<string | null>('auth_token', null, localStorage);
+export const refresh = useStorage<string | null>('refresh_token', null, localStorage);
 
 export function useAuth() {
   const apiBaseUrl = useApiBaseUrl();
-  const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''))
-  const favoriteStore = useFavoriteStore()
+  const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
+  const favoriteStore = useFavoriteStore();
 
   const init = async () => {
     if (token.value) {
       try {
-        await fetchUser()
-      } catch (e) {
-        console.warn('[auth] Token invalid, logging out')
-        logout()
+        await fetchUser();
+      } catch {
+        console.warn('[auth] Token invalid, logging out');
+        logout();
       }
     }
-  }
+  };
 
   const login = async (username: string, password: string) => {
     try {
-      const res = await axios.post(`${baseUrl.value}/auth/jwt/create/`, {
-        username,
-        password,
-      }, {
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const res = await axios.post(
+        `${baseUrl.value}/auth/jwt/create/`,
+        {
+          username,
+          password,
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
       token.value = res.data.access;
       if (res.data.refresh) refresh.value = res.data.refresh;
       currentUser.value = username;
+      await fetchUser();
       await favoriteStore.fetchAllFavorites();
       return true;
     } catch (error: any) {
@@ -43,15 +49,19 @@ export function useAuth() {
         error.response?.data?.non_field_errors?.[0] ||
         error.response?.data?.username?.[0] ||
         error.message;
-      throw new Error(msg);
+      // account_status: set by the API when the password is right but the account is pending
+      throw Object.assign(new Error(msg), {
+        accountStatus: error.response?.data?.account_status as string | undefined,
+      });
     }
   };
 
   const logout = () => {
-    currentUser.value = null
-    token.value = null
-    refresh.value = null
-  }
+    currentUser.value = null;
+    isStaff.value = false;
+    token.value = null;
+    refresh.value = null;
+  };
 
   const loginWithToken = async (accessToken: string) => {
     try {
@@ -65,31 +75,33 @@ export function useAuth() {
 
       currentUser.value = res.data.username;
       id_user.value = res.data.id;
+      isStaff.value = !!res.data.is_staff;
 
-      await favoriteStore.fetchAllFavorites()
-      
+      await favoriteStore.fetchAllFavorites();
+
       return true;
-    } catch (error: any) {
+    } catch (error) {
       logout();
-      throw new Error('Invalid token');
+      throw new Error('Invalid token', { cause: error });
     }
   };
 
   const fetchUser = async () => {
-    if (!token.value) return null
+    if (!token.value) return null;
 
     const res = await axios.get(`${baseUrl.value}/auth/users/me/`, {
       headers: {
         Authorization: `Bearer ${token.value}`,
       },
-    })
-    id_user.value = res.data.id
-    currentUser.value = res.data.username
-    return res.data
-  }
+    });
+    id_user.value = res.data.id;
+    currentUser.value = res.data.username;
+    isStaff.value = !!res.data.is_staff;
+    return res.data;
+  };
 
   const refreshToken = async () => {
-    if (!refresh.value) return
+    if (!refresh.value) return;
     const res = await axios.post(`${baseUrl.value}/auth/jwt/refresh/`, {
       refresh: refresh.value,
     });
@@ -103,12 +115,13 @@ export function useAuth() {
     token,
     refresh,
     id_user,
+    isStaff,
     loggedIn,
     login,
     logout,
     fetchUser,
     refreshToken,
     loginWithToken,
-    init
-  }
+    init,
+  };
 }

@@ -27,6 +27,8 @@ export interface File {
   external_url: string | null;
   status: string;
   celery_task_id?: string | null;
+  error_message?: string;
+  progress?: number;
   created_at: string;
   modified_at: string;
   created_by: number | null;
@@ -228,7 +230,7 @@ export const useFileStore = defineStore('file', {
     // -------------------------------------------------
     // ✅ Temporary upload to MEDIA_ROOT/temp
     // -------------------------------------------------
-    async uploadFile(file: UploadFile): Promise<{ temp_path: string; task_id: string }> {
+    async uploadFile(file: UploadFile): Promise<{ temp_path: string }> {
       this.error = null;
       this.loading = true;
       this.uploadProgress = 0;
@@ -250,7 +252,7 @@ export const useFileStore = defineStore('file', {
           },
         });
 
-        // Exemple backend : { temp_path, task_id }
+        // backend: { temp_path }
         return res.data;
       } catch (err: any) {
         console.error('Upload failed:', err);

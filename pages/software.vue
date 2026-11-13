@@ -2,12 +2,14 @@
 ////////////////////////////////
 // IMPORT
 ////////////////////////////////
-import { ref, onMounted, watch, onBeforeUnmount } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import axios from 'axios';
-import debounce from 'lodash/debounce.js';
-import { MonitorCog } from 'lucide-vue-next';
+import debounce from 'lodash-es/debounce';
+import { MonitorCog } from '@lucide/vue';
 import { useAuth } from '@/composables/useAuth';
 import { useRouter } from 'vue-router';
+import ListFilters from '@/components/ListFilters.vue';
+import ActiveFilters from '@/components/ActiveFilters.vue';
 import SoftwareModal from '@/components/modals/SoftwareModal.vue';
 
 const { currentUser, token, id_user, fetchUser } = useAuth();
@@ -24,12 +26,18 @@ const previous = ref(null);
 const count = ref(0);
 const currentPage = ref(1);
 const perPage = ref(10);
-const filters = ref(['all']);
+const showFilters = ref(false);
+const emptyFilters = () => ({
+  type: [],
+  used: false,
+  documented: false,
+  favorites: false,
+  mine: false,
+});
+const filters = ref(emptyFilters());
+const activeFilters = ref(null);
 const apiBaseUrl = useApiBaseUrl();
 const viewMode = ref('cards');
-const showFiltersMobile = ref(false);
-const showFiltersDesktop = ref(false);
-const isDesktop = ref(window.innerWidth >= 960);
 const userProfile = ref(null);
 const router = useRouter();
 const showSoftwareModal = ref(false);
@@ -44,7 +52,7 @@ function openSoftwareModal() {
   showSoftwareModal.value = true;
 }
 
-function onSoftwareSaved(softwareId) {
+function onSoftwareSaved(_softwareId) {
   showSoftwareModal.value = false;
 
   if (newSoftwareFromSoftware.value) {
@@ -53,19 +61,49 @@ function onSoftwareSaved(softwareId) {
   }
 }
 
-function updateIsDesktop() {
-  isDesktop.value = window.innerWidth >= 960;
-  if (!isDesktop.value) {
-    showFiltersDesktop.value = false;
+/** The URL of the list for the search, the filters and a page (the first one by default). */
+const buildUrl = (page = 1) => {
+  const params = new URLSearchParams({ page_size: perPage.value, page });
+  if (search.value) params.set('search', search.value);
+  if (filters.value.type.length) params.set('type', filters.value.type.join(','));
+  for (const name of ['used', 'documented', 'favorites', 'mine']) {
+    if (filters.value[name]) params.set(name, '1');
   }
-}
+  // the list shows what was validated; "my entries" also shows the drafts of the user
+  if (!filters.value.mine) params.set('status', 'validated');
+  return `${apiBaseUrl}/software/?${params}`;
+};
 
-const fetchSoftware = async (
-  url = `${apiBaseUrl}/software/?page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}&status=validated`
-) => {
+const resetFilters = () => {
+  filters.value = emptyFilters();
+};
+const filterToggles = computed(() => [
+  { key: 'used', label: 'Used in vocalizations', default: false },
+  { key: 'documented', label: 'With documentation', default: false },
+  ...(currentUser.value
+    ? [
+        { key: 'favorites', label: 'My favorites', default: false },
+        { key: 'mine', label: 'My entries (with drafts)', default: false },
+      ]
+    : []),
+]);
+const filterGroups = [
+  {
+    key: 'type',
+    title: 'Type',
+    icon: 'mdi-shape-outline',
+    options: ['acquisition', 'analysis', 'acquisition and analysis'],
+  },
+];
+
+const fetchSoftware = async (url = buildUrl()) => {
   dataLoaded.value = false;
   try {
-    const response = await axios.get(url);
+    // signed in: the server also knows who asks (favorites, own entries)
+    const response = await axios.get(
+      url,
+      token.value ? { headers: { Authorization: `Bearer ${token.value}` } } : {}
+    );
     softwareList.value = response.data.results;
     next.value = response.data.next;
     previous.value = response.data.previous;
@@ -80,20 +118,12 @@ const fetchSoftware = async (
 };
 
 const onSearch = debounce(() => {
-  fetchSoftware(
-    `${apiBaseUrl}/software/?search=${encodeURIComponent(search.value)}&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`
-  );
+  fetchSoftware(buildUrl());
 }, 600);
 
 const lastPage = computed(() => Math.ceil(count.value / perPage.value));
-
-const lastPageUrl = computed(() => {
-  return `${apiBaseUrl}/software/?page=${lastPage.value}&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`;
-});
-
-const firstPageUrl = computed(() => {
-  return `${apiBaseUrl}/software/?page=1&page_size=${perPage.value}&filter=${encodeURIComponent(filters.value)}`;
-});
+const lastPageUrl = computed(() => buildUrl(lastPage.value));
+const firstPageUrl = computed(() => buildUrl(1));
 
 async function fetchUserProfile() {
   if (!id_user.value || !token.value) return;
@@ -134,65 +164,39 @@ watch(search, async (newSearch) => {
     await fetchSoftware();
   }
 });
-watch(filters, () => fetchSoftware());
 
 ////////////////////////////////
 // ONMOUNTED
 ////////////////////////////////
 
+watch(filters, () => fetchSoftware(), { deep: true });
+
 onMounted(async () => {
   await loadUserPreferences();
-  window.addEventListener('resize', updateIsDesktop);
 });
 
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateIsDesktop);
-});
+// One color per kind of software, so the type reads at a glance.
+const typeColor = (type) =>
+  ({ acquisition: 'blue', analysis: 'red', 'acquisition and analysis': 'orange' })[type] ||
+  'grey-darken-3';
 </script>
 
 <template>
   <v-main>
     <v-container fluid>
       <v-row>
-        <!-- Drawer Mobile -->
-        <v-navigation-drawer
-          v-model="showFiltersMobile"
-          location="left"
-          temporary
-          class="d-md-none"
-        >
-          <v-sheet color="grey-lighten-4" class="pa-4">
-            <div class="d-flex justify-space-between align-center mb-2">
-              <h3 class="text-subtitle-1 mb-2">Filters</h3>
-              <v-chip v-if="count > 0" class="me-1 my-1 mx-2">{{ count }}</v-chip>
-            </div>
-            <v-select
-              v-model="filters"
-              :items="['all', 'acquisition', 'analysis', 'acquisition and analysis']"
-              label="Filter by Software Type"
-              density="compact"
-              hide-details
-            />
-          </v-sheet>
-        </v-navigation-drawer>
-
-        <!-- Sidebar desktop (panel filtre) -->
-        <v-sheet v-if="showFiltersDesktop && isDesktop" class="filter-overlay" elevation="8">
-          <v-btn
-            icon="mdi-close"
-            @click="showFiltersDesktop = false"
-            variant="text"
-            aria-label="Close filter panel"
-          />
-          <h3>Filters</h3>
-          <v-select
+        <!-- Filters -->
+        <v-navigation-drawer v-model="showFilters" location="left" temporary width="360">
+          <ListFilters
             v-model="filters"
-            :items="['all', 'acquisition', 'analysis', 'acquisition and analysis']"
-            label="Filter by Software Type"
-            density="comfortable"
-            variant="outlined"
+            :groups="filterGroups"
+            :toggles="filterToggles"
+            noun="software"
+            :total="count"
+            @reset="resetFilters"
+            @close="showFilters = false"
           />
-        </v-sheet>
+        </v-navigation-drawer>
 
         <!-- Main Content -->
         <v-col :cols="12">
@@ -215,6 +219,14 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
+            <v-card class="mt-5 mb-5" color="grey-lighten-4">
+              <v-card-text>
+                A non-exhaustive list of software used to record or analyse ultrasonic vocalization
+                files. <strong>mouseTube</strong> does not distribute them: each entry gives its
+                maker and references to its documentation. Information about the software is an
+                important metadata.
+              </v-card-text>
+            </v-card>
             <v-toolbar rounded="lg" class="px-2 border-sm mb-4">
               <v-text-field
                 v-model="search"
@@ -227,7 +239,13 @@ onBeforeUnmount(() => {
                 clearable
                 hide-details
               />
-              <v-spacer></v-spacer>
+              <ActiveFilters
+                ref="activeFilters"
+                v-model="filters"
+                :groups="filterGroups"
+                :toggles="filterToggles"
+                @reset="resetFilters"
+              />
 
               <v-btn
                 icon
@@ -251,15 +269,21 @@ onBeforeUnmount(() => {
                 hide-details
               />
 
-              <v-btn
-                icon="mdi-filter-variant"
-                @click="
-                  isDesktop
-                    ? (showFiltersDesktop = !showFiltersDesktop)
-                    : (showFiltersMobile = true)
-                "
-                variant="text"
-              />
+              <v-badge
+                :content="activeFilters?.total"
+                :model-value="!!activeFilters?.total"
+                color="primary"
+                offset-x="6"
+                offset-y="6"
+                class="me-2"
+              >
+                <v-btn
+                  icon="mdi-filter-variant"
+                  variant="text"
+                  aria-label="Filters"
+                  @click="showFilters = !showFilters"
+                />
+              </v-badge>
             </v-toolbar>
 
             <!-- Loading spinner  -->
@@ -406,7 +430,7 @@ onBeforeUnmount(() => {
               <template v-slot:default="{ items }">
                 <v-container class="pa-2" fluid>
                   <v-card
-                    class="mt-5 border-sm"
+                    class="list-card border-sm"
                     style="position: relative"
                     v-for="{ raw: software } in items"
                     :key="software.id"
@@ -419,28 +443,21 @@ onBeforeUnmount(() => {
                       {{ software.made_by }}
                     </v-card-subtitle>
                     <v-chip
-                      v-bind:class="{
-                        'bg-blue-darken-2': software.type === 'acquisition',
-                        'bg-red-darken-2': software.type === 'analysis',
-                        'bg-orange-darken-2': software.type === 'acquisition and analysis',
-                      }"
-                      style="
-                        position: absolute;
-                        top: 12px;
-                        right: 12px;
-                        background-color: red;
-                        color: white;
-                      "
+                      class="type-chip"
                       label
+                      size="small"
+                      variant="tonal"
+                      :color="typeColor(software.type)"
+                      style="position: absolute; top: 12px; right: 12px"
                     >
                       {{ software.type }}
                     </v-chip>
-                    <v-card-item class="bg-surface-light pt-4">
-                      <v-label class="mr-2"></v-label>{{ software.description }}<br />
+                    <v-card-item v-if="software.description" class="bg-surface-light pt-4">
+                      {{ software.description }}
                     </v-card-item>
 
                     <v-expansion-panels>
-                      <v-expansion-panel title="References" bg-color="grey-lighten-2">
+                      <v-expansion-panel title="References">
                         <v-expansion-panel-text>
                           <v-row dense align="start" justify="start" class="pa-2">
                             <v-col
@@ -522,7 +539,7 @@ onBeforeUnmount(() => {
                 :disabled="currentPage == 1"
                 icon="mdi-skip-backward"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchSoftware(firstPageUrl)"
               ></v-btn>
@@ -530,7 +547,7 @@ onBeforeUnmount(() => {
                 :disabled="!previous"
                 icon="mdi-arrow-left"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchSoftware(previous)"
               ></v-btn>
@@ -541,7 +558,7 @@ onBeforeUnmount(() => {
                 :disabled="!next"
                 icon="mdi-arrow-right"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchSoftware(next)"
               ></v-btn>
@@ -549,7 +566,7 @@ onBeforeUnmount(() => {
                 :disabled="currentPage == Math.ceil(count / perPage)"
                 icon="mdi-skip-forward"
                 density="comfortable"
-                variant="tonal"
+                variant="outlined"
                 rounded
                 @click="fetchSoftware(lastPageUrl)"
               ></v-btn>
@@ -563,47 +580,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.filter-overlay {
-  position: fixed;
-  top: 80px;
-  left: 20px;
-  width: 320px;
-  max-height: calc(100vh - 100px);
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  padding: 24px 24px 32px;
-  z-index: 1500;
-  overflow-y: auto;
-  transition:
-    transform 0.25s ease,
-    opacity 0.25s ease;
-}
-
-.filter-overlay .v-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  color: #666;
-  transition: color 0.2s ease;
-}
-
-.filter-overlay .v-btn:hover {
-  color: #d32f2f;
-}
-
-.filter-overlay h3 {
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 20px;
-  user-select: none;
-}
-
-.filter-overlay .v-select {
-  --v-theme-primary: #d32f2f;
-  margin-top: 0 !important;
-}
-
 .hover-effect:hover {
   transform: scale(1.05);
   background-color: #f7e2e2;

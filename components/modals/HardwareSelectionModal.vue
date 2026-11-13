@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PickerFrame from '@/components/modals/PickerFrame.vue';
 import { ref, computed, watch } from 'vue';
 import { useHardwareStore, type Hardware } from '@/stores/hardware';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
@@ -160,163 +161,133 @@ onMounted(async () => {
 
 <template>
   <v-dialog v-model="localDialog" max-width="900px">
-    <v-card class="pa-3">
-      <!-- Header, recherche et tri -->
-      <v-card-title class="d-flex align-center font-weight-bold">
-        <span>Select {{ hardwareType }}s</span>
-        <v-spacer />
+    <PickerFrame
+      :title="`Select ${hardwareType}s`"
+      :subtitle="`${filteredHardware.length} available · ${internalSelectedHardwareIds.length} selected`"
+      icon="mdi-microphone-outline"
+      :selected="internalSelectedHardwareIds.length"
+      @close="localDialog = false"
+    >
+      <template #toolbar>
         <v-text-field
           v-model="searchQuery"
           placeholder="Search hardware..."
-          density="compact"
+          density="comfortable"
           variant="outlined"
           hide-details
+          clearable
           prepend-inner-icon="mdi-magnify"
-          class="ml-4"
-          style="max-width: 300px"
         />
         <v-btn
-          @click="toggleSortOrder"
-          size="small"
-          class="ml-2"
-          :icon="sortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'"
+          icon
+          variant="tonal"
           :title="sortOrder === 'asc' ? 'Ascending' : 'Descending'"
-        />
-      </v-card-title>
-
-      <!-- Liste hardware -->
-      <v-card-text>
-        <v-row v-if="paginatedHardware.length > 0" dense>
-          <v-col v-for="hw in paginatedHardware" :key="hw.id" cols="12" sm="6" md="4">
-            <v-card
-              :elevation="isSelected(hw.id!) ? 8 : 1"
-              :class="[
-                'cursor-pointer',
-                'h-100',
-                'd-flex',
-                'flex-column',
-                'justify-space-between',
-                'position-relative',
-                { 'border-primary': isSelected(hw.id!) },
-              ]"
-              @click="toggleSelection(hw.id!)"
-            >
-              <v-icon v-if="isSelected(hw.id!)" color="primary" size="24" class="check-icon"
-                >mdi-check-circle</v-icon
-              >
-              <div style="flex-grow: 1; padding: 16px">
-                <div class="d-flex align-center mb-1" style="padding: 8px 8px 0 8px">
-                  <v-btn
-                    variant="text"
-                    size="small"
-                    :icon="
-                      favoriteStore.isFavorite('hardware', hw.id ?? -1)
-                        ? 'mdi-star'
-                        : 'mdi-star-outline'
-                    "
-                    :color="favoriteStore.isFavorite('hardware', hw.id ?? -1) ? 'warning' : 'grey'"
-                    @click.stop="hw.id && toggleFavorite(hw.id)"
-                    title="Toggle favorite"
-                    style="min-width: 32px; margin: 0; padding: 0"
-                  />
-                  <v-tooltip location="top">
-                    <template #activator="{ props }">
-                      <div
-                        class="text-h6 font-weight-medium ms-1"
-                        v-bind="props"
-                        style="
-                          margin: 0;
-                          max-width: calc(100% - 75px);
-                          white-space: nowrap;
-                          overflow: hidden;
-                          text-overflow: ellipsis;
-                        "
-                      >
-                        {{ hw.name }}
-                      </div>
-                    </template>
-                    <span>{{ hw.name }}</span>
-                  </v-tooltip>
-                </div>
-                <!-- <v-card-subtitle>Type: {{ hw.type }}</v-card-subtitle> -->
-                <v-card-text class="pa-0 mt-2 text-body-2"
-                  ><v-tooltip location="top">
-                    <template #activator="{ props }">
-                      <v-card-text
-                        v-bind="props"
-                        class="pa-0 mt-2 text-body-2 ps-4 pe-4 pb-4"
-                        style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis"
-                      >
-                        {{ truncate(hw.description || '') }}
-                      </v-card-text>
-                    </template>
-                    <span style="max-width: 300px; white-space: normal; display: block">
-                      {{ hw.description }}
-                    </span>
-                  </v-tooltip></v-card-text
-                >
-              </div>
-              <v-card-actions class="justify-space-between pt-0">
-                <v-chip
-                  v-if="hw.status"
-                  :color="getStatusColor(hw.status)"
-                  size="small"
-                  class="ms-2 text-white"
-                  label
-                >
-                  {{ hw.status }}
-                </v-chip>
-                <div class="d-flex align-center" style="gap: 4px">
-                  <v-icon
-                    color="primary"
-                    @click.stop="editHardware(hw)"
-                    title="Edit hardware"
-                    class="mr-2 cursor-pointer hover-icon"
-                    >mdi-pencil</v-icon
-                  >
-                  <v-icon
-                    color="error"
-                    @click.stop="askDeleteHardware(hw.id!)"
-                    title="Delete hardware"
-                    class="cursor-pointer hover-icon"
-                    >mdi-delete</v-icon
-                  >
-                </div>
-              </v-card-actions>
-            </v-card>
-          </v-col>
-        </v-row>
-
-        <v-alert v-else type="info" variant="tonal" class="mt-4">
-          No hardware found matching your search criteria
-        </v-alert>
-
-        <v-pagination
-          v-if="filteredHardware.length > itemsPerPage"
-          v-model="page"
-          :length="Math.ceil(filteredHardware.length / itemsPerPage)"
-          class="mt-4"
-          total-visible="5"
-        />
-      </v-card-text>
-
-      <!-- Footer actions -->
-      <v-card-actions class="justify-space-between">
-        <v-btn color="primary" variant="flat" @click="openCreateModal" title="Add new hardware">
-          <v-icon start>mdi-plus</v-icon> Add Hardware
+          @click="toggleSortOrder"
+        >
+          <v-icon>{{ sortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending' }}</v-icon>
         </v-btn>
+      </template>
+
+      <v-row v-if="paginatedHardware.length > 0" dense>
+        <v-col v-for="hw in paginatedHardware" :key="hw.id" cols="12" sm="6" md="4">
+          <v-card
+            :class="['pick-card', { 'pick-card--selected': isSelected(hw.id!) }]"
+            tabindex="0"
+            role="checkbox"
+            :aria-checked="isSelected(hw.id!)"
+            @click="toggleSelection(hw.id!)"
+            @keydown.enter.prevent="toggleSelection(hw.id!)"
+            @keydown.space.prevent="toggleSelection(hw.id!)"
+          >
+            <v-icon
+              v-if="isSelected(hw.id!)"
+              class="pick-check"
+              color="primary"
+              size="24"
+              icon="mdi-check-circle"
+            />
+            <div class="pick-title d-flex align-center">
+              <v-btn
+                variant="text"
+                size="x-small"
+                density="comfortable"
+                :icon="
+                  favoriteStore.isFavorite('hardware', hw.id ?? -1)
+                    ? 'mdi-star'
+                    : 'mdi-star-outline'
+                "
+                :color="favoriteStore.isFavorite('hardware', hw.id ?? -1) ? 'warning' : 'grey'"
+                title="Toggle favorite"
+                aria-label="Toggle favorite"
+                class="me-1"
+                @click.stop="hw.id && toggleFavorite(hw.id)"
+              />
+              <span class="text-truncate" :title="hw.name">{{ hw.name }}</span>
+            </div>
+            <div class="pick-text" :title="hw.description || ''">
+              {{ truncate(hw.description || '') }}
+            </div>
+            <div class="pick-foot">
+              <v-chip v-if="hw.status" :color="getStatusColor(hw.status)" size="small" label>
+                {{ hw.status }}
+              </v-chip>
+              <span v-else />
+              <span class="pick-tools">
+                <v-btn
+                  icon="mdi-pencil-outline"
+                  variant="text"
+                  size="small"
+                  color="grey-darken-1"
+                  title="Edit hardware"
+                  aria-label="Edit hardware"
+                  @click.stop="editHardware(hw)"
+                />
+                <v-btn
+                  icon="mdi-delete-outline"
+                  variant="text"
+                  size="small"
+                  color="grey-darken-1"
+                  title="Delete hardware"
+                  aria-label="Delete hardware"
+                  @click.stop="askDeleteHardware(hw.id!)"
+                />
+              </span>
+            </div>
+          </v-card>
+        </v-col>
+      </v-row>
+
+      <v-alert v-else type="info" variant="tonal" class="mt-4">
+        No hardware found matching your search criteria
+      </v-alert>
+
+      <v-pagination
+        v-if="filteredHardware.length > itemsPerPage"
+        v-model="page"
+        :length="Math.ceil(filteredHardware.length / itemsPerPage)"
+        class="mt-4"
+        total-visible="5"
+      />
+
+      <template #actions>
         <v-btn
           color="primary"
-          variant="outlined"
+          variant="tonal"
+          prepend-icon="mdi-plus"
+          title="Add new hardware"
+          @click="openCreateModal"
+        >
+          Add hardware
+        </v-btn>
+        <v-btn
+          variant="text"
           :disabled="internalSelectedHardwareIds.length === 0"
           @click="clearAllHardwareSelection"
-          title="Clear All Selection"
         >
-          <v-icon start>mdi-close</v-icon> Clear All
+          Clear selection
         </v-btn>
-        <v-btn color="primary" variant="flat" @click="localDialog = false">Close</v-btn>
-      </v-card-actions>
-    </v-card>
+      </template>
+    </PickerFrame>
 
     <HardwareModal
       v-model="showCreateModal"
@@ -349,35 +320,3 @@ onMounted(async () => {
     </v-dialog>
   </v-dialog>
 </template>
-
-<style scoped>
-.cursor-pointer {
-  cursor: pointer;
-}
-.h-100 {
-  height: 100%;
-}
-.hover-icon:hover {
-  color: #000000 !important;
-  transform: scale(1.1);
-  transition:
-    transform 0.2s,
-    color 0.2s;
-}
-.v-card {
-  border: 2px solid transparent;
-  border-radius: 8px;
-  position: relative;
-}
-.border-primary {
-  border: 2px solid rgb(var(--v-theme-primary));
-}
-.check-icon {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
-.favorite-btn {
-  min-width: 36px;
-}
-</style>
