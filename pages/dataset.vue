@@ -220,7 +220,7 @@ onMounted(() => fetchDatasets());
               <v-card
                 v-for="dataset in datasetList"
                 :key="dataset.id"
-                class="mt-5 border-sm"
+                class="list-card border-sm"
                 elevated
               >
                 <v-card-title class="d-flex align-center justify-space-between">

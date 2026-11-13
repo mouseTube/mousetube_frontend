@@ -471,65 +471,34 @@ const facts = (file) => {
               <template v-slot:default="{ items }">
                 <v-container class="pa-2" fluid>
                   <v-card
-                    class="mt-5 border-sm"
+                    class="list-card border-sm"
                     v-for="{ raw: file } in items"
                     :key="file.id"
                     elevated
                   >
-                    <v-badge
-                      :content="file.downloads + ' Downloads'"
-                      overlap
-                      style="position: absolute; top: 20px; right: 40px"
-                      color="red-lighten-5"
-                    >
-                      <template #badge>
-                        <div
-                          style="
-                            background-color: transparent;
-                            font-size: 0.875rem;
-                            color: gray;
-                            border-radius: 12px;
-                          "
-                        >
-                          <v-icon style="font-size: 0.875rem; color: gray">mdi-download</v-icon>
-                          <span style="margin-left: 8px">{{ file.downloads }}</span>
-                        </div>
-                        <v-avatar
+                    <div class="card-head">
+                      <div class="card-head-text">
+                        <v-card-title class="font-weight-bold card-title">
+                          {{ file.name ? file.name : file.link.split('/').pop() }}
+                        </v-card-title>
+                        <v-card-subtitle>
+                          {{ file.recording_session.created_by?.first_name || '' }}
+                          {{ file.recording_session.created_by?.last_name || '' }}
+                        </v-card-subtitle>
+                      </div>
+                      <!-- fixed layout: the count can grow without moving the logo -->
+                      <div class="card-head-side">
+                        <span class="downloads-pill" :title="`${file.downloads} downloads`">
+                          <v-icon size="14">mdi-download</v-icon>{{ file.downloads }}
+                        </span>
+                        <span
                           v-if="file.repository && file.repository.logo"
-                          size="40"
-                          class="mt-2"
-                          style="
-                            background: #fff;
-                            border: 1px solid #eee;
-                            display: block;
-                            position: absolute;
-                            top: 25px;
-                            right: 0px;
-                          "
+                          class="repo-logo-badge"
                         >
-                          <img
-                            :src="baseUrl + file.repository.logo"
-                            :alt="file.repository.name"
-                            style="
-                              padding: 4px;
-                              border-radius: 10px;
-                              object-fit: contain;
-                              object-position: center;
-                              width: 100%;
-                              height: 100%;
-                              transform: scale(1.7);
-                            "
-                          />
-                        </v-avatar>
-                      </template>
-                    </v-badge>
-                    <v-card-title class="font-weight-bold">
-                      {{ file.name ? file.name : file.link.split('/').pop() }}
-                    </v-card-title>
-                    <v-card-subtitle>
-                      {{ file.recording_session.created_by?.first_name || '' }}
-                      {{ file.recording_session.created_by?.last_name || '' }}
-                    </v-card-subtitle>
+                          <img :src="baseUrl + file.repository.logo" :alt="file.repository.name" />
+                        </span>
+                      </div>
+                    </div>
                     <v-card-item class="bg-surface-light pt-4">
                       <dl class="facts">
                         <div v-for="fact in facts(file)" :key="fact.label" class="fact">
@@ -942,10 +911,55 @@ const facts = (file) => {
 .ror-link:hover {
   text-decoration: underline;
 }
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 16px 0 0;
 }
+.card-head-text {
+  min-width: 0;
+  flex: 1 1 auto;
 }
+.card-title {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
+.card-head-side {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 12px;
 }
+.downloads-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fbeaea;
+  color: #666;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.repo-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 10px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+}
+.repo-logo-badge img {
+  display: block;
+  height: 26px;
+  width: auto;
+  max-width: 110px;
+  object-fit: contain;
 }
 .hover-effect:hover {
   transform: scale(1.05);

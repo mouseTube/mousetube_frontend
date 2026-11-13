@@ -167,7 +167,7 @@ onMounted(() => fetchRepositories());
               <template v-slot:default="{ items }">
                 <v-container class="pa-2" fluid>
                   <v-card
-                    class="mt-5 border-sm"
+                    class="list-card border-sm"
                     v-bind="repository"
                     v-for="repository in items"
                     :key="repository.raw.name"

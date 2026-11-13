@@ -89,6 +89,18 @@ await auth.init();
   border-color: #bdbdbd !important;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06) !important;
 }
+/* one card per entry of a list: a visible edge, the brand color on the left, room around */
+.v-card.list-card {
+  margin-top: 28px;
+  border: 1.5px solid #c9c9c9 !important;
+  border-left: 5px solid rgb(var(--v-theme-primary)) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+.v-card.list-card:hover {
+  border-color: #bdbdbd !important;
+  border-left-color: rgb(var(--v-theme-primary)) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16) !important;
+}
 .v-card-item.bg-surface-light {
   background: #f1f1f1 !important;
 }

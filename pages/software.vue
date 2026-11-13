@@ -430,7 +430,7 @@ const typeColor = (type) =>
               <template v-slot:default="{ items }">
                 <v-container class="pa-2" fluid>
                   <v-card
-                    class="mt-5 border-sm"
+                    class="list-card border-sm"
                     style="position: relative"
                     v-for="{ raw: software } in items"
                     :key="software.id"
