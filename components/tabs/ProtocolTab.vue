@@ -119,6 +119,18 @@ function snapshotFormData(data: typeof formData.value) {
   return JSON.stringify(JSON.parse(JSON.stringify(data)));
 }
 
+// a protocol is linked to the session: Undo goes back to it, instead of emptying the form
+const hasSavedProtocol = computed(() => !!session.value?.protocol?.id);
+
+/* Put the form back as the linked protocol is saved: what was typed or chosen since is dropped. */
+async function undoChanges() {
+  const id = session.value?.protocol?.id;
+  if (!id) return;
+  await loadProtocol(id);
+  emit('protocol-dirty', { dirty: false });
+  showSnackbar('Changes undone.', 'info');
+}
+
 function resetForm() {
   formData.value = {
     name: '',
@@ -611,6 +623,18 @@ onMounted(async () => {
           </template>
           <template v-else>
             <v-btn
+              v-if="hasSavedProtocol"
+              color="grey"
+              variant="outlined"
+              prepend-icon="mdi-undo"
+              class="mr-2"
+              :disabled="!isSaveEnabled || sessionLocked"
+              @click="undoChanges"
+            >
+              Undo changes
+            </v-btn>
+            <v-btn
+              v-else
               color="grey"
               variant="outlined"
               @click="resetForm"
@@ -760,6 +784,18 @@ onMounted(async () => {
           </template>
           <template v-else>
             <v-btn
+              v-if="hasSavedProtocol"
+              color="grey"
+              variant="outlined"
+              prepend-icon="mdi-undo"
+              class="mr-2"
+              :disabled="!isSaveEnabled || sessionLocked"
+              @click="undoChanges"
+            >
+              Undo changes
+            </v-btn>
+            <v-btn
+              v-else
               color="grey"
               variant="outlined"
               @click="resetForm"

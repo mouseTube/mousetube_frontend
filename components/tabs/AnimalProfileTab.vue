@@ -64,6 +64,16 @@ async function loadAnimalProfilesFromSession(sessionId: number) {
   }
 }
 
+/* Put the list back as it is saved for the session: what was added or removed since is dropped. */
+async function undoChanges() {
+  if (props.selectedRecordingSessionId === null) return;
+  await loadAnimalProfilesFromSession(props.selectedRecordingSessionId);
+  emit('animal-dirty', { dirty: false });
+  snackbarText.value = 'Changes undone.';
+  snackbarColor.value = 'info';
+  snackbar.value = true;
+}
+
 function removeAnimalProfile(id: number) {
   selectedAnimalProfiles.value = selectedAnimalProfiles.value.filter((p) => p.id !== id);
   saved.value = false;
@@ -165,9 +175,21 @@ watch(
     <v-card outlined class="pa-6 mb-5">
       <v-card-title class="d-flex justify-space-between align-center mb-4">
         <h3>Animal Profiles</h3>
-        <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isShared || !isDirty">
-          Save
-        </v-btn>
+        <div>
+          <v-btn
+            color="grey"
+            variant="outlined"
+            prepend-icon="mdi-undo"
+            class="mr-2"
+            :disabled="isShared || !isDirty"
+            @click="undoChanges"
+          >
+            Undo changes
+          </v-btn>
+          <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isShared || !isDirty">
+            Save
+          </v-btn>
+        </div>
       </v-card-title>
 
       <v-card-text>
