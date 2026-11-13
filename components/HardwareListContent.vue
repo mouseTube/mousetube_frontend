@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import ReviewStatus from '@/components/ReviewStatus.vue';
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useHardwareStore, type Hardware } from '@/stores/hardware';
 import { useFavoriteStore } from '@/stores/favorite';
+import AccountListHeader from '@/components/AccountListHeader.vue';
+import SortButtons, { type Sort } from '@/components/SortButtons.vue';
 import HardwareModal from '@/components/modals/HardwareModal.vue';
 import { Mic, MicVocal, Speaker, BoomBox, Microchip } from '@lucide/vue';
 
@@ -10,7 +12,7 @@ const hardwareStore = useHardwareStore();
 const favoriteStore = useFavoriteStore();
 
 const searchQuery = ref('');
-const sortOrder = ref<'asc' | 'desc'>('asc');
+const sort = ref<Sort>({ key: 'name', dir: 'asc' });
 const page = ref(1);
 const itemsPerPage = 9;
 
@@ -22,8 +24,20 @@ const showDeleteConfirm = ref(false);
 const deleteTargetId = ref<number | null>(null);
 const deleteTargetName = ref<string>('');
 
+// the state of the entries: only yours can be a draft or wait for a review
+const STATUSES = [
+  { value: 'draft', title: 'Draft' },
+  { value: 'waiting validation', title: 'Waiting for validation' },
+  { value: 'validated', title: 'Validated' },
+];
+const status = ref<string | null>(null);
+watch([searchQuery, status, sort], () => {
+  page.value = 1;
+});
+
 const filteredHardware = computed(() => {
   let items = hardwareStore.hardwares;
+  if (status.value) items = items.filter((hw) => hw.status === status.value);
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase();
     items = items.filter((hw) => hw.name.toLowerCase().includes(q));
@@ -32,9 +46,11 @@ const filteredHardware = computed(() => {
 });
 
 const sortedHardware = computed(() => {
-  const items = [...filteredHardware.value];
-  return items.sort((a, b) =>
-    sortOrder.value === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+  const sign = sort.value.dir === 'asc' ? 1 : -1;
+  return [...filteredHardware.value].sort((a, b) =>
+    sort.value.key === 'name'
+      ? sign * a.name.localeCompare(b.name)
+      : sign * (a.modified_at ?? '').localeCompare(b.modified_at ?? '')
   );
 });
 
@@ -43,13 +59,14 @@ const paginatedHardware = computed(() => {
   return sortedHardware.value.slice(start, start + itemsPerPage);
 });
 
+const typeIcon = (type?: string | null) =>
+  ({ microphone: MicVocal, speaker: Speaker, amplifier: BoomBox, soundcard: Microchip })[
+    type ?? ''
+  ];
+
 function truncate(text: string, length = 60) {
   if (!text) return '—';
   return text.length > length ? text.slice(0, length) + '…' : text;
-}
-
-function toggleSortOrder() {
-  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
 }
 
 function editHardware(hw: Hardware) {
@@ -115,162 +132,93 @@ onMounted(async () => {
 
 <template>
   <div>
-    <v-card-title class="d-flex align-center font-weight-bold">
-      <span>Hardware</span>
-      <v-spacer />
+    <AccountListHeader
+      title="My hardware"
+      lead="Microphones, soundcards, speakers and amplifiers you can use in a recording. Star the ones you use most; edit or delete the ones you created."
+      add-label="Add hardware"
+      @add="openCreateModal"
+    >
       <v-text-field
         v-model="searchQuery"
-        placeholder="Search hardware..."
-        density="compact"
+        density="comfortable"
         variant="outlined"
-        hide-details
+        placeholder="Search hardware"
         prepend-inner-icon="mdi-magnify"
+        clearable
+        hide-details
         style="max-width: 300px"
       />
-      <v-btn
-        @click="toggleSortOrder"
-        size="small"
-        class="ms-2"
-        :icon="sortOrder === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending'"
-      />
-    </v-card-title>
+      <v-chip-group v-model="status" selected-class="text-primary">
+        <v-chip
+          v-for="state in STATUSES"
+          :key="state.value"
+          :value="state.value"
+          filter
+          variant="outlined"
+          size="small"
+        >
+          {{ state.title }}
+        </v-chip>
+      </v-chip-group>
+      <SortButtons v-model="sort" class="ms-auto" />
+    </AccountListHeader>
 
-    <v-row v-if="paginatedHardware.length > 0" dense>
-      <v-col v-for="hw in paginatedHardware" :key="hw.id" cols="12" sm="6" md="4">
-        <v-card class="h-100 d-flex flex-column justify-space-between">
-          <!-- En-tête sans padding -->
-          <div class="pa-0" style="flex-grow: 1">
-            <div class="d-flex align-center mb-1" style="padding: 8px 8px 0 8px">
-              <v-btn
-                variant="text"
-                size="small"
-                :icon="
-                  favoriteStore.isFavorite('hardware', hw.id ?? -1)
-                    ? 'mdi-star'
-                    : 'mdi-star-outline'
-                "
-                :color="favoriteStore.isFavorite('hardware', hw.id ?? -1) ? 'warning' : 'grey'"
-                @click.stop="hw.id && toggleFavorite(hw.id)"
-                title="Toggle favorite"
-                style="min-width: 32px; margin: 0; padding: 0"
-              />
-
-              <v-tooltip location="top">
-                <template #activator="{ props }">
-                  <div
-                    class="text-h6 font-weight-medium ms-1"
-                    v-bind="props"
-                    style="
-                      margin: 0;
-                      max-width: calc(100% - 75px);
-                      white-space: nowrap;
-                      overflow: hidden;
-                      text-overflow: ellipsis;
-                    "
-                  >
-                    {{ hw.name }}
-                  </div>
-                </template>
-                <span>{{ hw.name }}</span>
-              </v-tooltip>
-              <v-tooltip location="right">
-                <template #activator="{ props }">
-                  <div
-                    v-if="hw.type"
-                    v-bind="props"
-                    style="
-                      position: absolute;
-                      top: 12px;
-                      right: 12px;
-                      width: 22px;
-                      height: 22px;
-                      background: #fff;
-                      border: 1px solid #eee;
-                      border-radius: 10px;
-                      overflow: hidden;
-                      z-index: 2;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                    "
-                  >
-                    <MicVocal
-                      v-if="hw.type === 'microphone'"
-                      class="w-100 h-100"
-                      style="width: 100%; height: 100%; object-fit: contain"
-                    />
-                    <Speaker
-                      v-else-if="hw.type === 'speaker'"
-                      class="w-100 h-100"
-                      style="width: 100%; height: 100%; object-fit: contain"
-                    />
-                    <BoomBox
-                      v-else-if="hw.type === 'amplifier'"
-                      class="w-100 h-100"
-                      style="width: 100%; height: 100%; object-fit: contain"
-                    />
-                    <Microchip
-                      v-else-if="hw.type === 'soundcard'"
-                      class="w-100 h-100"
-                      style="width: 100%; height: 100%; object-fit: contain"
-                    />
-                  </div>
-                </template>
-                <span>{{ hw.type.charAt(0).toUpperCase() + hw.type.slice(1) }}</span>
-              </v-tooltip>
-            </div>
-
-            <!-- <v-card-subtitle class="text-body-2 mb-1 ps-4"> Type: {{ hw.type }} </v-card-subtitle> -->
-
-            <v-tooltip location="top">
-              <template #activator="{ props }">
-                <v-card-text
-                  v-bind="props"
-                  class="pa-0 mt-2 text-body-2 ps-4 pe-4 pb-4"
-                  style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis"
-                >
-                  {{ truncate(hw.description || '') }}
-                </v-card-text>
-              </template>
-              <span style="max-width: 300px; white-space: normal; display: block">
-                {{ hw.description }}
-              </span>
-            </v-tooltip>
-          </div>
-
-          <v-card-actions class="justify-space-between pt-0 pe-3 pb-3">
-            <ReviewStatus
-              v-if="hw.id"
-              class="ms-2"
-              endpoint="hardware"
-              :id="hw.id"
-              :status="hw.status || 'draft'"
-              compact
-              @changed="hw.status = $event"
+    <ul v-if="paginatedHardware.length > 0" class="entry-list">
+      <li v-for="hw in paginatedHardware" :key="hw.id" class="entry-row">
+        <div class="entry-main">
+          <div class="entry-name">
+            <v-btn
+              variant="text"
+              size="small"
+              density="comfortable"
+              :icon="
+                favoriteStore.isFavorite('hardware', hw.id ?? -1) ? 'mdi-star' : 'mdi-star-outline'
+              "
+              :color="favoriteStore.isFavorite('hardware', hw.id ?? -1) ? 'warning' : 'grey'"
+              title="Toggle favorite"
+              @click.stop="hw.id && toggleFavorite(hw.id)"
             />
+            {{ hw.name }}
+          </div>
+          <div class="entry-meta">
+            <component :is="typeIcon(hw.type)" v-if="typeIcon(hw.type)" :size="16" />
+            {{
+              [hw.type ? hw.type.charAt(0).toUpperCase() + hw.type.slice(1) : '', hw.made_by]
+                .filter(Boolean)
+                .join(' · ')
+            }}
+          </div>
+          <div v-if="hw.description" class="entry-help">{{ hw.description }}</div>
+        </div>
 
-            <div>
-              <v-icon
-                color="primary"
-                @click.stop="editHardware(hw)"
-                title="Edit hardware"
-                class="mr-2 cursor-pointer hover-icon"
-              >
-                mdi-pencil
-              </v-icon>
-              <v-icon
-                color="error"
-                @click.stop="askDeleteHardware(hw.id!)"
-                title="Delete hardware"
-                class="cursor-pointer hover-icon"
-              >
-                mdi-delete
-              </v-icon>
-            </div>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-    </v-row>
+        <ReviewStatus
+          v-if="hw.id"
+          endpoint="hardware"
+          :id="hw.id"
+          :status="hw.status || 'draft'"
+          compact
+          @changed="hw.status = $event"
+        />
+
+        <div class="entry-actions">
+          <v-btn
+            icon="mdi-pencil-outline"
+            variant="text"
+            size="small"
+            title="Edit hardware"
+            @click.stop="editHardware(hw)"
+          />
+          <v-btn
+            icon="mdi-delete-outline"
+            variant="text"
+            size="small"
+            color="error"
+            title="Delete hardware"
+            @click.stop="askDeleteHardware(hw.id!)"
+          />
+        </div>
+      </li>
+    </ul>
 
     <v-alert v-else type="info" variant="tonal" class="mt-4"> No hardware found </v-alert>
 
@@ -281,12 +229,6 @@ onMounted(async () => {
       class="mt-4"
       total-visible="5"
     />
-
-    <v-card-actions class="justify-start mt-4">
-      <v-btn color="primary" variant="flat" @click="openCreateModal">
-        <v-icon start>mdi-plus</v-icon> Add Hardware
-      </v-btn>
-    </v-card-actions>
 
     <!-- Modals -->
     <HardwareModal v-model="showCreateModal" :hardware-id="null" @saved="onHardwareCreated" />
@@ -314,22 +256,3 @@ onMounted(async () => {
     </v-dialog>
   </div>
 </template>
-
-<style scoped>
-.cursor-pointer {
-  cursor: pointer;
-}
-.hover-icon:hover {
-  color: #000 !important;
-  transform: scale(1.1);
-  transition:
-    transform 0.2s,
-    color 0.2s;
-}
-.h-100 {
-  height: 100%;
-}
-.favorite-btn {
-  min-width: 36px;
-}
-</style>

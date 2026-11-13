@@ -56,6 +56,7 @@ const emit = defineEmits(['validate', 'session-selected', 'session-saved', 'sess
 const props = defineProps<{
   selectedRecordingSessionId?: number;
   onGoToProtocol?: () => void;
+  initialSessionId?: number; // resume this session (from "My vocalizations")
 }>();
 
 ////////////////////////////////
@@ -781,6 +782,10 @@ onMounted(async () => {
   await fetchSelectableData();
   // Prefetch first page for modal convenience (modal also fetches on open)
   await recordingSessionStore.fetchSessionsPage(1);
+  if (props.initialSessionId) {
+    const session = await recordingSessionStore.getSessionById(props.initialSessionId);
+    if (session) await onSessionSelected(session);
+  }
 });
 </script>
 

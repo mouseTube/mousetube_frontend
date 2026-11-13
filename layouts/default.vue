@@ -89,6 +89,81 @@ await auth.init();
   border-color: #bdbdbd !important;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06) !important;
 }
+/* a big rectangle per entry (my vocalizations, my hardware, files...): the name and what it is,
+   its state, its actions; the brand color on the left edge */
+.entry-list {
+  list-style: none;
+  margin: 12px 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.entry-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1.5px solid #c9c9c9;
+  border-left: 5px solid rgb(var(--v-theme-primary));
+  border-radius: 16px;
+  background: #fff;
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+.entry-row:hover {
+  border-color: #bdbdbd;
+  border-left-color: rgb(var(--v-theme-primary));
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+.entry-row--versions {
+  grid-template-columns: 1fr minmax(200px, 260px) auto auto;
+}
+.entry-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.entry-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #666;
+}
+.entry-help {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: #888;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (max-width: 700px) {
+  .entry-row,
+  .entry-row--versions {
+    grid-template-columns: 1fr auto;
+  }
+  .entry-row--versions .entry-side {
+    grid-column: 1 / -1;
+  }
+  .entry-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
 /* one card per entry of a list: a visible edge, the brand color on the left, room around */
 .v-card.list-card {
   margin-top: 28px;

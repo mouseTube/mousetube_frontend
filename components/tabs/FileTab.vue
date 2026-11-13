@@ -41,7 +41,8 @@ const snackbarColor = ref('');
 
 // === FILES ===
 const files = computed(() => fileStore.files);
-const canPublish = computed(() => files.value.some((file) => file.status === 'done'));
+// only the files mouseTube sent and nobody published yet (the others have their DOI already)
+const canPublish = computed(() => files.value.some((file) => file.status === 'done' && !file.doi));
 const currentPageNumber = ref(1);
 const showPublishModal = ref(false);
 const session = ref<RecordingSession | null>(null);
@@ -598,11 +599,11 @@ async function deleteFile() {
       </v-alert>
 
       <!-- === FILES === -->
-      <ul v-if="files.length > 0" class="file-list">
-        <li v-for="file in files" :key="file.id" class="file-row">
+      <ul v-if="files.length > 0" class="entry-list file-list">
+        <li v-for="file in files" :key="file.id" class="entry-row">
           <div class="file-main">
-            <div class="file-name">{{ file.name }}</div>
-            <div class="file-meta">{{ fileMeta(file) }}</div>
+            <div class="entry-name">{{ file.name }}</div>
+            <div class="entry-meta">{{ fileMeta(file) }}</div>
 
             <div v-if="file.status === 'processing'" class="file-progress">
               <v-progress-linear
@@ -668,7 +669,7 @@ async function deleteFile() {
             <v-icon start size="16">mdi-alert-circle-outline</v-icon>Error
           </v-chip>
 
-          <div class="file-actions">
+          <div class="entry-actions">
             <v-tooltip location="top">
               <template #activator="{ props }">
                 <v-btn
@@ -798,31 +799,9 @@ async function deleteFile() {
   padding-left: 18px;
 }
 
-/* the files: one rounded line each, like the choice cards of the other steps */
+/* the files: rows of the shared entry style (see the layout) */
 .file-list {
-  list-style: none;
   margin: 0 16px 16px;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-}
-.file-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border: 1.5px solid #e4e4e4;
-  border-radius: 16px;
-  background: #fff;
-}
-.file-name {
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-.file-meta {
-  font-size: 0.85rem;
-  color: #666;
 }
 .file-progress {
   margin-top: 8px;
@@ -836,13 +815,5 @@ async function deleteFile() {
 .file-empty {
   color: #666;
   margin: 0 16px 16px;
-}
-@media (max-width: 600px) {
-  .file-row {
-    grid-template-columns: 1fr auto;
-  }
-  .file-actions {
-    grid-column: 1 / -1;
-  }
 }
 </style>

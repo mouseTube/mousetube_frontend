@@ -9,9 +9,12 @@ import { useRoute, useRouter } from 'vue-router';
 import SoftwareListContent from '@/components/SoftwareListContent.vue';
 import HardwareListContent from '@/components/HardwareListContent.vue';
 import EmailVisibility from '@/components/EmailVisibility.vue';
+import MyVocalizations from '@/components/MyVocalizations.vue';
 import ReviewStatus from '@/components/ReviewStatus.vue';
 import LaboratoryModal from '@/components/modals/LaboratoryModal.vue';
 import { useLaboratoryStore } from '@/stores/laboratory';
+import { useHardwareStore } from '@/stores/hardware';
+import { useSoftwareStore } from '@/stores/software';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 
 ////////////////////////////
@@ -21,6 +24,36 @@ const router = useRouter();
 const route = useRoute();
 const { currentUser, token, id_user, fetchUser, refreshToken } = useAuth();
 const labStore = useLaboratoryStore();
+const hardwareStore = useHardwareStore();
+const softwareStore = useSoftwareStore();
+
+// the number on each tab: the same lists as the tabs show
+const vocalizationCount = ref(null);
+const hardwareLoaded = ref(false);
+const softwareLoaded = ref(false);
+const hardwareCount = computed(() =>
+  hardwareLoaded.value ? hardwareStore.hardwares.length : null
+);
+const softwareCount = computed(() =>
+  softwareLoaded.value ? softwareStore.acquisitionSoftwareCount : null
+);
+
+async function loadCounts() {
+  axios
+    .get(`${apiBaseUrl}/recording-session/`, {
+      headers: { Authorization: `Bearer ${token.value}` },
+    })
+    .then((res) => (vocalizationCount.value = res.data.count))
+    .catch(() => {});
+  hardwareStore
+    .fetchAllHardware()
+    .then(() => (hardwareLoaded.value = true))
+    .catch(() => {});
+  softwareStore
+    .fetchAllSoftwareVersions()
+    .then(() => (softwareLoaded.value = true))
+    .catch(() => {});
+}
 
 const tab = ref('info');
 const showToken = ref(false);
@@ -226,6 +259,7 @@ onMounted(async () => {
 
   await fetchUserProfile();
   await fetchLaboratories();
+  loadCounts();
 
   if (route.query.tab) {
     tab.value = String(route.query.tab);
@@ -306,8 +340,21 @@ watch(
         <v-tabs v-model="tab" class="account-tabs mt-6" color="primary" hide-slider show-arrows>
           <v-tab value="info">Profile</v-tab>
           <v-tab value="params">Preferences</v-tab>
-          <v-tab value="hardware">My hardware</v-tab>
-          <v-tab value="software">My software</v-tab>
+          <v-tab value="vocalizations"
+            >My vocalizations<span v-if="vocalizationCount !== null" class="tab-count">{{
+              vocalizationCount
+            }}</span></v-tab
+          >
+          <v-tab value="hardware"
+            >My hardware<span v-if="hardwareCount !== null" class="tab-count">{{
+              hardwareCount
+            }}</span></v-tab
+          >
+          <v-tab value="software"
+            >My software<span v-if="softwareCount !== null" class="tab-count">{{
+              softwareCount
+            }}</span></v-tab
+          >
           <v-tab value="token">API token</v-tab>
         </v-tabs>
 
@@ -479,6 +526,11 @@ watch(
               <EmailVisibility />
             </v-window-item>
 
+            <!-- Vocalizations -->
+            <v-window-item value="vocalizations">
+              <MyVocalizations @deleted="loadCounts" />
+            </v-window-item>
+
             <!-- Hardware -->
             <v-window-item value="hardware">
               <HardwareListContent />
@@ -578,6 +630,26 @@ h1 {
 }
 .account-tabs .v-tab--selected {
   background: #f6f6f6;
+}
+/* the number of items of a tab, in a small round */
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ececec;
+  color: #444;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.account-tabs .v-tab--selected .tab-count {
+  background: rgb(var(--v-theme-primary));
+  color: #fff;
 }
 .section-title {
   margin: 0 0 12px;

@@ -2,6 +2,7 @@
 import { ref, reactive, computed, watch, markRaw, defineAsyncComponent } from 'vue';
 import { AudioLines } from '@lucide/vue';
 
+import { useRoute } from 'vue-router';
 import { useFileStore } from '@/stores/file';
 
 // Lazy load components for better initial performance
@@ -15,6 +16,9 @@ const AnimalProfileTab = defineAsyncComponent(
 const FileTab = defineAsyncComponent(() => import('@/components/tabs/FileTab.vue'));
 
 // === STATE ===
+const route = useRoute();
+// "My vocalizations" opens a session: ?session=<id>, and &step=file for its files and deposit
+const initialSessionId = Number(route.query.session) || undefined;
 const tab = ref(0);
 const selectedRecordingSessionId = ref<number | null>(null);
 const selectedProtocolId = ref<number | null>(null);
@@ -88,6 +92,18 @@ watch(
     }
   },
   { immediate: true }
+);
+
+// once the opened session is loaded, go to its files when asked to
+let jumpedToFiles = false;
+watch(
+  () => tabs.find((t) => t.name === 'file')?.disabled,
+  (disabled) => {
+    if (disabled === false && route.query.step === 'file' && !jumpedToFiles) {
+      jumpedToFiles = true;
+      goToFileTab();
+    }
+  }
 );
 
 // === VALIDATION HANDLER ===
@@ -298,6 +314,7 @@ function goToFileTab() {
                     ? {
                         selectedRecordingSessionId: selectedRecordingSessionId,
                         onGoToProtocol: goToProtocolTab,
+                        initialSessionId,
                       }
                     : {}),
                   ...(item.name === 'protocol'
