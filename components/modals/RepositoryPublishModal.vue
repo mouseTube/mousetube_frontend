@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, watch, computed } from 'vue';
 import axios from 'axios';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 import { useAuth } from '~/composables/useAuth';
@@ -45,6 +45,49 @@ const schema = ref<JsonSchema | null>(null);
 const payload = reactive<Record<string, any>>({});
 const loading = ref(true);
 const error = ref<string | null>(null);
+// publishing is permanent on Zenodo: the user confirms it knowingly
+const understood = ref(false);
+
+// the form is grouped by what the fields are about; unknown fields go to "More"
+const SECTIONS = [
+  { title: 'Description', icon: 'mdi-text-box-outline', keys: ['title', 'description'] },
+  { title: 'People', icon: 'mdi-account-multiple-outline', keys: ['creators', 'contributors'] },
+  { title: 'License', icon: 'mdi-scale-balance', keys: ['license'] },
+  { title: 'References', icon: 'mdi-bookmark-outline', keys: ['references'] },
+];
+const sections = computed(() => {
+  const keys = Object.keys(schema.value?.properties ?? {});
+  const known = SECTIONS.flatMap((s) => s.keys);
+  const more = keys.filter((k) => !known.includes(k) && !FIXED.includes(k));
+  return [
+    ...SECTIONS,
+    ...(more.length ? [{ title: 'More', icon: 'mdi-dots-horizontal', keys: more }] : []),
+  ]
+    .map((s) => ({ ...s, keys: s.keys.filter((k) => keys.includes(k)) }))
+    .filter((s) => s.keys.length);
+});
+// what the repository imposes: shown, not edited
+const FIXED = ['upload_type', 'communities'];
+const fixedInfo = computed(() => [
+  ...(payload.upload_type ? [{ label: 'Type', value: String(payload.upload_type) }] : []),
+  ...((payload.communities as { identifier: string }[] | undefined) ?? []).map((c) => ({
+    label: 'Community',
+    value: c.identifier,
+  })),
+]);
+
+const LICENSES: Record<string, string> = {
+  'CC0-1.0': 'CC0 1.0 — public domain',
+  'CC-BY-4.0': 'CC BY 4.0 — attribution',
+  'CC-BY-SA-4.0': 'CC BY-SA 4.0 — attribution, share alike',
+  'CC-BY-NC-4.0': 'CC BY-NC 4.0 — attribution, non commercial',
+  'CC-BY-ND-4.0': 'CC BY-ND 4.0 — attribution, no derivatives',
+  'CC-BY-NC-SA-4.0': 'CC BY-NC-SA 4.0 — non commercial, share alike',
+  'CC-BY-NC-ND-4.0': 'CC BY-NC-ND 4.0 — non commercial, no derivatives',
+};
+const enumItems = (key: string, values: string[]) =>
+  values.map((v) => ({ title: key === 'license' ? (LICENSES[v] ?? v) : v, value: v }));
+const singular = (title?: string) => (title ?? 'item').replace(/s$/, '').toLowerCase();
 
 function getAuthHeaders() {
   return token.value ? { headers: { Authorization: `Bearer ${token.value}` } } : {};
@@ -98,8 +141,12 @@ function closeModal() {
 watch(
   () => props.show,
   (val) => {
-    if (val) fetchSchemaAndPayload();
-  }
+    if (val) {
+      understood.value = false;
+      fetchSchemaAndPayload();
+    }
+  },
+  { immediate: true }
 );
 
 function isFieldReadOnly(field: FieldSchema) {
@@ -108,141 +155,290 @@ function isFieldReadOnly(field: FieldSchema) {
 </script>
 
 <template>
-  <v-dialog v-model="props.show" max-width="900">
-    <v-card>
+  <v-dialog
+    :model-value="props.show"
+    max-width="860"
+    scrollable
+    @update:model-value="(open: boolean) => !open && closeModal()"
+  >
+    <v-card class="publish-card">
       <!-- Header -->
-      <v-card-title class="d-flex justify-space-between align-center">
-        <div class="font-weight-bold">Share {{ props.recordingSessionName }}</div>
-        <div class="d-flex align-center gap-2">
-          <img
-            v-if="props.repository.logo_url"
-            :src="props.repository.logo_url"
-            class="repo-logo"
-          />
-          <span>{{ props.repository.name }}</span>
+      <div class="publish-head">
+        <div>
+          <div class="text-overline publish-eyebrow">Deposit in a repository</div>
+          <h2>Publish “{{ props.recordingSessionName }}”</h2>
         </div>
-      </v-card-title>
+        <div class="d-flex align-center ga-3">
+          <span v-if="props.repository.logo_url" class="repo-logo-badge">
+            <img :src="props.repository.logo_url" :alt="props.repository.name" />
+          </span>
+          <span v-else class="font-weight-bold">{{ props.repository.name }}</span>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            aria-label="Close"
+            @click="closeModal"
+          />
+        </div>
+      </div>
 
-      <v-divider />
-
-      <!-- Body -->
-      <v-card-text>
-        <div v-if="loading" class="text-center py-4">
+      <v-card-text class="publish-body">
+        <div v-if="loading" class="text-center py-8">
           <v-progress-circular indeterminate color="primary" />
         </div>
-        <div v-else-if="error" class="text-red">{{ error }}</div>
-        <div v-else>
+        <v-alert v-else-if="error" type="error" variant="tonal">{{ error }}</v-alert>
+
+        <template v-else>
+          <p class="publish-lead">
+            Your files are already on {{ props.repository.name }} as a draft. Check the description
+            below: publishing makes the record public and gives it a DOI.
+          </p>
+
+          <div v-if="fixedInfo.length" class="fixed-info">
+            <v-chip
+              v-for="info in fixedInfo"
+              :key="info.label + info.value"
+              size="small"
+              label
+              variant="tonal"
+            >
+              <span class="text-medium-emphasis me-1">{{ info.label }}</span>
+              {{ info.value }}
+            </v-chip>
+          </div>
+
           <v-form>
-            <template v-for="(field, key) in schema?.properties ?? {}" :key="key">
-              <!-- String normal -->
-              <v-text-field
-                v-if="field.type === 'string' && !field.enum && field.format !== 'textarea'"
-                v-model="payload[key]"
-                :label="field.title || key"
-                :readonly="isFieldReadOnly(field)"
-                :rules="field.required ? [(v) => !!v || 'Required'] : []"
-                class="mb-4"
-              />
+            <section v-for="section in sections" :key="section.title" class="publish-section">
+              <h3>
+                <v-icon size="18">{{ section.icon }}</v-icon
+                >{{ section.title }}
+              </h3>
 
-              <!-- Textarea -->
-              <v-textarea
-                v-else-if="field.type === 'string' && field.format === 'textarea'"
-                v-model="payload[key]"
-                :label="field.title || key"
-                :readonly="isFieldReadOnly(field)"
-                :rules="field.required ? [(v) => !!v || 'Required'] : []"
-                class="mb-4"
-              />
+              <template v-for="key in section.keys" :key="key">
+                <template v-for="field in [schema!.properties[key]]" :key="key">
+                  <!-- text -->
+                  <v-text-field
+                    v-if="field.type === 'string' && !field.enum && field.format !== 'textarea'"
+                    v-model="payload[key]"
+                    :label="field.title || key"
+                    :readonly="isFieldReadOnly(field)"
+                    variant="outlined"
+                    density="comfortable"
+                  />
 
-              <!-- Enum -->
-              <v-select
-                v-else-if="field.type === 'string' && field.enum"
-                v-model="payload[key]"
-                :items="field.enum"
-                :label="field.title || key"
-                :readonly="isFieldReadOnly(field)"
-                :rules="field.required ? [(v) => !!v || 'Required'] : []"
-                class="mb-4"
-              />
+                  <!-- long text -->
+                  <v-textarea
+                    v-else-if="field.type === 'string' && field.format === 'textarea'"
+                    v-model="payload[key]"
+                    :label="field.title || key"
+                    :readonly="isFieldReadOnly(field)"
+                    variant="outlined"
+                    rows="5"
+                    max-rows="12"
+                    auto-grow
+                    hint="Sent as HTML: &lt;br&gt; is a line break, &lt;a href=...&gt; a link."
+                    persistent-hint
+                  />
 
-              <v-combobox
-                v-else-if="
-                  field.type === 'array' && (field.items as FieldSchema)?.type === 'string'
-                "
-                v-model="payload[key]"
-                :label="field.title || key"
-                multiple
-                chips
-                :readonly="isFieldReadOnly(field)"
-                class="mb-4"
-              />
+                  <!-- choice -->
+                  <v-select
+                    v-else-if="field.type === 'string' && field.enum"
+                    v-model="payload[key]"
+                    :items="enumItems(key, field.enum)"
+                    :label="field.title || key"
+                    :readonly="isFieldReadOnly(field)"
+                    variant="outlined"
+                    density="comfortable"
+                  />
 
-              <div
-                v-else-if="field.type === 'array' && (field.items as any)?.type === 'object'"
-                class="mb-4"
-              >
-                <div
-                  v-for="(item, index) in payload[key]"
-                  :key="index"
-                  class="mb-2 pa-2"
-                  style="border: 1px solid #ccc; border-radius: 4px"
-                >
-                  <template
-                    v-for="(subfield, subkey) in (field.items as any)?.properties ?? {}"
-                    :key="subkey"
+                  <!-- list of words -->
+                  <v-combobox
+                    v-else-if="
+                      field.type === 'array' && (field.items as FieldSchema)?.type === 'string'
+                    "
+                    v-model="payload[key]"
+                    :label="field.title || key"
+                    multiple
+                    chips
+                    closable-chips
+                    variant="outlined"
+                    density="comfortable"
+                    :readonly="isFieldReadOnly(field)"
+                    hint="Type a reference, then press Enter"
+                  />
+
+                  <!-- list of people -->
+                  <div
+                    v-else-if="field.type === 'array' && (field.items as any)?.type === 'object'"
                   >
-                    <v-text-field
-                      v-if="subfield.type === 'string' && !subfield.enum"
-                      v-model="payload[key][index][subkey]"
-                      :label="subfield.title || subkey"
-                      :readonly="subfield.readOnly ?? isFieldReadOnly(field)"
-                      class="mb-2"
-                    />
-                    <v-select
-                      v-else-if="subfield.type === 'string' && subfield.enum"
-                      v-model="payload[key][index][subkey]"
-                      :items="subfield.enum"
-                      :label="subfield.title || subkey"
-                      :readonly="subfield.readOnly ?? isFieldReadOnly(field)"
-                      class="mb-2"
-                    />
-                  </template>
-                  <v-btn
-                    v-if="!isFieldReadOnly(field)"
-                    small
-                    color="error"
-                    @click="payload[key].splice(index, 1)"
-                  >
-                    Remove
-                  </v-btn>
-                </div>
-                <v-btn
-                  v-if="!isFieldReadOnly(field)"
-                  small
-                  color="primary"
-                  @click="payload[key].push({})"
-                >
-                  Add {{ field.title }}
-                </v-btn>
-              </div>
-            </template>
+                    <div class="people-title">{{ field.title }}</div>
+                    <div v-for="(item, index) in payload[key]" :key="index" class="person">
+                      <div class="person-fields">
+                        <template
+                          v-for="(subfield, subkey) in (field.items as any)?.properties ?? {}"
+                          :key="subkey"
+                        >
+                          <v-text-field
+                            v-if="subfield.type === 'string' && !subfield.enum"
+                            v-model="payload[key][index][subkey]"
+                            :label="subfield.title || subkey"
+                            :readonly="subfield.readOnly ?? isFieldReadOnly(field)"
+                            variant="outlined"
+                            density="compact"
+                            hide-details
+                          />
+                          <v-select
+                            v-else-if="subfield.type === 'string' && subfield.enum"
+                            v-model="payload[key][index][subkey]"
+                            :items="subfield.enum"
+                            :label="subfield.title || subkey"
+                            :readonly="subfield.readOnly ?? isFieldReadOnly(field)"
+                            variant="outlined"
+                            density="compact"
+                            hide-details
+                          />
+                        </template>
+                      </div>
+                      <v-btn
+                        v-if="!isFieldReadOnly(field)"
+                        icon="mdi-delete-outline"
+                        variant="text"
+                        size="small"
+                        :aria-label="`Remove ${singular(field.title)}`"
+                        @click="payload[key].splice(index, 1)"
+                      />
+                    </div>
+                    <v-btn
+                      v-if="!isFieldReadOnly(field)"
+                      variant="tonal"
+                      size="small"
+                      prepend-icon="mdi-plus"
+                      @click="payload[key].push({})"
+                    >
+                      Add {{ singular(field.title) }}
+                    </v-btn>
+                  </div>
+                </template>
+              </template>
+            </section>
           </v-form>
-        </div>
+
+          <v-alert type="warning" variant="tonal" density="comfortable" class="mt-4">
+            A published record is permanent: it cannot be deleted from
+            {{ props.repository.name }}, only completed by a new version.
+            <v-checkbox
+              v-model="understood"
+              density="compact"
+              hide-details
+              label="I checked the description and want to publish."
+            />
+          </v-alert>
+        </template>
       </v-card-text>
 
       <!-- Actions -->
-      <v-card-actions class="justify-end">
+      <v-card-actions class="publish-actions">
+        <v-spacer />
         <v-btn variant="text" @click="closeModal">Cancel</v-btn>
-        <v-btn color="primary" @click="confirmPublish">Share</v-btn>
+        <v-btn
+          color="primary"
+          prepend-icon="mdi-cloud-upload-outline"
+          :disabled="loading || !!error || !understood"
+          @click="confirmPublish"
+        >
+          Publish and get a DOI
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
 </template>
 
 <style scoped>
-.repo-logo {
-  height: 24px;
+.publish-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid #e4e4e4;
+}
+.publish-head h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.publish-eyebrow {
+  color: rgb(var(--v-theme-primary));
+  font-weight: 700;
+}
+.repo-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 10px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+}
+.repo-logo-badge img {
+  display: block;
+  height: 26px;
   width: auto;
+  max-width: 110px;
   object-fit: contain;
+}
+.publish-body {
+  padding: 16px 24px 8px;
+}
+.publish-lead {
+  margin: 0 0 12px;
+  color: #555;
+}
+.fixed-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.publish-section {
+  margin-top: 20px;
+}
+.publish-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #555;
+}
+.people-title {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1.5px solid #e4e4e4;
+  border-radius: 12px;
+  background: #fafafa;
+}
+.person-fields {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+.publish-actions {
+  padding: 12px 24px 16px;
+  border-top: 1px solid #e4e4e4;
 }
 </style>
