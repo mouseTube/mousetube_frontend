@@ -391,9 +391,13 @@ function goToFileTab() {
   color: #666;
   font-size: 0.8rem;
 }
-.step.v-tab--selected .step-badge {
+/* the current step: red disc with a white number (or check). This rule must not be outranked by
+   .done below, or a completed current step is red on red and shows nothing */
+.step.v-tab--selected .step-badge,
+.step.v-tab--selected .step-badge.done {
+  background: #c62828;
   border-color: #c62828;
-  color: #c62828;
+  color: #fff;
 }
 .step-badge.done {
   background: #c62828;

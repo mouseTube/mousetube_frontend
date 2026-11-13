@@ -180,9 +180,20 @@ onMounted(async () => {
   <v-main class="w-100">
     <v-container fluid>
       <v-card variant="flat" class="mx-auto" max-width="1000">
-        <div class="eyebrow">
-          <span class="title-bar" aria-hidden="true"></span>
-          <span class="text-overline">Admin</span>
+        <div class="d-flex align-center justify-space-between">
+          <div class="eyebrow">
+            <span class="title-bar" aria-hidden="true"></span>
+            <span class="text-overline">Admin</span>
+          </div>
+          <v-btn
+            to="/account/details"
+            variant="text"
+            size="small"
+            prepend-icon="mdi-arrow-left"
+            class="me-n2"
+          >
+            Back to my profile
+          </v-btn>
         </div>
         <h1>
           Review

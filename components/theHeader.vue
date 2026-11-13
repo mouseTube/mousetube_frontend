@@ -167,8 +167,11 @@ function refreshPage() {
               <v-btn
                 color="white"
                 size="small"
+                variant="outlined"
                 v-bind="props"
-                class="mr-4 nav-icon audio-hover-icon nav-item"
+                class="mr-4 nav-icon audio-hover-icon nav-item add-button"
+                aria-haspopup="menu"
+                :aria-expanded="isMenuOpen"
               >
                 <Plus
                   size="20"
@@ -176,6 +179,9 @@ function refreshPage() {
                   :class="{ 'rotate-icon': isMenuOpen }"
                 />
                 Add
+                <v-icon size="18" class="add-caret" :class="{ 'add-caret-open': isMenuOpen }">
+                  mdi-chevron-down
+                </v-icon>
                 <span
                   v-if="isStaff && reviewCount"
                   class="add-dot"
@@ -572,9 +578,26 @@ function refreshPage() {
   stroke: #e53935;
 }
 
-/* the red name is the only mark of the current page: no pill, no grey overlay */
 .nav-item:hover .nav-label,
-.active-link .nav-label,
+.active-link .nav-label {
+  color: #e53935;
+}
+
+/* the current page: lighter red name, and a red bar under it so it does not rely on colour alone */
+.nav-item {
+  position: relative;
+}
+.nav-item.active-link::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: #e53935;
+}
+
 .v-list-item--active .v-list-item-title {
   color: #e53935;
 }
@@ -587,6 +610,23 @@ function refreshPage() {
 .v-list-item:hover .audio-hover-icon {
   animation: wiggle 0.5s ease-in-out;
   stroke: red;
+}
+
+/* "Add" opens a menu: an outlined pill and a caret that turns say so */
+.add-button {
+  border-color: rgba(255, 255, 255, 0.55);
+}
+.add-button:hover,
+.add-button[aria-expanded='true'] {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+.add-caret {
+  margin-left: 2px;
+  transition: transform 0.2s ease;
+}
+.add-caret-open {
+  transform: rotate(180deg);
 }
 
 .nav-link-content {
