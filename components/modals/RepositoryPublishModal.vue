@@ -50,7 +50,11 @@ const understood = ref(false);
 
 // the form is grouped by what the fields are about; unknown fields go to "More"
 const SECTIONS = [
-  { title: 'Description', icon: 'mdi-text-box-outline', keys: ['title', 'description'] },
+  {
+    title: 'Description',
+    icon: 'mdi-text-box-outline',
+    keys: ['title', 'description', 'keywords'],
+  },
   { title: 'People', icon: 'mdi-account-multiple-outline', keys: ['creators', 'contributors'] },
   { title: 'License', icon: 'mdi-scale-balance', keys: ['license'] },
   { title: 'References', icon: 'mdi-bookmark-outline', keys: ['references'] },
@@ -75,6 +79,37 @@ const fixedInfo = computed(() => [
     value: c.identifier,
   })),
 ]);
+
+// the description is HTML for the repository: shown as the reader will see it, editable as HTML.
+// Only a few tags are kept in the preview, whatever the text contains.
+const descriptionMode = ref<'preview' | 'edit'>('preview');
+const KEPT_TAGS = new Set(['P', 'STRONG', 'B', 'EM', 'I', 'UL', 'OL', 'LI', 'BR', 'A']);
+function sanitize(source: string): string {
+  const doc = new DOMParser().parseFromString(source || '', 'text/html');
+  const text = (value: string) =>
+    value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const walk = (node: Node): string =>
+    [...node.childNodes]
+      .map((child) => {
+        if (child.nodeType === Node.TEXT_NODE) return text(child.textContent ?? '');
+        if (child.nodeType !== Node.ELEMENT_NODE) return '';
+        const el = child as HTMLElement;
+        const inner = walk(el);
+        if (!KEPT_TAGS.has(el.tagName)) return inner;
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'br') return '<br>';
+        if (tag === 'a') {
+          const href = el.getAttribute('href') ?? '';
+          return /^https?:\/\//i.test(href)
+            ? `<a href="${href.replace(/"/g, '&quot;')}" target="_blank" rel="noopener">${inner}</a>`
+            : inner;
+        }
+        return `<${tag}>${inner}</${tag}>`;
+      })
+      .join('');
+  return walk(doc.body);
+}
+const descriptionPreview = computed(() => sanitize(String(payload.description ?? '')));
 
 const LICENSES: Record<string, string> = {
   'CC0-1.0': 'CC0 1.0 — public domain',
@@ -208,6 +243,12 @@ function isFieldReadOnly(field: FieldSchema) {
             </v-chip>
           </div>
 
+          <p v-if="fixedInfo.some((i) => i.label === 'Community')" class="community-note">
+            The record is also submitted to the mouseTube community on
+            {{ props.repository.name }}: it appears there once a curator of the community accepts
+            it, unless the depositing account is one of them.
+          </p>
+
           <v-form>
             <section v-for="section in sections" :key="section.title" class="publish-section">
               <h3>
@@ -226,6 +267,40 @@ function isFieldReadOnly(field: FieldSchema) {
                     variant="outlined"
                     density="comfortable"
                   />
+
+                  <!-- the description: as the reader will see it, or as HTML -->
+                  <div v-else-if="key === 'description'" class="description-box">
+                    <div class="description-head">
+                      <span class="description-label">{{ field.title || key }}</span>
+                      <v-btn-toggle
+                        v-model="descriptionMode"
+                        mandatory
+                        density="compact"
+                        variant="outlined"
+                        divided
+                      >
+                        <v-btn value="preview" size="small">Preview</v-btn>
+                        <v-btn value="edit" size="small">Edit HTML</v-btn>
+                      </v-btn-toggle>
+                    </div>
+                    <div
+                      v-if="descriptionMode === 'preview'"
+                      class="description-preview"
+                      v-html="descriptionPreview"
+                    />
+                    <v-textarea
+                      v-else
+                      v-model="payload[key]"
+                      :readonly="isFieldReadOnly(field)"
+                      variant="outlined"
+                      rows="8"
+                      max-rows="14"
+                      auto-grow
+                      class="mb-4"
+                      hint="Sent as HTML: <br> is a line break, <a href=...> a link."
+                      persistent-hint
+                    />
+                  </div>
 
                   <!-- long text -->
                   <v-textarea
@@ -396,6 +471,42 @@ function isFieldReadOnly(field: FieldSchema) {
 .publish-lead {
   margin: 0 0 12px;
   color: #555;
+}
+.description-box {
+  margin-bottom: 18px;
+}
+.description-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.description-label {
+  font-weight: 600;
+}
+.description-preview {
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 14px 16px;
+  border: 1.5px solid #e4e4e4;
+  border-radius: 12px;
+  background: #fafafa;
+  line-height: 1.5;
+}
+.description-preview :deep(p) {
+  margin: 0 0 8px;
+}
+.description-preview :deep(ul) {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+.description-preview :deep(a) {
+  color: rgb(var(--v-theme-primary));
+}
+.community-note {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: #666;
 }
 .fixed-info {
   display: flex;
