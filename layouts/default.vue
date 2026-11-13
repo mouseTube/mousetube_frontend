@@ -301,6 +301,23 @@ h1 {
   padding: 12px 24px 16px;
   border-top: 1px solid #eee;
 }
+/* the title of the creation forms: a small icon tile, like the selection modals */
+.v-card-title.form-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: normal;
+}
+.form-title .form-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #fdecea;
+  color: #c62828;
+  flex: none;
+}
 .modal-note {
   padding: 0 24px;
   white-space: normal;

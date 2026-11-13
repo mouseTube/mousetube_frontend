@@ -136,7 +136,10 @@ async function saveContact() {
     max-width="600"
   >
     <v-card>
-      <v-card-title>{{ formData.id ? 'Edit Contact' : 'Create Contact' }}</v-card-title>
+      <v-card-title class="form-title">
+        <span class="form-icon" aria-hidden="true"><v-icon icon="mdi-account-outline" /></span>
+        <span>{{ formData.id ? 'Edit Contact' : 'Create Contact' }}</span>
+      </v-card-title>
       <div v-if="formData.id" class="px-6 pt-2">
         <ReviewStatus endpoint="contact" :id="formData.id" />
       </div>
@@ -188,8 +191,12 @@ async function saveContact() {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn color="primary" @click="saveContact">{{ formData.id ? 'Update' : 'Save' }}</v-btn>
-        <v-btn variant="text" @click="emit('update:modelValue', false)">Cancel</v-btn>
+        <v-btn variant="text" color="grey-darken-1" @click="emit('update:modelValue', false)"
+          >Cancel</v-btn
+        >
+        <v-btn color="primary" variant="flat" @click="saveContact">{{
+          formData.id ? 'Update' : 'Save'
+        }}</v-btn>
       </v-card-actions>
 
       <v-snackbar v-model="snackbar.show" :timeout="3000" color="error" location="top">

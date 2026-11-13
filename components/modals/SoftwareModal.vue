@@ -272,8 +272,9 @@ onMounted(async () => {
     max-width="600"
   >
     <v-card>
-      <v-card-title class="d-flex align-center">
-        {{ props.softwareId ? 'Edit Software' : 'Create Software' }}
+      <v-card-title class="form-title d-flex align-center">
+        <span class="form-icon" aria-hidden="true"><v-icon icon="mdi-monitor-dashboard" /></span>
+        <span>{{ props.softwareId ? 'Edit Software' : 'Create Software' }}</span>
       </v-card-title>
       <div v-if="props.softwareId" class="px-6 pt-2">
         <ReviewStatus endpoint="software" :id="props.softwareId" />
@@ -404,7 +405,9 @@ onMounted(async () => {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="close" :disabled="loading">Cancel</v-btn>
+        <v-btn variant="text" color="grey-darken-1" @click="close" :disabled="loading"
+          >Cancel</v-btn
+        >
         <v-btn
           v-show="isReadOnly"
           color="primary"
@@ -413,7 +416,13 @@ onMounted(async () => {
         >
           Duplicate
         </v-btn>
-        <v-btn color="primary" @click="submit" :loading="loading" :disabled="loading || isReadOnly">
+        <v-btn
+          color="primary"
+          variant="flat"
+          @click="submit"
+          :loading="loading"
+          :disabled="loading || isReadOnly"
+        >
           {{ props.softwareId ? 'Save Changes' : 'Create' }}
         </v-btn>
       </v-card-actions>

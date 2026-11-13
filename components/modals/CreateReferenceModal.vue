@@ -108,8 +108,11 @@ async function saveReference() {
     max-width="500"
   >
     <v-card>
-      <v-card-title>
-        {{ formData.id ? 'Edit Reference' : 'Create Reference' }}
+      <v-card-title class="form-title">
+        <span class="form-icon" aria-hidden="true"
+          ><v-icon icon="mdi-book-open-page-variant-outline"
+        /></span>
+        <span>{{ formData.id ? 'Edit Reference' : 'Create Reference' }}</span>
       </v-card-title>
       <div v-if="formData.id" class="px-6 pt-2">
         <ReviewStatus endpoint="reference" :id="formData.id" />
@@ -138,10 +141,12 @@ async function saveReference() {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn color="primary" @click="saveReference">
+        <v-btn variant="text" color="grey-darken-1" @click="emit('update:modelValue', false)"
+          >Cancel</v-btn
+        >
+        <v-btn color="primary" variant="flat" @click="saveReference">
           {{ formData.id ? 'Update' : 'Save' }}
         </v-btn>
-        <v-btn variant="text" @click="emit('update:modelValue', false)">Cancel</v-btn>
       </v-card-actions>
 
       <!-- Snackbar -->

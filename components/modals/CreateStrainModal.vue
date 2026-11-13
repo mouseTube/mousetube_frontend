@@ -215,7 +215,10 @@ onMounted(() => {
 <template>
   <v-dialog v-model="localShow" max-width="600px">
     <v-card>
-      <v-card-title>{{ props.strain ? 'Edit Strain' : 'Create New Strain' }}</v-card-title>
+      <v-card-title class="form-title">
+        <span class="form-icon" aria-hidden="true"><v-icon icon="mdi-dna" /></span>
+        <span>{{ props.strain ? 'Edit Strain' : 'Create New Strain' }}</span>
+      </v-card-title>
       <div v-if="props.strain?.id" class="px-6 pt-2">
         <ReviewStatus endpoint="strain" :id="props.strain?.id" />
       </div>
@@ -306,8 +309,8 @@ onMounted(() => {
       </v-card-text>
 
       <v-card-actions v-if="!speciesLoading">
-        <v-btn variant="text" @click="localShow = false">Close</v-btn>
-        <v-btn color="primary" @click="submit">
+        <v-btn variant="text" color="grey-darken-1" @click="localShow = false">Close</v-btn>
+        <v-btn color="primary" variant="flat" @click="submit">
           {{ props.strain ? 'Save' : 'Create' }}
         </v-btn>
       </v-card-actions>

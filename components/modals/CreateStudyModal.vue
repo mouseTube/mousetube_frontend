@@ -109,7 +109,10 @@ watch(
     max-width="500"
   >
     <v-card>
-      <v-card-title>{{ formData.id ? 'Edit Study' : 'Create Study' }}</v-card-title>
+      <v-card-title class="form-title">
+        <span class="form-icon" aria-hidden="true"><v-icon icon="mdi-flask-outline" /></span>
+        <span>{{ formData.id ? 'Edit Study' : 'Create Study' }}</span>
+      </v-card-title>
       <div v-if="formData.id" class="px-6 pt-2">
         <ReviewStatus endpoint="study" :id="formData.id" />
       </div>
@@ -149,8 +152,12 @@ watch(
 
       <v-card-actions>
         <v-spacer />
-        <v-btn color="primary" @click="saveStudy">{{ formData.id ? 'Update' : 'Save' }}</v-btn>
-        <v-btn variant="text" @click="emit('update:modelValue', false)">Cancel</v-btn>
+        <v-btn variant="text" color="grey-darken-1" @click="emit('update:modelValue', false)"
+          >Cancel</v-btn
+        >
+        <v-btn color="primary" variant="flat" @click="saveStudy">{{
+          formData.id ? 'Update' : 'Save'
+        }}</v-btn>
       </v-card-actions>
 
       <!-- Snackbar -->

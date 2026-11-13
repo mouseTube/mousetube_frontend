@@ -49,7 +49,10 @@ function handleSubmit() {
     max-width="600"
   >
     <v-card>
-      <v-card-title>Create Subject</v-card-title>
+      <v-card-title class="form-title">
+        <span class="form-icon" aria-hidden="true"><v-icon icon="mdi-account-outline" /></span>
+        <span>Create Subject</span>
+      </v-card-title>
       <v-card-text>
         <!-- Subject Name -->
         <v-text-field
@@ -94,8 +97,10 @@ function handleSubmit() {
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="emit('update:modelValue', false)">Close</v-btn>
-        <v-btn color="primary" @click="handleSubmit">Create</v-btn>
+        <v-btn variant="text" color="grey-darken-1" @click="emit('update:modelValue', false)"
+          >Close</v-btn
+        >
+        <v-btn color="primary" variant="flat" @click="handleSubmit">Create</v-btn>
       </v-card-actions>
     </v-card>
 

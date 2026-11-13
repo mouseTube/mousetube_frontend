@@ -139,7 +139,10 @@ watch(
     max-width="500"
   >
     <v-card>
-      <v-card-title>{{ props.editId ? 'Edit Laboratory' : 'Create Laboratory' }}</v-card-title>
+      <v-card-title class="form-title">
+        <span class="form-icon" aria-hidden="true"><v-icon icon="mdi-domain" /></span>
+        <span>{{ props.editId ? 'Edit Laboratory' : 'Create Laboratory' }}</span>
+      </v-card-title>
       <div v-if="props.editId" class="px-6 pt-2">
         <ReviewStatus endpoint="laboratory" :id="props.editId" />
       </div>
@@ -149,6 +152,7 @@ watch(
       <v-card-text>
         <v-form ref="formRef" v-slot="{ validate }">
           <v-text-field
+            variant="outlined"
             v-model="form.name"
             label="Name *"
             required
@@ -161,12 +165,13 @@ watch(
             hint="Optional: links the laboratory to its identifier in the Research Organization Registry."
             class="mb-2"
           />
-          <v-text-field v-model="form.institution" label="Institution" />
-          <v-text-field v-model="form.unit" label="Unit" />
-          <v-text-field v-model="form.address" label="Address" />
+          <v-text-field v-model="form.institution" label="Institution" variant="outlined" />
+          <v-text-field v-model="form.unit" label="Unit" variant="outlined" />
+          <v-text-field v-model="form.address" label="Address" variant="outlined" />
 
           <!-- Country select -->
           <v-select
+            variant="outlined"
             v-model="form.country"
             :items="countriesList"
             label="Country *"
@@ -180,8 +185,10 @@ watch(
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="emit('update:modelValue', false)">Cancel</v-btn>
-        <v-btn color="primary" :loading="loading" @click="save">{{
+        <v-btn variant="text" color="grey-darken-1" @click="emit('update:modelValue', false)"
+          >Cancel</v-btn
+        >
+        <v-btn color="primary" variant="flat" :loading="loading" @click="save">{{
           props.editId ? 'Update' : 'Create'
         }}</v-btn>
       </v-card-actions>

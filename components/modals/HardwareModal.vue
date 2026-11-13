@@ -205,8 +205,9 @@ async function saveHardware() {
     max-width="500"
   >
     <v-card>
-      <v-card-title>
-        {{ isEdit ? 'Edit Hardware' : 'Create Hardware' }}
+      <v-card-title class="form-title">
+        <span class="form-icon" aria-hidden="true"><v-icon icon="mdi-microphone-outline" /></span>
+        <span>{{ isEdit ? 'Edit Hardware' : 'Create Hardware' }}</span>
       </v-card-title>
       <div v-if="props.hardwareId" class="px-6 pt-2">
         <ReviewStatus endpoint="hardware" :id="props.hardwareId" />
@@ -270,8 +271,10 @@ async function saveHardware() {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="emit('update:modelValue', false)">Cancel</v-btn>
-        <v-btn color="primary" @click="saveHardware">
+        <v-btn variant="text" color="grey-darken-1" @click="emit('update:modelValue', false)"
+          >Cancel</v-btn
+        >
+        <v-btn color="primary" variant="flat" @click="saveHardware">
           {{ isEdit ? 'Save Changes' : 'Create' }}
         </v-btn>
       </v-card-actions>

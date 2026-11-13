@@ -43,7 +43,10 @@ async function submit() {
     persistent
   >
     <v-card>
-      <v-card-title>Create New Species</v-card-title>
+      <v-card-title class="form-title">
+        <span class="form-icon" aria-hidden="true"><v-icon icon="mdi-paw-outline" /></span>
+        <span>Create New Species</span>
+      </v-card-title>
       <v-card-text>
         <!-- Species Name -->
         <v-text-field
@@ -55,8 +58,10 @@ async function submit() {
         />
       </v-card-text>
       <v-card-actions>
-        <v-btn variant="text" @click="emit('update:show', false)">Cancel</v-btn>
-        <v-btn color="primary" @click="submit">Create</v-btn>
+        <v-btn variant="text" color="grey-darken-1" @click="emit('update:show', false)"
+          >Cancel</v-btn
+        >
+        <v-btn color="primary" variant="flat" @click="submit">Create</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

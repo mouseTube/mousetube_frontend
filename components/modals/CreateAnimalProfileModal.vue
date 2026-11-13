@@ -196,8 +196,9 @@ function handleStrainCreated(newStrain: Strain) {
     max-width="600"
   >
     <v-card>
-      <v-card-title>
-        {{ props.profileToEdit ? 'Edit Animal Profile' : 'Create Animal Profile' }}
+      <v-card-title class="form-title">
+        <span class="form-icon" aria-hidden="true"><v-icon icon="mdi-paw" /></span>
+        <span>{{ props.profileToEdit ? 'Edit Animal Profile' : 'Create Animal Profile' }}</span>
       </v-card-title>
       <div v-if="props.profileToEdit?.id" class="px-6 pt-2">
         <ReviewStatus endpoint="animalprofile" :id="props.profileToEdit?.id" />
@@ -304,8 +305,10 @@ function handleStrainCreated(newStrain: Strain) {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn variant="text" @click="emit('update:modelValue', false)">Close</v-btn>
-        <v-btn color="primary" @click="handleSubmit">
+        <v-btn variant="text" color="grey-darken-1" @click="emit('update:modelValue', false)"
+          >Close</v-btn
+        >
+        <v-btn color="primary" variant="flat" @click="handleSubmit">
           {{ props.profileToEdit ? 'Update' : 'Create' }}
         </v-btn>
       </v-card-actions>
