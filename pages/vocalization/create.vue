@@ -2,7 +2,7 @@
 import { ref, reactive, computed, watch, markRaw, defineAsyncComponent } from 'vue';
 import { AudioLines } from '@lucide/vue';
 
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useFileStore } from '@/stores/file';
 
 // Lazy load components for better initial performance
@@ -17,7 +17,9 @@ const FileTab = defineAsyncComponent(() => import('@/components/tabs/FileTab.vue
 
 // === STATE ===
 const route = useRoute();
-// "My vocalizations" opens a session: ?session=<id>, and &step=file for its files and deposit
+const router = useRouter();
+// The address remembers where you are: ?session=<id>&step=protocol|animal|file, so a reload (or
+// "My vocalizations") comes back to the same session and the same step.
 const initialSessionId = Number(route.query.session) || undefined;
 const tab = ref(0);
 const selectedRecordingSessionId = ref<number | null>(null);
@@ -94,17 +96,45 @@ watch(
   { immediate: true }
 );
 
-// once the opened session is loaded, go to its files when asked to
-let jumpedToFiles = false;
+// the step of the address, for each tab (the first one has none)
+const STEP_OF_TAB: Record<string, string> = {
+  protocol: 'protocol',
+  animalProfile: 'animal',
+  file: 'file',
+};
+const wantedStep = Object.keys(STEP_OF_TAB).find((k) => STEP_OF_TAB[k] === route.query.step);
+let stepRestored = !wantedStep; // until the session is loaded, the address must not be overwritten
+
+// once the opened session is loaded and the wanted step is open, go to it
 watch(
-  () => tabs.find((t) => t.name === 'file')?.disabled,
+  () => tabs.find((t) => t.name === wantedStep)?.disabled,
   (disabled) => {
-    if (disabled === false && route.query.step === 'file' && !jumpedToFiles) {
-      jumpedToFiles = true;
-      goToFileTab();
+    if (disabled === false && !stepRestored) {
+      stepRestored = true;
+      const index = tabs.findIndex((t) => t.name === wantedStep);
+      if (index !== -1) tab.value = index;
     }
   }
 );
+
+function rememberInAddress(change: Record<string, string | undefined>) {
+  const query = { ...route.query };
+  for (const [key, value] of Object.entries(change)) {
+    if (value === undefined) delete query[key];
+    else query[key] = value;
+  }
+  router.replace({ query });
+}
+
+// the session being worked on, and the current step, are kept in the address
+watch(selectedRecordingSessionId, (id, before) => {
+  if (id) rememberInAddress({ session: String(id) });
+  else if (before) rememberInAddress({ session: undefined, step: undefined });
+});
+watch(tab, (index) => {
+  if (!stepRestored) return;
+  rememberInAddress({ step: STEP_OF_TAB[tabs[index]?.name] });
+});
 
 // === VALIDATION HANDLER ===
 function onValidate(tabName: string, validation: { hasErrors: boolean; message: string }) {
