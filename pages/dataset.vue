@@ -94,6 +94,13 @@ function matchingFiles(files: FileType[] = []) {
   return matches.length ? matches : files;
 }
 
+// --- the files of a dataset are folded: a search opens them, the user can open or close each ---
+const openDatasets = ref<Record<number, boolean>>({});
+const isOpen = (dataset: DatasetType) => openDatasets.value[dataset.id] ?? !!appliedSearch.value;
+const toggleFiles = (dataset: DatasetType) => {
+  openDatasets.value[dataset.id] = !isOpen(dataset);
+};
+
 // --- panel states for each file (independent) ---
 const activePanels = ref<Record<number, boolean>>({});
 
@@ -126,6 +133,7 @@ const fetchDatasets = async (url = `${apiBaseUrl}/dataset/?page_size=${perPage.v
 // --- search (debounced) ---
 const onSearch = debounce(() => {
   appliedSearch.value = search.value.trim();
+  openDatasets.value = {}; // a new search opens the lists, an emptied one folds them
   fetchDatasets(
     `${apiBaseUrl}/dataset/?search=${encodeURIComponent(search.value)}&page_size=${perPage.value}`
   );
@@ -136,6 +144,7 @@ watch(search, async (newSearch) => {
   if (!newSearch) {
     search.value = '';
     appliedSearch.value = '';
+    openDatasets.value = {};
     await fetchDatasets();
   }
 });
@@ -230,6 +239,16 @@ onMounted(() => fetchDatasets());
 
                   <div class="d-flex align-center">
                     <v-chip
+                      label
+                      size="small"
+                      variant="tonal"
+                      class="me-2"
+                      title="Files in this dataset"
+                    >
+                      <v-icon start size="16">mdi-file-music-outline</v-icon>
+                      {{ dataset.files.length }} file{{ dataset.files.length === 1 ? '' : 's' }}
+                    </v-chip>
+                    <v-chip
                       v-if="dataset.doi"
                       label
                       small
@@ -274,6 +293,24 @@ onMounted(() => fetchDatasets());
 
                 <v-card-text v-if="dataset.description">{{ dataset.description }}</v-card-text>
                 <v-divider class="mx-4 mb-2" />
+                <button
+                  type="button"
+                  class="files-toggle"
+                  :aria-expanded="isOpen(dataset)"
+                  @click="toggleFiles(dataset)"
+                >
+                  <v-icon size="20" class="files-chevron" :class="{ open: isOpen(dataset) }">
+                    mdi-chevron-down
+                  </v-icon>
+                  <span class="files-toggle-text">
+                    {{ isOpen(dataset) ? 'Hide' : 'Show' }} the {{ dataset.files.length }} file{{
+                      dataset.files.length === 1 ? '' : 's'
+                    }}
+                  </span>
+                  <span class="files-toggle-hint">
+                    {{ isOpen(dataset) ? 'Click to fold the list' : 'Click to unfold the list' }}
+                  </span>
+                </button>
                 <div
                   v-if="appliedSearch && matchingFiles(dataset.files).length < dataset.files.length"
                   class="text-caption text-medium-emphasis mx-4 mb-2"
@@ -283,105 +320,107 @@ onMounted(() => fetchDatasets());
                 </div>
 
                 <!-- FILES -->
-                <v-expansion-panels multiple>
-                  <v-expansion-panel
-                    v-for="file in sortFiles(matchingFiles(dataset.files))"
-                    :key="file.id"
-                    v-model:active="activePanels[file.id]"
-                    :readonly="!file.spectrogram_url && !file.plot_url"
-                    :hide-actions="!file.spectrogram_url && !file.plot_url"
-                  >
-                    <v-expansion-panel-title>
-                      <v-row align="center" justify="space-between" class="w-100">
-                        <v-col class="d-flex align-center flex-wrap">
-                          <strong class="me-3">{{ file.name }}</strong>
-                          <template v-if="file.session">
-                            <v-chip
-                              v-for="chip in file.session.chips"
-                              :key="chip"
-                              size="x-small"
-                              label
-                              color="teal"
-                              variant="tonal"
-                              class="me-1 my-1"
-                            >
-                              {{ chip }}
-                            </v-chip>
-                            <v-chip
-                              v-for="animal in file.session.animal_profiles"
-                              :key="animal"
-                              size="x-small"
-                              label
-                              color="red"
-                              variant="tonal"
-                              class="me-1 my-1"
-                            >
-                              {{ animal }}
-                            </v-chip>
-                          </template>
-                        </v-col>
+                <v-expand-transition>
+                  <v-expansion-panels v-show="isOpen(dataset)" multiple>
+                    <v-expansion-panel
+                      v-for="file in sortFiles(matchingFiles(dataset.files))"
+                      :key="file.id"
+                      v-model:active="activePanels[file.id]"
+                      :readonly="!file.spectrogram_url && !file.plot_url"
+                      :hide-actions="!file.spectrogram_url && !file.plot_url"
+                    >
+                      <v-expansion-panel-title>
+                        <v-row align="center" justify="space-between" class="w-100">
+                          <v-col class="d-flex align-center flex-wrap">
+                            <strong class="me-3">{{ file.name }}</strong>
+                            <template v-if="file.session">
+                              <v-chip
+                                v-for="chip in file.session.chips"
+                                :key="chip"
+                                size="x-small"
+                                label
+                                color="teal"
+                                variant="tonal"
+                                class="me-1 my-1"
+                              >
+                                {{ chip }}
+                              </v-chip>
+                              <v-chip
+                                v-for="animal in file.session.animal_profiles"
+                                :key="animal"
+                                size="x-small"
+                                label
+                                color="red"
+                                variant="tonal"
+                                class="me-1 my-1"
+                              >
+                                {{ animal }}
+                              </v-chip>
+                            </template>
+                          </v-col>
 
-                        <v-col cols="auto" class="d-flex align-center">
-                          <span
-                            v-if="file.downloads"
-                            class="text-caption text-medium-emphasis me-3"
-                            :title="`${file.downloads} downloads`"
-                          >
-                            <v-icon size="14">mdi-download</v-icon> {{ file.downloads }}
-                          </span>
-                          <v-chip
-                            v-if="file.doi"
-                            label
-                            small
-                            variant="tonal"
-                            color="blue"
-                            class="me-2"
-                          >
-                            DOI:
-                            <a
-                              v-if="file.doi.includes('zenodo')"
-                              :href="'https://zenodo.org/record/' + file.doi.split('zenodo.')[1]"
+                          <v-col cols="auto" class="d-flex align-center">
+                            <span
+                              v-if="file.downloads"
+                              class="text-caption text-medium-emphasis me-3"
+                              :title="`${file.downloads} downloads`"
+                            >
+                              <v-icon size="14">mdi-download</v-icon> {{ file.downloads }}
+                            </span>
+                            <v-chip
+                              v-if="file.doi"
+                              label
+                              small
+                              variant="tonal"
+                              color="blue"
+                              class="me-2"
+                            >
+                              DOI:
+                              <a
+                                v-if="file.doi.includes('zenodo')"
+                                :href="'https://zenodo.org/record/' + file.doi.split('zenodo.')[1]"
+                                target="_blank"
+                                class="doi"
+                                >{{ file.doi }}</a
+                              >
+                            </v-chip>
+
+                            <v-btn
+                              v-if="file.link"
+                              icon
+                              :href="file.link"
                               target="_blank"
-                              class="doi"
-                              >{{ file.doi }}</a
+                              color="teal-darken-2"
+                              title="Download file"
+                              density="compact"
+                              class="ms-1"
                             >
-                          </v-chip>
+                              <v-icon size="18">mdi-download</v-icon>
+                            </v-btn>
+                          </v-col>
+                        </v-row>
+                      </v-expansion-panel-title>
 
-                          <v-btn
-                            v-if="file.link"
-                            icon
-                            :href="file.link"
-                            target="_blank"
-                            color="teal-darken-2"
-                            title="Download file"
-                            density="compact"
-                            class="ms-1"
-                          >
-                            <v-icon size="18">mdi-download</v-icon>
-                          </v-btn>
-                        </v-col>
-                      </v-row>
-                    </v-expansion-panel-title>
+                      <v-expansion-panel-text v-if="file.spectrogram_url || file.plot_url">
+                        <v-row>
+                          <v-col cols="12" sm="6" v-if="file.spectrogram_url">
+                            <strong>Spectrogram:</strong>
+                            <a :href="file.spectrogram_url" target="_blank" title="Open full size">
+                              <v-img :src="file.spectrogram_url" contain />
+                            </a>
+                          </v-col>
 
-                    <v-expansion-panel-text v-if="file.spectrogram_url || file.plot_url">
-                      <v-row>
-                        <v-col cols="12" sm="6" v-if="file.spectrogram_url">
-                          <strong>Spectrogram:</strong>
-                          <a :href="file.spectrogram_url" target="_blank" title="Open full size">
-                            <v-img :src="file.spectrogram_url" contain />
-                          </a>
-                        </v-col>
-
-                        <v-col cols="12" sm="6" v-if="file.plot_url">
-                          <strong>Plot:</strong>
-                          <a :href="file.plot_url" target="_blank" title="Open full size">
-                            <v-img :src="file.plot_url" contain />
-                          </a>
-                        </v-col>
-                      </v-row>
-                    </v-expansion-panel-text>
-                  </v-expansion-panel>
-                </v-expansion-panels>
+                          <v-col cols="12" sm="6" v-if="file.plot_url">
+                            <strong>Plot:</strong>
+                            <a :href="file.plot_url" target="_blank" title="Open full size">
+                              <v-img :src="file.plot_url" contain />
+                            </a>
+                          </v-col>
+                        </v-row>
+                      </v-expansion-panel-text>
+                    </v-expansion-panel>
+                  </v-expansion-panels>
+                </v-expand-transition>
               </v-card>
             </v-container>
           </v-card>
@@ -402,6 +441,46 @@ a {
 }
 a:hover {
   text-decoration: underline;
+}
+/* the bar that folds and unfolds the files of a dataset: made to look clickable */
+.files-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - 32px);
+  margin: 4px 16px 12px;
+  padding: 10px 14px;
+  border: 1.5px dashed #c9c9c9;
+  border-radius: 12px;
+  background: #fafafa;
+  font: inherit;
+  text-align: left;
+  color: #222;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+.files-toggle:hover,
+.files-toggle:focus-visible {
+  background: #fbeaea;
+  border-color: rgb(var(--v-theme-primary));
+  outline: none;
+}
+.files-toggle-text {
+  font-weight: 700;
+}
+.files-toggle-hint {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #777;
+}
+.files-chevron {
+  color: rgb(var(--v-theme-primary));
+  transition: transform 0.2s ease;
+}
+.files-chevron.open {
+  transform: rotate(180deg);
 }
 .doi {
   color: inherit;
