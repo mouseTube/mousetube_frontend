@@ -236,12 +236,14 @@ const termsOf = (file) => {
   for (const subject of file.subjects || []) {
     const profile = subject.animal_profile;
     add('Species', profile?.strain?.species?.ontology_term);
+    add('Strain', profile?.strain?.ontology_term);
     add('Sex', profile?.sex_term);
     add('Stage', profile?.age_term);
     add('Treatment', profile?.treatment_term);
   }
   for (const profile of file.recording_session?.animal_profiles || []) {
     add('Species', profile.strain?.species?.ontology_term);
+    add('Strain', profile.strain?.ontology_term);
     add('Sex', profile.sex_term);
     add('Stage', profile.age_term);
     add('Treatment', profile.treatment_term);

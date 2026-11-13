@@ -8,13 +8,15 @@ import { useAuth } from '@/composables/useAuth';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 
 const props = defineProps({
-  // which vocabulary: species, sex, age, treatment, behavior, organization
+  // which vocabulary: species, strain, sex, age, treatment, behavior, organization
   field: { type: String, required: true },
   modelValue: { type: [Object, Array], default: null }, // a term, or a list when `multiple`
   label: { type: String, required: true },
   multiple: { type: Boolean, default: false },
   hint: { type: String, default: '' },
   disabled: { type: Boolean, default: false },
+  // narrow the search to one vocabulary of the field (e.g. 'rs' for the strains of a rat)
+  ontology: { type: String, default: '' },
 });
 const emit = defineEmits(['update:modelValue']);
 
@@ -48,7 +50,11 @@ const search = async (text) => {
   loading.value = true;
   try {
     const res = await axios.get(`${apiBaseUrl}/ontology/search/`, {
-      params: { field: props.field, q: text.trim() },
+      params: {
+        field: props.field,
+        q: text.trim(),
+        ...(props.ontology && { ontology: props.ontology }),
+      },
       headers: { Authorization: `Bearer ${token.value}` },
     });
     found.value = res.data.results || [];

@@ -46,6 +46,35 @@ const formData = ref<Partial<AnimalProfile>>({
   status: 'draft',
 });
 
+// The stage of each age class, as the server fills it in: the mouse developmental stages for a
+// mouse, the generic stages of Uberon for another species. Shown at once, so what is saved is seen.
+const AGE_TERMS: Record<string, Record<string, { curie: string; label: string }>> = {
+  mouse: {
+    pup: { curie: 'MmusDv:0000177', label: 'infant stage' },
+    juvenile: { curie: 'MmusDv:0000178', label: 'juvenile stage' },
+    adult: { curie: 'MmusDv:0000110', label: 'mature stage' },
+  },
+  other: {
+    pup: { curie: 'UBERON:0034920', label: 'infant stage' },
+    juvenile: { curie: 'UBERON:0034919', label: 'juvenile stage' },
+    adult: { curie: 'UBERON:0000113', label: 'post-juvenile adult stage' },
+  },
+};
+const isClassStage = (term: { curie: string } | null | undefined) =>
+  !!term &&
+  Object.values(AGE_TERMS).some((set) => Object.values(set).some((t) => t.curie === term.curie));
+
+function fillStage() {
+  const species = (formData.value.strain as any)?.species?.name;
+  const age = formData.value.age;
+  // a precise stage chosen by hand is never overwritten, only the one of an age class
+  if (!age || !species || (formData.value.age_term && !isClassStage(formData.value.age_term))) {
+    return;
+  }
+  const set = AGE_TERMS[/^mus musculus$/i.test(species) ? 'mouse' : 'other'];
+  formData.value.age_term = set[age] ?? null;
+}
+
 function resetForm() {
   formData.value = {
     name: '',
@@ -155,6 +184,7 @@ async function handleSubmit() {
 function handleStrainCreated(newStrain: Strain) {
   strainOptions.value.push(newStrain);
   formData.value.strain = newStrain;
+  fillStage();
   showCreateStrainModal.value = false;
 }
 </script>
@@ -224,7 +254,10 @@ function handleStrainCreated(newStrain: Strain) {
             v-model="formData.age"
             :items="['pup', 'juvenile', 'adult']"
             variant="outlined"
-            @update:model-value="formData.age_term = null"
+            @update:model-value="
+              formData.age_term = null;
+              fillStage();
+            "
             required
             :rules="[(v) => !!v || 'Age is required']"
             class="mb-4"
@@ -236,7 +269,7 @@ function handleStrainCreated(newStrain: Strain) {
             v-model="formData.age_term"
             field="age"
             label="Developmental stage (optional)"
-            hint="For a mouse, the stage of the age class is filled in automatically (infant, juvenile or mature stage). Choose a more precise one if you know it."
+            hint="Filled in from the age (infant, juvenile or adult stage) once the strain is chosen. Choose a more precise one if you know it."
             class="mb-4"
           />
 
@@ -294,6 +327,7 @@ function handleStrainCreated(newStrain: Strain) {
       @selected="
         (strain) => {
           formData.strain = strain;
+          fillStage();
           showStrainSelectModal = false;
         }
       "
