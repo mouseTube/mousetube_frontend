@@ -254,14 +254,11 @@ h1 {
   background: transparent;
 }
 
-/* large and ultra-wide screens: keep the content (and the menu) in a readable column */
+/* large and ultra-wide screens: keep the page content in a readable column (the top bar uses the
+   whole width: the logo and the profile stay at the edges of the screen) */
 @media (min-width: 1920px) {
   .v-container:not(.v-container--fluid) {
     max-width: 1280px;
-  }
-  .v-app-bar .v-toolbar__content > .v-row {
-    max-width: 1440px;
-    margin-inline: auto;
   }
 }
 
