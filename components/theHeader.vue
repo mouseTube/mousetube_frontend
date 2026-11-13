@@ -126,7 +126,7 @@ function refreshPage() {
 
 <template>
   <v-app-bar role="navigation" color="#0d0d0d" height="56" dense flat>
-    <v-row no-gutters align="center" class="w-100">
+    <v-row no-gutters align="center" class="w-100 flex-nowrap">
       <!-- Burger -->
       <v-col cols="auto" v-if="smAndDown">
         <v-btn icon @click="drawer = !drawer" aria-label="Toggle menu">
@@ -169,7 +169,7 @@ function refreshPage() {
                 size="small"
                 variant="outlined"
                 v-bind="activatorProps"
-                class="mr-4 nav-icon audio-hover-icon nav-item add-button"
+                class="mr-4 nav-item add-button"
                 aria-haspopup="menu"
                 :aria-expanded="isMenuOpen"
               >
@@ -235,7 +235,7 @@ function refreshPage() {
           >
             <span class="nav-link-content mr-2">
               <User class="nav-icon audio-hover-icon" />
-              <span class="nav-label">{{ currentUser }}</span>
+              <span class="nav-label user-label">{{ currentUser }}</span>
             </span>
           </nuxt-link>
           <v-btn
@@ -552,9 +552,23 @@ function refreshPage() {
 }
 
 .nav-links {
-  gap: 20px;
-  flex-grow: 2;
-  flex-wrap: wrap;
+  gap: 12px;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+/* the username can be long: it is cut, and hidden when the bar is tight */
+.user-label {
+  display: inline-block;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media screen and (max-width: 1500px) {
+  .user-label {
+    display: none;
+  }
 }
 
 @media screen and (max-width: 1400px) {
@@ -563,7 +577,8 @@ function refreshPage() {
   }
 }
 
-@media screen and (max-width: 1150px) {
+/* the labels of the menu give way to the icons before the bar gets crowded */
+@media screen and (max-width: 1300px) {
   .nav-icon {
     width: 23px;
     height: 23px;
