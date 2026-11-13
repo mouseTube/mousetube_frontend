@@ -118,12 +118,11 @@ watch(
 );
 
 function rememberInAddress(change: Record<string, string | undefined>) {
-  const query = { ...route.query };
-  for (const [key, value] of Object.entries(change)) {
-    if (value === undefined) delete query[key];
-    else query[key] = value;
-  }
-  router.replace({ query });
+  const query = { ...route.query, ...change };
+  // an undefined value removes the key from the address
+  router.replace({
+    query: Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined)),
+  });
 }
 
 // the session being worked on, and the current step, are kept in the address
