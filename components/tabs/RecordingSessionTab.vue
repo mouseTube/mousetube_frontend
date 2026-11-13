@@ -2,7 +2,7 @@
 ////////////////////////////////
 // IMPORTS
 ////////////////////////////////
-import { ref, computed, onMounted, watch, defineAsyncComponent } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch, defineAsyncComponent } from 'vue';
 import OntologyField from '@/components/OntologyField.vue';
 import { useRecordingSessionStore, type RecordingSession } from '@/stores/recordingSession';
 import { useHardwareStore } from '@/stores/hardware';
@@ -91,7 +91,8 @@ const showReferenceSelectionModal = ref(false);
 const selectedReferenceIds = ref<number[]>([]);
 
 const acquisitionSoftwareDisplay = ref<{ id: number; label: string }[]>([]);
-const isExistingSession = ref(false);
+const isExistingSession = ref(false); // the info banner above the form, which can be closed
+const hasSavedSession = computed(() => typeof selectedSessionId.value === 'number');
 const formData = ref({
   name: '',
   description: '',
@@ -156,9 +157,9 @@ const selectItems = computed(() => {
 });
 
 // waiting for a review, shared or published: the owner can no longer edit the session
-const isShared = computed(() =>
-  ['waiting validation', 'shared', 'published'].includes(formData.value.status ?? '')
-);
+const isShared = computed(() => isLockedStatus(formData.value.status));
+// files already linked to the session: the warning about them only makes sense then
+const filesCount = computed(() => Number((selectedSessionObject.value as any)?.files_count ?? 0));
 
 ////////////////////////////////
 // METHODS
@@ -455,13 +456,20 @@ async function saveSession() {
         animalProfileId: firstAnimalProfileId,
       });
     } else {
+      const wasPublished = formData.value.status === 'published';
       await recordingSessionStore.updateSession(Number(selectedSessionId.value), formData.value);
-      showSnackbar('Session updated successfully!', 'success');
+      showSnackbar(
+        wasPublished
+          ? 'Session updated. Its record in the repository is being updated.'
+          : 'Session updated successfully!',
+        'success'
+      );
 
       const updated = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
       if (updated) {
         selectedSessionObject.value = updated;
         selectedSessionName.value = updated.name ?? '';
+        if ((updated as any).zenodo_state === 'pending') followZenodoUpdate();
       }
 
       const session = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
@@ -492,6 +500,37 @@ async function saveSession() {
     }
 
     showSnackbar(errorMsg, 'error');
+  }
+}
+
+// a published session: its record in the repository follows the edits, in the background
+const zenodoState = computed(() => (selectedSessionObject.value as any)?.zenodo_state ?? '');
+const zenodoMessage = computed(() => (selectedSessionObject.value as any)?.zenodo_message ?? '');
+let zenodoPoll: ReturnType<typeof setInterval> | null = null;
+function stopZenodoPoll() {
+  if (zenodoPoll) clearInterval(zenodoPoll);
+  zenodoPoll = null;
+}
+function followZenodoUpdate() {
+  stopZenodoPoll();
+  let tries = 0;
+  zenodoPoll = setInterval(async () => {
+    const id = Number(selectedSessionId.value);
+    const fresh = id ? await recordingSessionStore.getSessionById(id) : null;
+    if (fresh) selectedSessionObject.value = fresh;
+    if (!fresh || (fresh as any).zenodo_state !== 'pending' || ++tries > 30) stopZenodoPoll();
+  }, 4000);
+}
+onBeforeUnmount(stopZenodoPoll);
+
+/* Put the form of a saved session back as it is saved: what was typed since is dropped. */
+async function undoChanges() {
+  const id = Number(selectedSessionId.value);
+  if (!id) return;
+  const saved = await recordingSessionStore.getSessionById(id);
+  if (saved) {
+    await onSessionSelected(saved);
+    showSnackbar('Changes undone.', 'info');
   }
 }
 
@@ -803,18 +842,18 @@ onMounted(async () => {
       </v-col>
     </v-row>
     <v-alert
-      v-if="isExistingSession"
+      v-if="isExistingSession && (isShared || filesCount > 0)"
       type="info"
       variant="outlined"
       border="start"
       class="mb-6 position-relative"
     >
-      <template v-if="formData.status === 'shared'">
-        A recording session that waits for a review or is shared cannot be edited or deleted.
+      <template v-if="isShared">
+        {{ lockedExplanation(formData.status, 'The recording session') }}
       </template>
       <template v-else>
-        Files could be linked to this recording session. Editing this session will affect those
-        linked resources.
+        {{ filesCount === 1 ? '1 file is' : `${filesCount} files are` }} linked to this recording
+        session. Editing this session will affect those linked resources.
       </template>
 
       <v-btn
@@ -916,6 +955,18 @@ onMounted(async () => {
 
         <div>
           <v-btn
+            v-if="hasSavedSession"
+            color="grey"
+            variant="outlined"
+            prepend-icon="mdi-undo"
+            class="mr-2"
+            :disabled="!isSaveEnabled || isShared"
+            @click="undoChanges"
+          >
+            Undo changes
+          </v-btn>
+          <v-btn
+            v-else
             color="grey"
             variant="outlined"
             @click="resetForm"
@@ -931,6 +982,33 @@ onMounted(async () => {
       </v-card-title>
 
       <v-card-text>
+        <v-alert
+          v-if="formData.status === 'published'"
+          :type="
+            zenodoState === 'failed' ? 'error' : zenodoState === 'blocked' ? 'warning' : 'info'
+          "
+          variant="tonal"
+          density="comfortable"
+          class="mb-4"
+        >
+          This session is published. What you change here also updates its record in the repository
+          (the description); files you add make a new version, with its own DOI.
+          <div v-if="zenodoState" class="mt-2 font-weight-medium">
+            <template v-if="zenodoState === 'pending'">
+              <v-progress-circular indeterminate size="14" width="2" class="me-2" />
+              The record is being updated…
+            </template>
+            <template v-else-if="zenodoState === 'synced'">
+              The record in the repository is up to date.
+            </template>
+            <template v-else-if="zenodoState === 'blocked'">
+              {{ zenodoMessage }} Submit the new entries for review so that it can follow.
+            </template>
+            <template v-else-if="zenodoState === 'failed'">
+              The record could not be updated: {{ zenodoMessage }} Save again to retry.
+            </template>
+          </div>
+        </v-alert>
         <v-form ref="formRef" lazy-validation>
           <!-- Name -->
           <v-text-field
@@ -1439,7 +1517,25 @@ onMounted(async () => {
         </v-form>
       </v-card-text>
       <v-card-actions class="d-flex justify-end mt-4">
-        <v-btn color="grey" variant="outlined" @click="resetForm" class="mr-2" :disabled="isShared">
+        <v-btn
+          v-if="hasSavedSession"
+          color="grey"
+          variant="outlined"
+          prepend-icon="mdi-undo"
+          class="mr-2"
+          :disabled="!isSaveEnabled || isShared"
+          @click="undoChanges"
+        >
+          Undo changes
+        </v-btn>
+        <v-btn
+          v-else
+          color="grey"
+          variant="outlined"
+          @click="resetForm"
+          class="mr-2"
+          :disabled="isShared"
+        >
           Reset
         </v-btn>
 

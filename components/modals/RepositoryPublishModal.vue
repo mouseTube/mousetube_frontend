@@ -32,6 +32,7 @@ const props = defineProps<{
   recordingSessionName: string;
   repository: Repository;
   show: boolean;
+  newVersion?: boolean; // the session is already published: new files make a new version
 }>();
 
 const emit = defineEmits<{
@@ -225,7 +226,12 @@ function isFieldReadOnly(field: FieldSchema) {
         <v-alert v-else-if="error" type="error" variant="tonal">{{ error }}</v-alert>
 
         <template v-else>
-          <p class="publish-lead">
+          <p v-if="props.newVersion" class="publish-lead">
+            The new files are on {{ props.repository.name }} in the draft of a new version of the
+            record. Publishing it gives that version its own DOI; the earlier versions and their
+            DOIs stay valid.
+          </p>
+          <p v-else class="publish-lead">
             Your files are already on {{ props.repository.name }} as a draft. Check the description
             below: publishing makes the record public and gives it a DOI.
           </p>
@@ -400,8 +406,8 @@ function isFieldReadOnly(field: FieldSchema) {
           </v-form>
 
           <v-alert type="warning" variant="tonal" density="comfortable" class="mt-4">
-            A published record is permanent: it cannot be deleted from
-            {{ props.repository.name }}, only completed by a new version.
+            A published version is permanent: it cannot be deleted from
+            {{ props.repository.name }}, only completed by a newer one.
             <v-checkbox
               v-model="understood"
               density="compact"
@@ -422,7 +428,7 @@ function isFieldReadOnly(field: FieldSchema) {
           :disabled="loading || !!error || !understood"
           @click="confirmPublish"
         >
-          Publish and get a DOI
+          {{ props.newVersion ? 'Publish the new version' : 'Publish and get a DOI' }}
         </v-btn>
       </v-card-actions>
     </v-card>

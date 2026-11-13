@@ -30,6 +30,10 @@ const publishDone = ref(false);
 const publishError = ref<string | null>(null);
 const publishProgress = ref(0);
 const sessionStatus = ref<string | null>(null);
+const isPublished = computed(() => sessionStatus.value === 'published');
+// the versions of the record in the repository: each one has its own DOI
+const versions = ref<{ number: number; doi: string; url: string; published_at: string }[]>([]);
+const conceptDoi = ref('');
 // what an administrator still has to validate before the session can be shared
 const pendingEntries = ref<{ kind: string; id: number; name: string; status: string }[]>([]);
 const sharing = ref(false);
@@ -62,7 +66,8 @@ async function loadSessionState() {
   const res = await axios.get(`${apiBaseUrl}/recording-session/${id}/`, getAuthHeaders());
   sessionStatus.value = res.data.status ?? null;
   pendingEntries.value = res.data.pending_entries ?? [];
-  publishDone.value = sessionStatus.value === 'published';
+  versions.value = res.data.publication_versions ?? [];
+  conceptDoi.value = res.data.concept_doi ?? '';
 }
 
 async function changeSharing(status: 'shared' | 'draft') {
@@ -151,13 +156,16 @@ async function pollPublishTask() {
         clearInterval(interval);
         publishProgress.value = 100;
         isPublishing.value = false;
-        publishDone.value = true;
-
         await fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId!);
 
         await loadSessionState();
 
-        showSnackbar('✅ Session published in the repository.', 'success');
+        showSnackbar(
+          isPublished.value && versions.value.length > 1
+            ? `✅ Version ${versions.value.length} published.`
+            : '✅ Session published in the repository.',
+          'success'
+        );
       } else if (state === 'FAILURE') {
         clearInterval(interval);
         isPublishing.value = false;
@@ -466,7 +474,7 @@ async function deleteFile() {
         <!-- 🔹 Sharing of the session -->
         <v-sheet class="share-panel w-100 mb-4" rounded="lg">
           <div class="d-flex flex-wrap align-center justify-space-between ga-3">
-            <div>
+            <div style="flex: 1 1 320px; min-width: 0">
               <div class="d-flex align-center ga-2">
                 <strong>Visibility</strong>
                 <v-chip
@@ -494,7 +502,8 @@ async function deleteFile() {
               </div>
               <p class="text-body-2 text-medium-emphasis mb-0 mt-1">
                 <template v-if="sessionStatus === 'published'">
-                  This session is public and deposited in a repository.
+                  This session is public and deposited in a repository. You can still edit it: its
+                  record follows. Files you add make a new version, with its own DOI.
                 </template>
                 <template v-else-if="sessionStatus === 'shared'">
                   This session is public. Publish it in a repository to get a DOI.
@@ -507,6 +516,28 @@ async function deleteFile() {
                   Only you can see this session. Share it to make it, and its files, public.
                 </template>
               </p>
+            </div>
+            <div v-if="versions.length" class="versions w-100">
+              <span class="versions-label">Versions of the record</span>
+              <v-chip
+                v-for="v in versions"
+                :key="v.number"
+                :href="`https://doi.org/${v.doi}`"
+                target="_blank"
+                rel="noopener"
+                size="small"
+                label
+                variant="tonal"
+                color="teal"
+              >
+                v{{ v.number }} · {{ v.doi }}
+              </v-chip>
+              <span v-if="conceptDoi" class="text-caption text-medium-emphasis">
+                All versions:
+                <a :href="`https://doi.org/${conceptDoi}`" target="_blank" rel="noopener">
+                  {{ conceptDoi }}
+                </a>
+              </span>
             </div>
             <div class="d-flex ga-2">
               <v-btn
@@ -548,10 +579,12 @@ async function deleteFile() {
             <!-- 🔹 Share Button -->
             <div class="d-flex flex-row justify-end align-center">
               <v-btn
-                :color="
-                  publishError ? 'red' : publishDone ? 'teal' : isPublishing ? 'warning' : 'success'
+                :color="publishError ? 'red' : isPublishing ? 'warning' : 'success'"
+                :disabled="
+                  !canPublish ||
+                  isPublishing ||
+                  !['shared', 'published'].includes(sessionStatus ?? '')
                 "
-                :disabled="!canPublish || isPublishing || publishDone || sessionStatus !== 'shared'"
                 @click="showPublishModal = true"
                 style="min-width: 140px"
               >
@@ -561,14 +594,12 @@ async function deleteFile() {
                       ? 'mdi-alert-circle'
                       : isPublishing
                         ? 'mdi-progress-clock'
-                        : publishDone
-                          ? 'mdi-check'
-                          : 'mdi-upload'
+                        : 'mdi-upload'
                   }}
                 </v-icon>
                 <span v-if="publishError">Error</span>
                 <span v-else-if="isPublishing">Publishing...</span>
-                <span v-else-if="publishDone">Published</span>
+                <span v-else-if="isPublished">Publish a new version</span>
                 <span v-else>Publish in a repository</span>
               </v-btn>
             </div>
@@ -579,7 +610,7 @@ async function deleteFile() {
                 color="primary"
                 @click="createNewFile"
                 style="min-width: 120px"
-                :disabled="isPublishing || publishDone"
+                :disabled="isPublishing"
               >
                 <v-icon start>mdi-plus</v-icon>
                 Add File
@@ -638,16 +669,17 @@ async function deleteFile() {
             <v-icon start size="16">mdi-cloud-upload-outline</v-icon>Sending
           </v-chip>
           <v-chip
-            v-else-if="file.status === 'done' && !publishDone"
+            v-else-if="file.status === 'done' && !file.doi"
             size="small"
             label
             variant="tonal"
             color="success"
           >
-            <v-icon start size="16">mdi-check-circle-outline</v-icon>Ready
+            <v-icon start size="16">mdi-check-circle-outline</v-icon
+            >{{ isPublished ? 'For the next version' : 'Ready' }}
           </v-chip>
           <v-chip
-            v-else-if="file.status === 'done' && publishDone"
+            v-else-if="file.status === 'done' && !!file.doi"
             size="small"
             label
             variant="tonal"
@@ -656,7 +688,7 @@ async function deleteFile() {
             target="_blank"
             rel="noopener"
           >
-            <v-icon start size="16">mdi-earth</v-icon>Shared
+            <v-icon start size="16">mdi-earth</v-icon>Published
             <v-icon v-if="file.external_url" end size="14">mdi-open-in-new</v-icon>
           </v-chip>
           <v-chip
@@ -677,7 +709,7 @@ async function deleteFile() {
                   icon="mdi-pencil-outline"
                   size="small"
                   variant="text"
-                  :disabled="file.status !== 'done' || publishDone"
+                  :disabled="file.status !== 'done'"
                   @click.stop="editFile(file)"
                 />
               </template>
@@ -690,7 +722,7 @@ async function deleteFile() {
                   icon="mdi-download-outline"
                   size="small"
                   variant="text"
-                  :disabled="file.status !== 'done' || !publishDone"
+                  :disabled="file.status !== 'done' || !file.doi"
                   @click="openFileLink(file.link)"
                 />
               </template>
@@ -703,11 +735,13 @@ async function deleteFile() {
                   icon="mdi-delete-outline"
                   size="small"
                   variant="text"
-                  :disabled="publishDone"
+                  :disabled="!!file.doi"
                   @click="confirmDelete(file.id)"
                 />
               </template>
-              <span>Delete file</span>
+              <span>{{
+                file.doi ? 'Part of a published version: it cannot be removed' : 'Delete file'
+              }}</span>
             </v-tooltip>
           </div>
         </li>
@@ -760,6 +794,7 @@ async function deleteFile() {
           props.selectedRecordingSessionId != null && repositoryStore.selectedRepository != null
         "
         :recording-session-id="props.selectedRecordingSessionId"
+        :new-version="isPublished"
         :recording-session-name="session?.name || ''"
         :repository="{
           id: repositoryStore.selectedRepository.id,
@@ -793,6 +828,20 @@ async function deleteFile() {
   padding: 16px;
   background: #f6f6f6;
   border: 1px solid #e4e4e4;
+}
+.versions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.versions-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #666;
 }
 .share-pending {
   margin: 12px 0 0;

@@ -17,6 +17,8 @@ interface MySession {
   status: 'draft' | 'waiting validation' | 'shared' | 'published';
   files_count: number | null;
   files_to_deposit: number | null; // files without a DOI: what a deposit would send
+  zenodo_state?: string; // the record of a published session: synced, pending, blocked, failed
+  publication_versions?: { number: number; doi: string }[];
   doi: string | null;
   modified_at: string | null;
 }
@@ -36,10 +38,21 @@ const STATES = [
 const stateOf = (status: string) => STATES.find((s) => s.value === status) ?? STATES[0];
 // a shared session whose files all have their DOI (an import, a record elsewhere) has nothing left to deposit
 const toDeposit = (s: { files_to_deposit: number | null }) => (s.files_to_deposit ?? 1) > 0;
-const helpOf = (s: MySession) =>
-  s.status === 'shared' && !toDeposit(s)
-    ? 'Public, and its files already have their DOI.'
-    : stateOf(s.status).help;
+const versionsOf = (s: MySession) => s.publication_versions?.length ?? 0;
+const helpOf = (s: MySession) => {
+  if (s.status === 'shared' && !toDeposit(s))
+    return 'Public, and its files already have their DOI.';
+  if (s.status === 'published') {
+    const n = versionsOf(s);
+    const base = n ? `Public, version ${n} of its record.` : 'Public, with a DOI.';
+    if (s.zenodo_state === 'blocked')
+      return `${base} Its record waits for new entries to be validated.`;
+    if (s.zenodo_state === 'failed') return `${base} Its record could not be updated.`;
+    if (s.zenodo_state === 'pending') return `${base} Its record is being updated…`;
+    return `${base} Edit it and the record follows; new files make a new version.`;
+  }
+  return stateOf(s.status).help;
+};
 
 const emit = defineEmits<{ (e: 'deleted'): void }>();
 const router = useRouter();
@@ -238,7 +251,10 @@ const meta = (s: MySession) =>
         </div>
 
         <v-chip size="small" label variant="tonal" :color="stateOf(session.status).color">
-          {{ stateOf(session.status).title }}
+          {{ stateOf(session.status).title
+          }}<template v-if="session.status === 'published' && versionsOf(session)">
+            · v{{ versionsOf(session) }}</template
+          >
         </v-chip>
 
         <div class="entry-actions">
@@ -300,6 +316,23 @@ const meta = (s: MySession) =>
           </template>
 
           <template v-else>
+            <v-btn
+              v-if="toDeposit(session) && versionsOf(session)"
+              color="primary"
+              size="small"
+              prepend-icon="mdi-cloud-upload-outline"
+              @click="open(session, 'file')"
+            >
+              Publish a new version
+            </v-btn>
+            <v-btn
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-pencil-outline"
+              @click="open(session)"
+            >
+              Edit
+            </v-btn>
             <v-btn
               v-if="session.doi"
               variant="tonal"

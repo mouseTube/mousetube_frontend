@@ -56,6 +56,7 @@ const snackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('');
 const session = ref<RecordingSession | null>(null);
+const sessionLocked = computed(() => isLockedStatus(session.value?.status));
 
 const skipNextProtocolPropWatch = ref(false);
 const skipNextSessionStoreWatch = ref(false);
@@ -98,7 +99,7 @@ const canLinkValidatedProtocol = computed(() => {
   return (
     selectedProtocolObject.value !== null &&
     selectedProtocolObject.value.status === 'validated' &&
-    session.value?.status !== 'shared' &&
+    !sessionLocked.value &&
     session.value?.protocol?.id !== selectedProtocolObject.value.id
   );
 });
@@ -552,6 +553,9 @@ onMounted(async () => {
 <template>
   <v-container>
     <!-- Protocol Selection -->
+    <v-alert v-if="sessionLocked" type="info" variant="tonal" class="mb-4">
+      {{ lockedExplanation(session?.status, 'The protocol') }}
+    </v-alert>
     <v-select
       v-model="selectedProtocolIdRef"
       :items="selectItems"
@@ -562,7 +566,7 @@ onMounted(async () => {
       dense
       :value-comparator="(a: any, b: any) => a === b"
       @update:model-value="handleProtocolSelection"
-      :disabled="isValidated && session?.status === 'shared'"
+      :disabled="sessionLocked"
     >
       <template #selection="{ item, index }">
         <span>
@@ -618,7 +622,7 @@ onMounted(async () => {
             <v-btn
               color="primary"
               @click="onSubmit"
-              :disabled="!isSaveEnabled || isValidated || isSaving"
+              :disabled="!isSaveEnabled || isValidated || isSaving || sessionLocked"
             >
               Save
             </v-btn>
