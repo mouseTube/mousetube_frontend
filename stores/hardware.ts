@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import axios, { type AxiosInstance } from 'axios';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 import { token } from '@/composables/useAuth';
+import { attachTokenRefresh } from '@/composables/tokenRefresh';
 
 export interface Hardware {
   id?: number;
@@ -27,10 +28,14 @@ export const useHardwareStore = defineStore('hardware', {
   actions: {
     initApi() {
       const apiBaseUrl = useApiBaseUrl();
-      this.api = axios.create({
-        baseURL: apiBaseUrl,
-        headers: token.value ? { Authorization: `Bearer ${token.value}` } : {},
+      this.api = axios.create({ baseURL: apiBaseUrl });
+      // the token is read at each request: it is renewed every hour, and changes at login
+      this.api.interceptors.request.use((config) => {
+        if (token.value) config.headers.Authorization = `Bearer ${token.value}`;
+        else delete config.headers.Authorization;
+        return config;
       });
+      attachTokenRefresh(this.api, apiBaseUrl.replace(/\/api\/?$/, ''));
     },
 
     async fetchAllHardware() {
