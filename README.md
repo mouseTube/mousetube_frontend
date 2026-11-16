@@ -42,7 +42,7 @@ Create a `.env` file (copy `.env.example`). The API must be reachable at `NUXT_P
 
 ### Development Server
 
-Start the development server on http://localhost:3000:
+Start the development server on http://localhost:3000 (with Docker, the container runs it only when `DEBUG=true` is set in its environment; the development compose file does it for you):
 
 ```bash
 npm run dev
@@ -57,7 +57,7 @@ npm run dev
    NUXT_PUBLIC_API_BASE_URL=https://your-domain/api
    ```
 
-   `DEBUG` must be `false` in production (it is read by `entrypoint.sh`). If `NUXT_PUBLIC_API_BASE_URL` is missing, `http://127.0.0.1:8000/api` is used.
+   In Docker, `entrypoint.sh` starts the development server only when `DEBUG` is explicitly `true`: a missing `DEBUG` means production, `DEBUG=false` says it explicitly. If `NUXT_PUBLIC_API_BASE_URL` is missing, `http://127.0.0.1:8000/api` is used.
 
 2. Build, then start the server:
 
@@ -67,7 +67,7 @@ npm run dev
    npm start
    ```
 
-   With Docker, `entrypoint.sh` does these steps when `DEBUG=false`.
+   With Docker, `entrypoint.sh` does these steps unless `DEBUG=true`.
 
 ### Quality checks
 
@@ -75,7 +75,7 @@ npm run dev
 npm run lint
 ```
 
-The access token lasts one hour and is renewed automatically with the refresh token (`plugins/axios-refresh.client.ts`).
+The access token lasts one hour and is renewed automatically with the refresh token (`composables/tokenRefresh.ts`, attached to the global axios by `plugins/axios-refresh.client.ts` and to the hardware store's own client). The file form reads `GET /api/file/upload-limit/` and refuses a file the server could not hold before sending it.
 
 ## Check out mouseTube's publications:
 
