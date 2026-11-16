@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { type File as StoreFile, useFileStore } from '~/stores/file';
+import axios from 'axios';
+import { token } from '@/composables/useAuth';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 
 const props = defineProps<{
@@ -127,12 +129,56 @@ watch(
 );
 
 // =====================================================
+// Size the server accepts right now (the free disk space minus a reserve, and a ceiling)
+// =====================================================
+const uploadLimit = ref<number | null>(null);
+
+function readableSize(bytes: number) {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  const mb = bytes / 1024 ** 2;
+  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+}
+
+function tooLargeMessage(size: number) {
+  return `This file weighs ${readableSize(size)}; the server accepts ${readableSize(uploadLimit.value ?? 0)} at most right now.`;
+}
+
+async function refreshUploadLimit() {
+  try {
+    const res = await axios.get(`${useApiBaseUrl()}/file/upload-limit/`, {
+      headers: token.value ? { Authorization: `Bearer ${token.value}` } : {},
+    });
+    uploadLimit.value = res.data.limit;
+  } catch {
+    uploadLimit.value = null; // unknown: the server still refuses what is too large
+  }
+}
+
+// the room changes with the disk: read it when the form opens, and again before sending
+watch(
+  () => props.modelValue,
+  (value, before) => {
+    if (value !== before && !isEditMode.value) refreshUploadLimit();
+  },
+  { immediate: true }
+);
+const fileSizeRule = (file: globalThis.File | globalThis.File[] | null) => {
+  const f = Array.isArray(file) ? file[0] : file;
+  return !f || uploadLimit.value === null || f.size <= uploadLimit.value || tooLargeMessage(f.size);
+};
+
+// =====================================================
 // Upload and creation (Only in creation)
 // =====================================================
 async function uploadFileAndCreate() {
   if (!formData.value.file) return;
-  uploading.value = true;
   uploadError.value = '';
+  await refreshUploadLimit();
+  if (uploadLimit.value !== null && formData.value.file.size > uploadLimit.value) {
+    uploadError.value = tooLargeMessage(formData.value.file.size);
+    return;
+  }
+  uploading.value = true;
 
   try {
     const { temp_path } = await fileStore.uploadFile(formData.value.file);
@@ -336,6 +382,7 @@ onMounted(async () => {
             application/vnd.ms-excel,
             application/zip, application/pdf, application/json"
           variant="outlined"
+          :rules="[fileSizeRule]"
           hint="Name, format, size and, for WAV files, sampling rate, bit depth and duration are filled from the file. No file to upload? Fill DOI and Download Link below instead."
           persistent-hint
           class="mb-5"
