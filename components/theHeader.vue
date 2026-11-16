@@ -682,14 +682,15 @@ function refreshPage() {
 .add-menu.v-overlay__content {
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 .add-panel {
   width: 340px;
   max-width: calc(100vw - 32px);
   padding: 8px;
-  background: #fff;
-  color: #111;
+  background: #0d0d0d; /* the colour of the top bar it drops from */
+  color: #fff;
 }
 .add-title {
   padding: 8px 12px 6px;
@@ -697,7 +698,7 @@ function refreshPage() {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #777;
+  color: #9a9a9a;
 }
 .add-item {
   display: flex;
@@ -716,7 +717,7 @@ function refreshPage() {
 }
 .add-item:hover,
 .add-item:focus-visible {
-  background: #f4f4f4;
+  background: rgba(255, 255, 255, 0.09);
   outline: none;
 }
 .add-icon {
@@ -726,15 +727,15 @@ function refreshPage() {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: #fbeaea;
-  color: rgb(var(--v-theme-primary));
+  background: rgba(229, 57, 53, 0.18);
+  color: #e53935;
   transition:
     background-color 0.15s ease,
     color 0.15s ease;
 }
 .add-item:hover .add-icon,
 .add-item:focus-visible .add-icon {
-  background: rgb(var(--v-theme-primary));
+  background: #e53935;
   color: #fff;
 }
 .add-text {
@@ -748,7 +749,7 @@ function refreshPage() {
 }
 .add-text span {
   font-size: 0.82rem;
-  color: #666;
+  color: #a8a8a8;
 }
 /* on the button itself the count floats over the corner: it must not widen the header */
 .add-dot {
@@ -782,7 +783,7 @@ function refreshPage() {
   font-weight: 700;
 }
 .add-go {
-  color: #aaa;
+  color: #777;
 }
 .add-foot {
   display: flex;
@@ -790,13 +791,13 @@ function refreshPage() {
   gap: 8px;
   margin: 6px 4px 2px;
   padding: 10px 12px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
   font-size: 0.85rem;
   font-weight: 600;
-  color: #444 !important;
+  color: #cfcfcf !important;
   text-decoration: none;
 }
 .add-foot:hover {
-  color: rgb(var(--v-theme-primary)) !important;
+  color: #e53935 !important;
 }
 </style>
