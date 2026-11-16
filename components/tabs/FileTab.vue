@@ -301,6 +301,14 @@ watch(
   { immediate: true }
 );
 
+// Zenodo when it exists, else the first repository: the same rule as the API
+function pickDefaultRepository(repositories: { id: number; name?: string }[]) {
+  return (
+    repositories.find((r) => r.name?.toLowerCase() === 'zenodo') ??
+    [...repositories].sort((a, b) => a.id - b.id)[0]
+  );
+}
+
 // ---- LIFECYCLE ----
 onMounted(async () => {
   // Load repositories in background (non-blocking)
@@ -309,7 +317,7 @@ onMounted(async () => {
       .fetchRepositories()
       .then(() => {
         if (!repositoryStore.selectedRepository) {
-          const defaultRepo = repositoryStore.repositories.find((r) => r.id === 1);
+          const defaultRepo = pickDefaultRepository(repositoryStore.repositories);
           if (defaultRepo) {
             repositoryStore.selectRepository(defaultRepo);
           }
@@ -319,7 +327,7 @@ onMounted(async () => {
         showSnackbar('⚠️ Could not load repositories.', 'warning');
       });
   } else if (!repositoryStore.selectedRepository) {
-    const defaultRepo = repositoryStore.repositories.find((r) => r.id === 1);
+    const defaultRepo = pickDefaultRepository(repositoryStore.repositories);
     if (defaultRepo) {
       repositoryStore.selectRepository(defaultRepo);
     }

@@ -33,14 +33,6 @@ const protocolRows = computed(() =>
     { label: 'Cage', value: protocol.value.context_cage },
     { label: 'Bedding', value: protocol.value.context_bedding },
     { label: 'Light cycle', value: protocol.value.context_light_cycle },
-    {
-      label: 'Temperature',
-      value: text(
-        protocol.value.context_temperature_value,
-        protocol.value.context_temperature_unit
-      ),
-    },
-    { label: 'Brightness', value: protocol.value.context_brightness },
   ])
 );
 
@@ -62,6 +54,13 @@ const sessionRows = computed(() =>
     {
       label: 'Temperature',
       value: text(session.value.context_temperature_value, session.value.context_temperature_unit),
+    },
+    {
+      label: 'Brightness',
+      value:
+        session.value.context_brightness === null || session.value.context_brightness === undefined
+          ? ''
+          : `${session.value.context_brightness} lx`,
     },
     {
       label: 'Animal profiles',
