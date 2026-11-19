@@ -114,10 +114,10 @@ onMounted(() => {
           <v-col cols="12" md="5" class="d-flex justify-center">
             <div class="hero-waves">
               <span
-                v-for="n in 4"
+                v-for="n in 2"
                 :key="n"
                 class="hero-ring"
-                :style="{ animationDelay: `${(n - 1) * 0.7}s` }"
+                :style="{ animationDelay: `${(n - 1) * 1.8}s` }"
                 aria-hidden="true"
               ></span>
               <img src="/logo_mousetube_big.png" alt="MouseTube logo" class="hero-logo" />
@@ -383,30 +383,30 @@ a:hover {
     transparent 116deg,
     transparent 360deg
   );
-  /* a burst of rings (about 4 seconds), then a rest of about as long, so the eye is not held all the time */
-  animation: hero-ring 8s linear infinite;
+  /* two slow rings (about 8 seconds), then a rest, so the eye is not held all the time */
+  animation: hero-ring 14s linear infinite;
   pointer-events: none;
 }
 /* the wave travels (a slowing expansion written by hand) and fades only as it reaches the far end
    of the logo */
 @keyframes hero-ring {
   0% {
-    opacity: 0.95;
+    opacity: 0.6;
     transform: translate(-50%, -50%) scale(0.1);
   }
-  10% {
-    opacity: 0.8;
+  11% {
+    opacity: 0.5;
     transform: translate(-50%, -50%) scale(0.5);
   }
-  21% {
-    opacity: 0.55;
+  23% {
+    opacity: 0.34;
     transform: translate(-50%, -50%) scale(0.78);
   }
-  34% {
-    opacity: 0.18;
+  36% {
+    opacity: 0.12;
     transform: translate(-50%, -50%) scale(0.94);
   }
-  42%,
+  46%,
   100% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(1);
