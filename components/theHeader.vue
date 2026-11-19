@@ -7,7 +7,17 @@ PHENOMIN, CNRS UMR7104, INSERM U964, Université de Strasbourg
 Code under GPL v3.0 licence
 -->
 <script setup>
-import { Users, AudioLines, MonitorCog, Mic, Warehouse, Database, User, Plus } from '@lucide/vue';
+import {
+  Users,
+  AudioLines,
+  MonitorCog,
+  Mic,
+  Warehouse,
+  Database,
+  User,
+  Plus,
+  LogOut,
+} from '@lucide/vue';
 import { ref, watch } from 'vue';
 import { useDisplay } from 'vuetify';
 import { useAuth, isStaff } from '@/composables/useAuth';
@@ -126,7 +136,7 @@ function refreshPage() {
 
 <template>
   <v-app-bar role="navigation" color="#0d0d0d" height="56" dense flat>
-    <v-row no-gutters align="center" class="w-100 flex-nowrap">
+    <v-row no-gutters align="center" class="header-inner w-100 flex-nowrap">
       <!-- Burger -->
       <v-col cols="auto" v-if="smAndDown">
         <v-btn icon @click="drawer = !drawer" aria-label="Toggle menu">
@@ -238,15 +248,17 @@ function refreshPage() {
               <span class="nav-label user-label">{{ currentUser }}</span>
             </span>
           </nuxt-link>
-          <v-btn
-            class="ml-n2"
-            color="red darken-2"
-            variant="text"
-            size="small"
+          <button
+            type="button"
+            class="nav-item logout-button px-2"
+            aria-label="Log out"
+            title="Log out"
             @click="handleLogout"
           >
-            Log out
-          </v-btn>
+            <span class="nav-link-content">
+              <LogOut class="nav-icon audio-hover-icon" />
+            </span>
+          </button>
         </template>
         <template v-else>
           <nuxt-link
@@ -365,9 +377,15 @@ function refreshPage() {
             </template>
             <v-list-item-title>{{ currentUser }}</v-list-item-title>
             <template #append>
-              <v-btn color="primary" variant="text" size="small" @click.stop.prevent="handleLogout">
-                Log out
-              </v-btn>
+              <button
+                type="button"
+                class="drawer-logout"
+                aria-label="Log out"
+                @click.stop.prevent="handleLogout"
+              >
+                <LogOut :size="18" class="nav-icon" />
+                <span>Log out</span>
+              </button>
             </template>
           </v-list-item>
         </template>
@@ -599,6 +617,18 @@ function refreshPage() {
   }
 }
 
+/* very large screens: the bar stays black from edge to edge, but its content does not spread over
+   the whole width of an ultra-wide screen (the logo, the menu and the account would be a screen
+   apart). It keeps the room the bar needs with the names of the entries and the user name (the
+   breakpoints above are for the width of the bar, which is now this one). */
+@media screen and (min-width: 1920px) {
+  .header-inner {
+    max-width: 1600px;
+    margin-inline: auto;
+    padding-inline: 16px;
+  }
+}
+
 /* the labels of the menu give way to the icons before the bar gets crowded */
 @media screen and (max-width: 1300px) {
   .nav-icon {
@@ -615,12 +645,39 @@ function refreshPage() {
   stroke: #e53935;
 }
 
+/* the title of the entry stays white: a soft glow that swells and fades like a sound wave (the
+   logo does the same with its rings), while the icon turns red */
 .nav-item:hover .nav-label,
 .active-link .nav-label {
-  color: #e53935;
+  color: #fff;
+  text-shadow:
+    0 0 8px rgba(255, 255, 255, 0.4),
+    0 0 18px rgba(255, 255, 255, 0.15);
+  animation: label-wave 2.6s ease-in-out infinite;
+}
+@keyframes label-wave {
+  0%,
+  100% {
+    text-shadow:
+      0 0 6px rgba(255, 255, 255, 0.3),
+      0 0 14px rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    text-shadow:
+      0 0 11px rgba(255, 255, 255, 0.6),
+      0 0 24px rgba(255, 255, 255, 0.28);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-item:hover .nav-label,
+  .active-link .nav-label,
+  .v-list-item--active .v-list-item-title,
+  .v-list-item:hover .v-list-item-title {
+    animation: none;
+  }
 }
 
-/* the current page: lighter red name, and a red bar under it so it does not rely on colour alone */
+/* the current page: a glowing name and a red bar under it, so it does not rely on colour alone */
 .nav-item {
   position: relative;
 }
@@ -635,8 +692,13 @@ function refreshPage() {
   background: #e53935;
 }
 
-.v-list-item--active .v-list-item-title {
-  color: #e53935;
+.v-list-item--active .v-list-item-title,
+.v-list-item:hover .v-list-item-title {
+  color: #fff;
+  text-shadow:
+    0 0 8px rgba(255, 255, 255, 0.4),
+    0 0 18px rgba(255, 255, 255, 0.15);
+  animation: label-wave 2.6s ease-in-out infinite;
 }
 
 .v-list-item--active :deep(.v-list-item__overlay),
@@ -646,7 +708,58 @@ function refreshPage() {
 
 .v-list-item:hover .audio-hover-icon {
   animation: wiggle 0.5s ease-in-out;
-  stroke: red;
+  stroke: #e53935;
+}
+
+/* the mobile menu: the same look as the bar (white name with a glow, red icon on hover) */
+.v-list-item:hover :deep(.v-list-item__prepend) .v-icon {
+  color: #e53935;
+}
+.drawer-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.drawer-logout .nav-icon {
+  margin-right: 0;
+}
+.drawer-logout:hover .nav-icon,
+.drawer-logout:focus-visible .nav-icon {
+  stroke: #e53935;
+}
+.drawer-logout:hover span,
+.drawer-logout:focus-visible span {
+  text-shadow:
+    0 0 8px rgba(255, 255, 255, 0.4),
+    0 0 18px rgba(255, 255, 255, 0.15);
+}
+.drawer-logout:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* log out: only an icon (its name is in the title and for screen readers) */
+.logout-button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.logout-button .nav-icon {
+  margin-right: 0;
+}
+.logout-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 /* "Add" opens a menu: an outlined pill and a caret that turns say so */
@@ -657,6 +770,14 @@ function refreshPage() {
 .add-button[aria-expanded='true'] {
   border-color: #fff;
   background: rgba(255, 255, 255, 0.12);
+}
+/* hovered: a white name that glows */
+.add-button:hover,
+.add-button:focus-visible,
+.add-button[aria-expanded='true'] {
+  text-shadow:
+    0 0 8px rgba(255, 255, 255, 0.4),
+    0 0 18px rgba(255, 255, 255, 0.15);
 }
 .add-caret {
   margin-left: 2px;
@@ -797,7 +918,16 @@ function refreshPage() {
   color: #cfcfcf !important;
   text-decoration: none;
 }
-.add-foot:hover {
-  color: #e53935 !important;
+/* hovered: the text stays white and glows, the icon is red */
+.add-foot:hover,
+.add-foot:focus-visible {
+  color: #fff !important;
+  text-shadow:
+    0 0 8px rgba(255, 255, 255, 0.4),
+    0 0 18px rgba(255, 255, 255, 0.15);
+}
+.add-foot:hover .v-icon,
+.add-foot:focus-visible .v-icon {
+  color: #e53935;
 }
 </style>
