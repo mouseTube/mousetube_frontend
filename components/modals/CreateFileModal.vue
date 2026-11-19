@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import { type File as StoreFile, useFileStore } from '~/stores/file';
 import axios from 'axios';
+import UsvOutputsField, { type Output } from '@/components/UsvOutputsField.vue';
 import { token } from '@/composables/useAuth';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 
@@ -26,6 +27,7 @@ interface FormDataType {
   notes: string;
   size: number | null;
   doi: string;
+  deposit_images: boolean;
   spectrogram: globalThis.File | null;
   plot: globalThis.File | null;
   number: number | null;
@@ -44,6 +46,7 @@ const formData = ref<FormDataType>({
   notes: '',
   size: null,
   doi: '',
+  deposit_images: false,
   spectrogram: null,
   plot: null,
   number: null,
@@ -53,6 +56,13 @@ const formData = ref<FormDataType>({
 });
 
 const uploading = ref(false);
+
+// the tables of the detectors the author adds for an audio file
+const usvOutputs = ref<Output[]>([]);
+const isAudio = computed(() => {
+  const f = formData.value.file;
+  return !!f && (f.type.startsWith('audio/') || /\.(wav|flac|mp3|ogg|aiff?)$/i.test(f.name));
+});
 const uploadError = ref('');
 const isEditMode = computed(() => !!props.modelValue?.id);
 const isDoiOnly = computed(
@@ -87,6 +97,7 @@ const linkRules = [
 watch(
   () => props.modelValue,
   (file) => {
+    usvOutputs.value = []; // the tables added for a previous file are not this file's
     if (file) {
       formData.value = {
         name: file.name || '',
@@ -98,6 +109,7 @@ watch(
         notes: file.notes || '',
         size: file.size || null,
         doi: file.doi || '',
+        deposit_images: !!file.deposit_images,
         spectrogram: file.spectrogram || null,
         plot: file.plot || null,
         link: file.link || null,
@@ -116,6 +128,7 @@ watch(
         notes: '',
         size: null,
         doi: '',
+        deposit_images: false,
         spectrogram: null,
         plot: null,
         link: null,
@@ -167,6 +180,29 @@ const fileSizeRule = (file: globalThis.File | globalThis.File[] | null) => {
   return !f || uploadLimit.value === null || f.size <= uploadLimit.value || tooLargeMessage(f.size);
 };
 
+// the results of the detectors go to the file once it exists; a failure does not lose the file
+async function attachUsvOutputs(fileId: number) {
+  const failed: string[] = [];
+  for (const output of usvOutputs.value) {
+    const body = new FormData();
+    body.append('tool', output.tool);
+    body.append('file', output.file);
+    body.append('deposit', output.deposit ? 'true' : 'false');
+    try {
+      await axios.post(`${useApiBaseUrl()}/file/${fileId}/usv-detections/`, body, {
+        headers: token.value ? { Authorization: `Bearer ${token.value}` } : {},
+      });
+    } catch {
+      failed.push(output.label);
+    }
+  }
+  if (failed.length) {
+    // eslint-disable-next-line no-console
+    console.warn('Results not added:', failed.join(', '));
+  }
+  usvOutputs.value = [];
+}
+
 // =====================================================
 // Upload and creation (Only in creation)
 // =====================================================
@@ -214,9 +250,11 @@ async function uploadFileAndCreate() {
     if (formData.value.plot) {
       formPayload.append('plot', formData.value.plot as globalThis.File);
     }
+    if (isAdmin.value) formPayload.append('deposit_images', String(formData.value.deposit_images));
 
     // const newFile = await fileStore.createFile(formPayload);
     const newFile = await fileStore.createFileMultipart(formPayload);
+    await attachUsvOutputs(newFile.id);
     emit('saved', newFile);
     emit('update:modelValue', null);
   } catch (err) {
@@ -238,9 +276,10 @@ async function uploadFileAndCreate() {
 // =====================================================
 async function handleSubmit() {
   try {
-    const { file, uploadedUrl, doi, spectrogram, plot, ...rest } = formData.value;
+    const { file, uploadedUrl, doi, spectrogram, plot, deposit_images, ...rest } = formData.value;
     const payload = {
       ...rest,
+      ...(isAdmin.value ? { deposit_images } : {}), // only an administrator sets it
       doi: formData.value.doi,
       recording_session_id: props.recordingSessionId ?? null,
       repository_id: props.repository?.id ?? null,
@@ -389,6 +428,8 @@ onMounted(async () => {
         />
       </template>
 
+      <UsvOutputsField v-if="isAudio && !isEditMode && !isDoiOnly" v-model="usvOutputs" />
+
       <h3 class="mb-3">File Metadata</h3>
 
       <v-text-field
@@ -519,6 +560,14 @@ onMounted(async () => {
             class="mb-3"
           />
         </template>
+
+        <v-checkbox
+          v-model="formData.deposit_images"
+          density="compact"
+          hide-details
+          color="primary"
+          label="Also send these images to Zenodo with the record (unticked: they stay on mouseTube)"
+        />
       </div>
 
       <!-- Link -->

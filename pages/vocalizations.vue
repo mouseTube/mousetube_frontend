@@ -9,6 +9,7 @@ Code under GPL v3.0 licence
 
 <script setup>
 import FileDetails from '@/components/FileDetails.vue';
+import UsvDetections from '@/components/UsvDetections.vue';
 ////////////////////////////////
 // IMPORT
 ////////////////////////////////
@@ -538,7 +539,7 @@ const facts = (file) => {
                     </v-card-item>
 
                     <!-- Expansion Panel -->
-                    <v-expansion-panels>
+                    <v-expansion-panels multiple>
                       <v-expansion-panel>
                         <v-expansion-panel-title>
                           <v-icon size="18" class="me-2">mdi-information-outline</v-icon>
@@ -549,6 +550,21 @@ const facts = (file) => {
                         </v-expansion-panel-title>
                         <v-expansion-panel-text>
                           <FileDetails :file="file" />
+                        </v-expansion-panel-text>
+                      </v-expansion-panel>
+                      <v-expansion-panel v-if="file.usv_detections?.length">
+                        <v-expansion-panel-title>
+                          <v-icon size="18" class="me-2">mdi-waveform</v-icon>
+                          USV detections
+                          <span
+                            v-for="d in file.usv_detections"
+                            :key="d.id"
+                            class="text-caption text-medium-emphasis ms-3 d-none d-sm-inline"
+                            >{{ d.label }} {{ d.summary.calls }}</span
+                          >
+                        </v-expansion-panel-title>
+                        <v-expansion-panel-text>
+                          <UsvDetections :detections="file.usv_detections" />
                         </v-expansion-panel-text>
                       </v-expansion-panel>
                     </v-expansion-panels>
