@@ -317,7 +317,7 @@ watch(
               </div>
             </div>
             <div class="d-flex align-center ga-2">
-              <!-- administrators only: what waits for their decision -->
+              <!-- administrators only: what waits for their decision, and the check of the links -->
               <v-btn
                 v-if="isStaff"
                 to="/review"
@@ -328,6 +328,16 @@ watch(
               >
                 Review
                 <span v-if="reviewCount" class="review-count">{{ reviewCount }}</span>
+              </v-btn>
+              <v-btn
+                v-if="isStaff"
+                to="/check-links"
+                color="primary"
+                variant="flat"
+                size="small"
+                prepend-icon="mdi-link-variant"
+              >
+                Check links
               </v-btn>
               <v-chip
                 v-if="userProfile?.orcid"
