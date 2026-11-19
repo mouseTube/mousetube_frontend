@@ -40,6 +40,7 @@ const resendMessage = ref('');
 const resendWait = ref(0); // seconds before the confirmation e-mail can be sent again
 let resendTimer = null;
 const hasOrcid = ref(false);
+const orcidNameMissing = ref(false); // ORCID did not give the first or the last name
 
 const form = ref({
   username: '',
@@ -185,6 +186,9 @@ onMounted(async () => {
   const q = route.query;
   if (q.first_name) form.value.first_name = q.first_name;
   if (q.last_name) form.value.last_name = q.last_name;
+  if (q.email) form.value.email = q.email; // a public institutional address of the ORCID record
+  // ORCID only gives a name that is public on the record of the person
+  orcidNameMissing.value = !!q.orcid && !(q.first_name && q.last_name);
   if (q.orcid) {
     form.value.orcid = q.orcid;
     form.value.orcid_proof = q.orcid_proof || '';
@@ -318,6 +322,16 @@ onMounted(async () => {
           </div>
 
           <div class="text-subtitle-2 mb-2">About you</div>
+          <v-alert
+            v-if="orcidNameMissing"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mb-3"
+          >
+            ORCID did not share your {{ form.first_name || form.last_name ? 'full ' : '' }}name (it
+            is private, or missing, on your ORCID record). Please fill it in.
+          </v-alert>
           <v-row dense>
             <v-col cols="12" sm="6">
               <v-text-field
