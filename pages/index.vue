@@ -112,7 +112,16 @@ onMounted(() => {
             </nuxt-link>
           </v-col>
           <v-col cols="12" md="5" class="d-flex justify-center">
-            <img src="/logo_mousetube_big.png" alt="MouseTube logo" class="hero-logo" />
+            <div class="hero-waves">
+              <span
+                v-for="n in 4"
+                :key="n"
+                class="hero-ring"
+                :style="{ animationDelay: `${(n - 1) * 0.7}s` }"
+                aria-hidden="true"
+              ></span>
+              <img src="/logo_mousetube_big.png" alt="MouseTube logo" class="hero-logo" />
+            </div>
           </v-col>
         </v-row>
       </v-container>
@@ -309,9 +318,82 @@ a:hover {
 }
 
 .hero-logo {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 380px;
   height: auto;
+}
+
+/* rings that spread from the mouth of the megaphone, towards the left where the logo has its
+   waves, and fade out before they leave the hero (nothing is clipped): like the ones of the logo of the top bar, slower */
+.hero-waves {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+}
+.hero-ring {
+  position: absolute;
+  left: 52%;
+  top: 36%;
+  width: 100%; /* the wave reaches the far end of the logo, where its drawn waves end */
+  aspect-ratio: 1.3; /* flatter than a circle: it goes to the far end of the logo without climbing too high */
+  /* a thick soft wave: a bright crest on the outside and a trail that fades towards the middle,
+     like the brush strokes of the waves of the logo */
+  background: radial-gradient(
+    ellipse closest-side,
+    transparent 66%,
+    rgba(198, 40, 40, 0.1) 76%,
+    rgba(198, 40, 40, 0.38) 88%,
+    rgba(198, 40, 40, 0.78) 95%,
+    rgba(198, 40, 40, 0) 100%
+  );
+  filter: blur(1.2px);
+  border-radius: 50%;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.12);
+  /* only the cone of the drawn waves of the logo: towards the upper left, soft on both sides */
+  mask-image: conic-gradient(
+    from 218deg at 50% 50%,
+    transparent 0deg,
+    #000 32deg,
+    #000 84deg,
+    transparent 116deg,
+    transparent 360deg
+  );
+  /* a burst of rings (about 4 seconds), then a rest of about as long, so the eye is not held all the time */
+  animation: hero-ring 8s linear infinite;
+  pointer-events: none;
+}
+/* the wave travels (a slowing expansion written by hand) and fades only as it reaches the far end
+   of the logo */
+@keyframes hero-ring {
+  0% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(0.1);
+  }
+  10% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  21% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(0.78);
+  }
+  34% {
+    opacity: 0.18;
+    transform: translate(-50%, -50%) scale(0.94);
+  }
+  42%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-ring {
+    animation: none;
+  }
 }
 
 .stat,
