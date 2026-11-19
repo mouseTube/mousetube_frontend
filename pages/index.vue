@@ -251,10 +251,32 @@ onMounted(() => {
         </v-col>
       </v-row>
     </v-container>
+
+    <!-- the partners, in their own colours, on a light band at the foot of the page -->
+    <section class="partners" aria-labelledby="partners-title">
+      <v-container class="py-8">
+        <h2 id="partners-title" class="partners-title">With the support of</h2>
+        <logo-strip />
+      </v-container>
+    </section>
   </v-main>
 </template>
 
 <style scoped>
+.partners {
+  background: #f6f6f6;
+  border-top: 1px solid #e4e4e4;
+}
+.partners-title {
+  margin: 0 0 4px;
+  color: #666;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 a {
   color: #222;
   text-decoration: underline;

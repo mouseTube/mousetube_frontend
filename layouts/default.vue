@@ -12,12 +12,14 @@ import { useAuth } from '@/composables/useAuth';
 
 const auth = useAuth();
 await auth.init();
+const route = useRoute();
 </script>
 
 <template>
   <div class="page-wrapper">
     <TheHeader />
-    <div class="content">
+    <!-- room under the content before the footer; the home page ends with its own band: flush -->
+    <div class="content" :class="{ 'content--flush': route.path === '/' }">
       <slot />
     </div>
     <TheFooter />
@@ -31,10 +33,14 @@ await auth.init();
   min-height: 100vh;
 }
 .content {
+  padding-bottom: 40px;
   flex-grow: 1;
   display: flex;
   justify-content: center;
   height: 100%;
+}
+.content--flush {
+  padding-bottom: 0;
 }
 </style>
 

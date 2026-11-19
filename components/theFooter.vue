@@ -54,14 +54,6 @@ const explore = [
 </script>
 
 <template>
-  <!-- the partners, in their own colours, on a light band above the black footer -->
-  <section class="partners" aria-labelledby="partners-title">
-    <v-container class="py-8">
-      <h2 id="partners-title" class="partners-title">With the support of</h2>
-      <logo-strip />
-    </v-container>
-  </section>
-
   <v-footer color="#0d0d0d" class="footer">
     <v-container class="pt-10 pb-5">
       <v-row>
@@ -232,19 +224,6 @@ const explore = [
 .nuxt-link:hover .footer-icon,
 .nuxt-link:focus-visible .footer-icon {
   stroke: #e53935;
-}
-.partners {
-  background: #f6f6f6;
-  border-top: 1px solid #e4e4e4;
-}
-.partners-title {
-  margin: 0 0 4px;
-  color: #666;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-align: center;
-  text-transform: uppercase;
 }
 .footer-note {
   color: rgba(255, 255, 255, 0.55);
