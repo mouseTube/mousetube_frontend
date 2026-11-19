@@ -212,7 +212,7 @@ onMounted(async () => {
 
         <v-col>
           <v-card variant="flat" class="mx-auto" max-width="1000">
-            <div class="d-flex align-center justify-space-between mt-1 mb-4">
+            <div class="d-flex align-center justify-space-between flex-wrap ga-2 mt-1 mb-4">
               <div class="d-flex align-center">
                 <h1><Mic /> Hardware</h1>
                 <v-chip v-if="count > 0" class="me-1 my-1 mx-2">
@@ -220,14 +220,8 @@ onMounted(async () => {
                 </v-chip>
               </div>
               <div v-if="currentUser">
-                <v-btn
-                  variant="outlined"
-                  size="small"
-                  class="nav-icon audio-hover-icon"
-                  @click="openHardwareModal"
-                >
-                  <v-icon class="me-1">mdi-plus</v-icon>
-                  Add
+                <v-btn color="primary" prepend-icon="mdi-plus" @click="openHardwareModal">
+                  Add hardware
                 </v-btn>
               </div>
             </div>

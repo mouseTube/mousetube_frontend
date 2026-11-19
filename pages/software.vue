@@ -201,20 +201,14 @@ const typeColor = (type) =>
         <!-- Main Content -->
         <v-col :cols="12">
           <v-card variant="flat" class="mx-auto" max-width="1000">
-            <div class="d-flex align-center justify-space-between mt-1 mb-4">
+            <div class="d-flex align-center justify-space-between flex-wrap ga-2 mt-1 mb-4">
               <div class="d-flex align-center">
                 <h1><MonitorCog /> Software</h1>
                 <v-chip v-if="count > 0" class="ms-2">{{ count }}</v-chip>
               </div>
               <div v-if="currentUser">
-                <v-btn
-                  variant="outlined"
-                  size="small"
-                  class="nav-icon audio-hover-icon"
-                  @click="openSoftwareModal"
-                >
-                  <v-icon class="me-1">mdi-plus</v-icon>
-                  Add
+                <v-btn color="primary" prepend-icon="mdi-plus" @click="openSoftwareModal">
+                  Add software
                 </v-btn>
               </div>
             </div>

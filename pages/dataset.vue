@@ -159,7 +159,7 @@ onMounted(() => fetchDatasets());
         <v-col>
           <v-card variant="flat" class="mx-auto" max-width="1000">
             <!-- TITLE -->
-            <div class="d-flex align-center mt-1 mb-4">
+            <div class="d-flex align-center flex-wrap ga-2 mt-1 mb-4">
               <h1><Database /> Datasets</h1>
               <v-chip v-if="count > 0" class="me-1 my-1 mx-2">{{ count }}</v-chip>
               <v-spacer />
