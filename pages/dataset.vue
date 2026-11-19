@@ -4,8 +4,9 @@ import axios from 'axios';
 import debounce from 'lodash-es/debounce';
 import { Database } from '@lucide/vue';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
-import { isStaff } from '@/composables/useAuth';
+import { isStaff, token } from '@/composables/useAuth';
 import DatasetCreateModal from '@/components/modals/DatasetCreateModal.vue';
+import FileImagesModal from '@/components/modals/FileImagesModal.vue';
 
 interface FileType {
   id: number;
@@ -14,6 +15,7 @@ interface FileType {
   link?: string | null;
   spectrogram_url?: string | null;
   plot_url?: string | null;
+  deposit_images?: boolean;
   downloads?: number;
   session?: { name: string; chips: string[]; animal_profiles: string[] } | null;
 }
@@ -24,6 +26,7 @@ interface DatasetType {
   doi?: string | null;
   link?: string | null;
   description?: string;
+  recording_sessions?: { id: number; name: string }[];
   created_at: string;
   files: FileType[];
 }
@@ -42,10 +45,54 @@ const apiBaseUrl = useApiBaseUrl();
 
 // --- admin-only: add a dataset ---
 const showCreate = ref(false);
+const edited = ref<DatasetType | null>(null); // the dataset the form changes; null: a new one
+const openForm = (dataset: DatasetType | null = null) => {
+  edited.value = dataset;
+  showCreate.value = true;
+};
 const createdMessage = ref(false);
+const savedText = ref('Dataset created.');
 const onCreated = async () => {
+  savedText.value = edited.value ? 'Dataset updated.' : 'Dataset created.';
   createdMessage.value = true;
   await fetchDatasets();
+};
+
+// --- admin-only: delete a dataset (its sessions and files stay) ---
+const toDelete = ref<DatasetType | null>(null);
+const showDelete = ref(false);
+const deleting = ref(false);
+const deleteError = ref('');
+const askDelete = (dataset: DatasetType) => {
+  toDelete.value = dataset;
+  deleteError.value = '';
+  showDelete.value = true;
+};
+const confirmDelete = async () => {
+  if (!toDelete.value) return;
+  deleting.value = true;
+  deleteError.value = '';
+  try {
+    await axios.delete(`${apiBaseUrl}/dataset/${toDelete.value.id}/`, {
+      headers: { Authorization: `Bearer ${token.value}` },
+    });
+    showDelete.value = false;
+    savedText.value = 'Dataset deleted.';
+    createdMessage.value = true;
+    await fetchDatasets();
+  } catch {
+    deleteError.value = 'The dataset could not be deleted. Only administrators can delete one.';
+  } finally {
+    deleting.value = false;
+  }
+};
+
+// --- admin-only: the images of a file ---
+const imagesOf = ref<FileType | null>(null);
+const showImages = ref(false);
+const editImages = (file: FileType) => {
+  imagesOf.value = file;
+  showImages.value = true;
 };
 
 // --- helpers for file types / icons / ordering ---
@@ -163,12 +210,7 @@ onMounted(() => fetchDatasets());
               <h1><Database /> Datasets</h1>
               <v-chip v-if="count > 0" class="me-1 my-1 mx-2">{{ count }}</v-chip>
               <v-spacer />
-              <v-btn
-                v-if="isStaff"
-                color="primary"
-                prepend-icon="mdi-plus"
-                @click="showCreate = true"
-              >
+              <v-btn v-if="isStaff" color="primary" prepend-icon="mdi-plus" @click="openForm()">
                 Add a dataset
               </v-btn>
             </div>
@@ -267,6 +309,28 @@ onMounted(() => fetchDatasets());
                     </v-chip>
 
                     <v-btn
+                      v-if="isStaff"
+                      icon
+                      title="Edit the dataset: its sessions and their files"
+                      density="compact"
+                      class="ms-1"
+                      @click="openForm(dataset)"
+                    >
+                      <v-icon size="18">mdi-pencil-outline</v-icon>
+                    </v-btn>
+
+                    <v-btn
+                      v-if="isStaff"
+                      icon
+                      title="Delete the dataset (its sessions and files are kept)"
+                      density="compact"
+                      class="ms-1"
+                      @click="askDelete(dataset)"
+                    >
+                      <v-icon size="18">mdi-delete-outline</v-icon>
+                    </v-btn>
+
+                    <v-btn
                       icon
                       :href="`${apiBaseUrl}/dataset/${dataset.id}/metadata/`"
                       target="_blank"
@@ -360,6 +424,17 @@ onMounted(() => fetchDatasets());
                           </v-col>
 
                           <v-col cols="auto" class="d-flex align-center">
+                            <v-btn
+                              v-if="isStaff"
+                              icon
+                              density="compact"
+                              variant="text"
+                              title="Spectrogram and plot of this file"
+                              class="me-1"
+                              @click.stop="editImages(file)"
+                            >
+                              <v-icon size="18">mdi-image-edit-outline</v-icon>
+                            </v-btn>
                             <span
                               v-if="file.downloads"
                               class="text-caption text-medium-emphasis me-3"
@@ -427,10 +502,45 @@ onMounted(() => fetchDatasets());
         </v-col>
       </v-row>
     </v-container>
-    <DatasetCreateModal v-model:show="showCreate" @created="onCreated" />
-    <v-snackbar v-model="createdMessage" color="success" timeout="4000"
-      >Dataset created.</v-snackbar
-    >
+    <DatasetCreateModal v-model:show="showCreate" :dataset="edited" @created="onCreated" />
+    <FileImagesModal
+      v-if="imagesOf"
+      v-model:show="showImages"
+      :file="imagesOf"
+      @saved="fetchDatasets"
+    />
+    <v-dialog v-model="showDelete" max-width="460" :persistent="deleting">
+      <v-card>
+        <v-card-title class="text-h6">Delete this dataset?</v-card-title>
+        <v-card-text>
+          <p>
+            You are about to delete <strong>{{ toDelete?.name }}</strong
+            >.
+          </p>
+          <p class="mt-2">
+            Only the dataset is removed. Its
+            {{ toDelete?.recording_sessions?.length ?? 0 }} recording session{{
+              toDelete?.recording_sessions?.length === 1 ? '' : 's'
+            }}
+            and their {{ toDelete?.files.length ?? 0 }} file{{
+              toDelete?.files.length === 1 ? '' : 's'
+            }}
+            stay in the vocalizations. This cannot be undone.
+          </p>
+          <v-alert v-if="deleteError" type="error" variant="tonal" density="compact" class="mt-3">
+            {{ deleteError }}
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" :disabled="deleting" @click="showDelete = false">Cancel</v-btn>
+          <v-btn color="error" variant="flat" :loading="deleting" @click="confirmDelete">
+            Delete
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+    <v-snackbar v-model="createdMessage" color="success" timeout="4000">{{ savedText }}</v-snackbar>
   </v-main>
 </template>
 

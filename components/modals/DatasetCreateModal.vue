@@ -9,10 +9,20 @@ interface SessionChoice {
   id: number;
   name: string;
   laboratory: string | null;
-  files_count: number;
+  files_count?: number; // unknown for the sessions a dataset already has
 }
 
-const props = defineProps<{ show: boolean }>();
+interface EditedDataset {
+  id: number;
+  name: string;
+  description?: string | null;
+  doi?: string | null;
+  link?: string | null;
+  recording_sessions?: { id: number; name: string }[];
+}
+
+// `dataset` given: the form changes that dataset (its sessions bring their files); else it adds one
+const props = defineProps<{ show: boolean; dataset?: EditedDataset | null }>();
 const emit = defineEmits(['update:show', 'created']);
 
 const apiBaseUrl = useApiBaseUrl();
@@ -40,8 +50,8 @@ const items = computed(() => {
   results.value.forEach((s) => all.set(s.id, s));
   return [...all.values()].map((s) => ({
     ...s,
-    label: `${s.name}${s.laboratory ? ` (${s.laboratory})` : ''} - ${s.files_count} file${
-      s.files_count === 1 ? '' : 's'
+    label: `${s.name}${s.laboratory ? ` (${s.laboratory})` : ''}${
+      s.files_count === undefined ? '' : ` - ${s.files_count} file${s.files_count === 1 ? '' : 's'}`
     }`,
   }));
 });
@@ -63,9 +73,12 @@ const loadSessions = async (search = '') => {
     loadingSessions.value = false;
   }
 };
+const search = ref(''); // what is typed in the field
 const onSearch = debounce((value: string) => loadSessions(value ?? ''), 300);
+watch(search, (value) => onSearch(value));
 
 watch(selectedIds, (ids) => {
+  search.value = ''; // a session was picked: the words typed to find it go away
   ids.forEach((id) => {
     const found = items.value.find((s) => s.id === id);
     if (found) chosen.value[id] = found;
@@ -76,9 +89,17 @@ watch(
   () => props.show,
   (open) => {
     if (!open) return;
-    form.value = { name: '', description: '', doi: '', link: '' };
-    selectedIds.value = [];
-    chosen.value = {};
+    const d = props.dataset;
+    form.value = {
+      name: d?.name ?? '',
+      description: d?.description ?? '',
+      doi: d?.doi ?? '',
+      link: d?.link ?? '',
+    };
+    selectedIds.value = (d?.recording_sessions ?? []).map((s) => s.id);
+    chosen.value = Object.fromEntries(
+      (d?.recording_sessions ?? []).map((s) => [s.id, { id: s.id, name: s.name, laboratory: null }])
+    );
     errorMessage.value = '';
     fieldErrors.value = {};
     loadSessions();
@@ -95,17 +116,18 @@ const save = async () => {
 
   saving.value = true;
   try {
-    await axios.post(
-      `${apiBaseUrl}/dataset/`,
-      {
-        name: form.value.name.trim(),
-        description: form.value.description.trim(),
-        doi: form.value.doi.trim() || null,
-        link: form.value.link.trim() || null,
-        recording_session_ids: selectedIds.value,
-      },
-      authHeaders()
-    );
+    const body = {
+      name: form.value.name.trim(),
+      description: form.value.description.trim(),
+      doi: form.value.doi.trim() || null,
+      link: form.value.link.trim() || null,
+      recording_session_ids: selectedIds.value,
+    };
+    if (props.dataset) {
+      await axios.patch(`${apiBaseUrl}/dataset/${props.dataset.id}/`, body, authHeaders());
+    } else {
+      await axios.post(`${apiBaseUrl}/dataset/`, body, authHeaders());
+    }
     emit('created');
     close();
   } catch (error: any) {
@@ -136,9 +158,11 @@ const save = async () => {
     @update:model-value="emit('update:show', $event)"
   >
     <v-card>
-      <v-card-title class="pt-4">Add a dataset</v-card-title>
+      <v-card-title class="pt-4">{{ dataset ? 'Edit the dataset' : 'Add a dataset' }}</v-card-title>
       <v-card-subtitle class="text-wrap">
-        A dataset groups recording sessions. The page lists the files of those sessions.
+        A dataset groups recording sessions. The page lists the files of those sessions: adding a
+        session adds its files, removing it takes them out of the dataset only (they stay in the
+        vocalizations).
       </v-card-subtitle>
 
       <v-card-text>
@@ -193,6 +217,7 @@ const save = async () => {
 
           <v-autocomplete
             v-model="selectedIds"
+            v-model:search="search"
             :items="items"
             item-title="label"
             item-value="id"
@@ -203,7 +228,6 @@ const save = async () => {
             chips
             closable-chips
             clearable
-            no-filter
             :loading="loadingSessions"
             :rules="[sessionsRule]"
             :error-messages="fieldErrors.recording_session_ids"
@@ -211,7 +235,6 @@ const save = async () => {
             persistent-hint
             class="mt-4"
             :menu-props="{ maxWidth: 660 }"
-            @update:search="onSearch"
           >
             <template #chip="{ props: chipProps, item }">
               <v-chip v-bind="chipProps" :text="item.raw.name" closable />
@@ -233,7 +256,7 @@ const save = async () => {
         <v-spacer />
         <v-btn variant="text" :disabled="saving" @click="close">Cancel</v-btn>
         <v-btn color="primary" variant="elevated" :loading="saving" @click="save">
-          Create dataset
+          {{ dataset ? 'Save' : 'Create dataset' }}
         </v-btn>
       </v-card-actions>
     </v-card>
