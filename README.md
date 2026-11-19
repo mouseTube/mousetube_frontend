@@ -75,6 +75,8 @@ npm run dev
 npm run lint
 ```
 
+The version of the website is the `version` of `package.json`; the footer shows it with the one of the API, which it asks to `GET /api/version/` (the API reads it in its `pyproject.toml`). Change them with each release, nothing else is written by hand.
+
 The access token lasts one hour and is renewed automatically with the refresh token (`composables/tokenRefresh.ts`, attached to the global axios by `plugins/axios-refresh.client.ts` and to the hardware store's own client). The file form reads `GET /api/file/upload-limit/` and refuses a file the server could not hold before sending it.
 
 ## Check out mouseTube's publications:
