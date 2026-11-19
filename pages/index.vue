@@ -90,7 +90,7 @@ onMounted(() => {
             </div>
             <h1 class="hero-title">
               Share, find and reuse<br />
-              rodent ultrasonic vocalizations
+              rodent ultrasonic <span class="hero-accent">vocalizations</span>
             </h1>
             <p class="hero-lead">
               MouseTube is an open database of raw recordings, with the protocols, animals and
@@ -241,10 +241,6 @@ onMounted(() => {
           </div>
         </v-col>
       </v-row>
-
-      <!-- Partners -->
-      <div class="text-overline text-medium-emphasis text-center mt-10">With the support of</div>
-      <logo-strip />
     </v-container>
   </v-main>
 </template>
@@ -262,8 +258,20 @@ a:hover {
 }
 
 .hero {
+  position: relative;
   background: linear-gradient(180deg, #fff 0%, #f6f6f6 100%);
   border-bottom: 1px solid #ececec;
+}
+/* a thin red line that fades out, where the hero ends */
+.hero::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(198, 40, 40, 0.75), rgba(198, 40, 40, 0) 65%);
+  pointer-events: none;
 }
 
 .eyebrow {
@@ -286,6 +294,10 @@ a:hover {
   line-height: 1.15;
   font-weight: 800;
   letter-spacing: -0.02em;
+}
+
+.hero-accent {
+  color: rgb(var(--v-theme-primary));
 }
 
 .hero-lead {

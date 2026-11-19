@@ -35,9 +35,9 @@ const logos = [
     alt: 'Inserm',
   },
   {
-    link: 'http://www.ics-mci.fr/',
-    src: '/ics2010.png',
-    alt: 'ICS',
+    link: 'https://www.phen-ics.cnrs.fr/',
+    src: '/phen-ics.png',
+    alt: 'PHEN-ICS',
   },
   {
     link: 'https://www.bristol.ac.uk/',
@@ -55,7 +55,7 @@ const logos = [
 <template>
   <v-container>
     <!-- same height for every logo, one line when it fits, wraps on narrow screens -->
-    <div class="d-flex flex-wrap justify-center align-center logo-row">
+    <div class="d-flex justify-center align-center logo-row">
       <nuxt-link v-for="logo in logos" :key="logo.src" :to="logo.link" target="_blank">
         <img :src="logo.src" :alt="logo.alt" />
       </nuxt-link>
@@ -73,8 +73,40 @@ const logos = [
   text-decoration: underline;
 }
 
+/* narrow screens: the logos wrap; from tablets up they stay on one line and shrink with the screen */
 .logo-row {
+  flex-wrap: wrap;
   gap: 16px 28px;
+}
+@media screen and (min-width: 900px) {
+  .logo-row {
+    flex-wrap: nowrap;
+    gap: 0 clamp(20px, 3vw, 44px);
+  }
+  .logo-row img {
+    height: clamp(32px, 3.6vw, 48px);
+  }
+}
+
+/* the logo under the pointer lifts a little; the others stay as they are */
+.logo-row a {
+  display: block;
+}
+.logo-row img {
+  transition: transform 0.25s ease;
+}
+.logo-row a:hover img,
+.logo-row a:focus-visible img {
+  transform: translateY(-3px) scale(1.07);
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo-row img {
+    transition: none;
+  }
+  .logo-row a:hover img,
+  .logo-row a:focus-visible img {
+    transform: none;
+  }
 }
 
 img {
@@ -83,5 +115,6 @@ img {
   width: auto;
   max-width: 180px;
   object-fit: contain;
+  mix-blend-mode: multiply; /* the logos in JPEG have a white background: it must not show on a grey band */
 }
 </style>
