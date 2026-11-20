@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue';
 import type { AnimalProfile } from '@/stores/animalProfile';
 import { useRecordingSessionStore } from '@/stores/recordingSession';
 import AnimalProfileSelectionModal from '@/components/modals/AnimalProfileSelectionModal.vue';
+import AnimalProfileFacts from '@/components/AnimalProfileFacts.vue';
 import { cloneDeep } from 'lodash-es';
 
 // ----------------------
@@ -193,18 +194,25 @@ watch(
       </v-card-title>
 
       <v-card-text>
+        <div v-if="selectedAnimalProfiles.length" class="selected-profiles">
+          <div v-for="profile in selectedAnimalProfiles" :key="profile.id" class="selected-profile">
+            <div class="selected-profile-head">
+              <strong class="selected-profile-name">{{ profile.name }}</strong>
+              <v-btn
+                v-if="!isShared"
+                icon="mdi-close"
+                size="x-small"
+                variant="text"
+                color="grey-darken-1"
+                :aria-label="`Remove ${profile.name}`"
+                @click="removeAnimalProfile(profile.id)"
+              />
+            </div>
+            <AnimalProfileFacts :profile="profile" />
+          </div>
+        </div>
+        <p v-else class="text-body-2 text-medium-emphasis mb-2">No animal profile chosen yet.</p>
         <div class="chip-list d-flex flex-wrap align-center">
-          <v-chip
-            v-for="profile in selectedAnimalProfiles"
-            :key="profile.id"
-            variant="outlined"
-            class="ma-1"
-            :closable="!isShared"
-            @click:close="removeAnimalProfile(profile.id)"
-          >
-            {{ profile.name }}
-          </v-chip>
-
           <v-chip
             v-if="selectedAnimalProfiles.length > 0"
             color="primary"
@@ -261,3 +269,29 @@ watch(
     </v-snackbar>
   </v-container>
 </template>
+
+<style scoped>
+.selected-profiles {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.selected-profile {
+  padding: 10px 14px 12px;
+  border: 1px solid #e4e4e4;
+  border-left: 4px solid rgb(var(--v-theme-primary));
+  border-radius: 12px;
+  background: #fff;
+}
+.selected-profile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.selected-profile-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+</style>
