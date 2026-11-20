@@ -156,8 +156,8 @@ const selectItems = computed(() => {
   return items;
 });
 
-// waiting for a review, shared or published: the owner can no longer edit the session
-const isShared = computed(() => isLockedStatus(formData.value.status));
+// waiting for a review: the API says the owner cannot edit the session meanwhile
+const isShared = computed(() => isLocked(selectedSessionObject.value));
 // files already linked to the session: the warning about them only makes sense then
 const filesCount = computed(() => Number((selectedSessionObject.value as any)?.files_count ?? 0));
 
@@ -848,7 +848,7 @@ onMounted(async () => {
       class="mb-6 position-relative"
     >
       <template v-if="isShared">
-        {{ lockedExplanation(formData.status, 'The recording session') }}
+        {{ lockedReason(selectedSessionObject) }}
       </template>
       <template v-else>
         {{ filesCount === 1 ? '1 file is' : `${filesCount} files are` }} linked to this recording

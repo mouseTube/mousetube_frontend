@@ -42,7 +42,7 @@ const isDirty = computed(() => {
 });
 
 const currentSession = ref<any>(null);
-const isShared = computed(() => isLockedStatus(currentSession.value?.status)); // locked: under review, shared or published
+const isShared = computed(() => isLocked(currentSession.value)); // locked while an administrator reviews it
 
 // ----------------------
 // Functions
@@ -171,7 +171,7 @@ watch(
 <template>
   <v-container>
     <v-alert v-if="isShared" type="info" variant="tonal" class="mb-4">
-      {{ lockedExplanation(currentSession?.status, 'The animals of the session') }}
+      {{ lockedReason(currentSession) }}
     </v-alert>
     <v-card outlined class="pa-6 mb-5">
       <v-card-title class="d-flex justify-space-between align-center mb-4">

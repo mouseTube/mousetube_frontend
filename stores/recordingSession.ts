@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
+import type { SessionRights } from '@/composables/useSessionLock';
 import { token } from '@/composables/useAuth';
 import type { SoftwareVersion } from '@/stores/software';
 import type { AnimalProfile } from '@/stores/animalProfile';
@@ -51,6 +52,8 @@ export interface RecordingSession {
   description?: string | null;
   date?: string | null;
   status: 'draft' | 'waiting validation' | 'shared' | 'published';
+  // what the user may do with it, decided by the API
+  rights?: SessionRights;
   duration?: number | null;
   laboratory?: Laboratory | null;
   animal_profiles: AnimalProfile[];

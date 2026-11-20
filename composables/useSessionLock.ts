@@ -1,16 +1,17 @@
-// A recording session that waits for a review or is shared is locked: what it is made of (the
-// session, its protocol, its animals) cannot be changed by its author. The API refuses it; the
-// forms say it and stay closed. A published session is not locked: editing it updates its record
-// in the repository, and files added to it make a new version.
-export const LOCKED_STATUSES = ['waiting validation', 'shared'];
+// Whether a session is locked for its author is decided by the API, never here: every session it
+// sends carries `rights` (can_edit, can_withdraw, ...) and, when it is locked, the reason.
+export interface SessionRights {
+  can_edit: boolean;
+  can_withdraw: boolean;
+  can_share: boolean;
+  can_delete: boolean;
+  locked_reason: string;
+}
 
-export const isLockedStatus = (status?: string | null) => LOCKED_STATUSES.includes(status ?? '');
+type WithRights = { rights?: Partial<SessionRights> | null } | null | undefined;
+
+/** The session cannot be changed by the user (a new session has no rights yet: it can). */
+export const isLocked = (session: WithRights) => session?.rights?.can_edit === false;
 
 /** Why it is locked and what to do, for the notice shown above a locked form. */
-export function lockedExplanation(status?: string | null, what = 'This part') {
-  if (status === 'waiting validation')
-    return `This recording session waits for an administrator's review. ${what} cannot be changed meanwhile: withdraw the session from the list of "My vocalizations" to edit it.`;
-  if (status === 'shared')
-    return `This recording session is shared: it is public, so ${what.toLowerCase()} cannot be changed. An administrator can.`;
-  return '';
-}
+export const lockedReason = (session: WithRights) => session?.rights?.locked_reason ?? '';

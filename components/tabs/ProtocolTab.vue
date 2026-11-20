@@ -56,7 +56,7 @@ const snackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('');
 const session = ref<RecordingSession | null>(null);
-const sessionLocked = computed(() => isLockedStatus(session.value?.status));
+const sessionLocked = computed(() => isLocked(session.value));
 
 const skipNextProtocolPropWatch = ref(false);
 const skipNextSessionStoreWatch = ref(false);
@@ -585,7 +585,7 @@ onMounted(async () => {
   <v-container>
     <!-- Protocol Selection -->
     <v-alert v-if="sessionLocked" type="info" variant="tonal" class="mb-4">
-      {{ lockedExplanation(session?.status, 'The protocol') }}
+      {{ lockedReason(session) }}
     </v-alert>
     <v-select
       v-model="selectedProtocolIdRef"
