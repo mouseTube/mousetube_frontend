@@ -29,6 +29,7 @@ interface AnimalProfile {
   sex: string;
   genotype: string;
   treatment: string;
+  diet?: string | null;
   created_at: string;
   modified_at: string;
   created_by: number | null;

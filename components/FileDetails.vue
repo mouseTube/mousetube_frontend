@@ -111,6 +111,7 @@ const hasAnything = computed(
               { label: 'Sex', value: subject.animal_profile?.sex },
               { label: 'Genotype', value: subject.animal_profile?.genotype },
               { label: 'Treatment', value: subject.animal_profile?.treatment },
+              { label: 'Diet', value: subject.animal_profile?.diet },
               { label: 'Origin', value: subject.origin },
               { label: 'Cohort', value: subject.cohort },
             ])"

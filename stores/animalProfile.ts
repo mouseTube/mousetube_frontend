@@ -20,10 +20,12 @@ export interface AnimalProfile {
   age: string | null;
   genotype: string;
   treatment: string;
+  diet?: string | null;
   status: string;
   sex_term?: Term | null;
   age_term?: Term | null;
   treatment_term?: Term | null;
+  diet_term?: Term | null;
 }
 
 export const useAnimalProfileStore = defineStore('animalProfile', {

@@ -41,8 +41,10 @@ const formData = ref<Partial<AnimalProfile>>({
   age: '',
   genotype: '',
   treatment: '',
+  diet: '',
   age_term: null,
   treatment_term: null,
+  diet_term: null,
   status: 'draft',
 });
 
@@ -84,8 +86,10 @@ function resetForm() {
     age: '',
     genotype: '',
     treatment: '',
+    diet: '',
     age_term: null,
     treatment_term: null,
+    diet_term: null,
     status: 'draft',
   };
 }
@@ -114,8 +118,10 @@ watch(
         age: profile.age ?? '',
         genotype: profile.genotype ?? '',
         treatment: profile.treatment ?? '',
+        diet: profile.diet ?? '',
         age_term: profile.age_term ?? null,
         treatment_term: profile.treatment_term ?? null,
+        diet_term: profile.diet_term ?? null,
         status: profile.status ?? 'draft',
       };
     } else {
@@ -166,6 +172,7 @@ async function handleSubmit() {
         age: formData.value.age ?? '',
         genotype: formData.value.genotype ?? '',
         treatment: formData.value.treatment ?? '',
+        diet: formData.value.diet ?? '',
         status: formData.value.status ?? 'draft',
         strain: formData.value.strain,
       });
@@ -295,6 +302,18 @@ function handleStrainCreated(newStrain: Strain) {
             field="treatment"
             label="Compound (ChEBI, optional)"
             hint="Link the treatment to its chemical entity so it can be found by other tools."
+            class="mb-2"
+          />
+          <!-- Diet -->
+          <v-text-field v-model="formData.diet" variant="outlined" class="mb-4 mt-2">
+            <template #label>Diet</template>
+          </v-text-field>
+          <OntologyField
+            v-if="formData.diet"
+            v-model="formData.diet_term"
+            field="diet"
+            label="Diet (EFO, optional)"
+            hint="Link the diet to its term of the Experimental Factor Ontology so it can be found by other tools."
             class="mb-2"
           />
           <p class="text-caption text-medium-emphasis mb-0">

@@ -228,7 +228,7 @@ onMounted(async () => {
   await loadUserPreferences();
 });
 
-// Ontology terms attached to a file: the animals (sex, stage, treatment) and the session
+// Ontology terms attached to a file: the animals (sex, stage, treatment, diet) and the session
 // (behaviors recorded), each linking to its definition.
 const termsOf = (file) => {
   const terms = [];
@@ -242,6 +242,7 @@ const termsOf = (file) => {
     add('Sex', profile?.sex_term);
     add('Stage', profile?.age_term);
     add('Treatment', profile?.treatment_term);
+    add('Diet', profile?.diet_term);
   }
   for (const profile of file.recording_session?.animal_profiles || []) {
     add('Species', profile.strain?.species?.ontology_term);
@@ -249,6 +250,7 @@ const termsOf = (file) => {
     add('Sex', profile.sex_term);
     add('Stage', profile.age_term);
     add('Treatment', profile.treatment_term);
+    add('Diet', profile.diet_term);
   }
   for (const term of file.recording_session?.behavior_terms || []) add('Behavior', term);
   return terms;

@@ -8,7 +8,7 @@ import { useAuth } from '@/composables/useAuth';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 
 const props = defineProps({
-  // which vocabulary: species, strain, sex, age, treatment, behavior, organization
+  // which vocabulary: species, strain, sex, age, treatment, diet, behavior, organization
   field: { type: String, required: true },
   modelValue: { type: [Object, Array], default: null }, // a term, or a list when `multiple`
   label: { type: String, required: true },
