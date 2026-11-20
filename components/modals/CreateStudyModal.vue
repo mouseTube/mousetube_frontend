@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import ReviewStatus from '@/components/ReviewStatus.vue';
 import { ref, watch } from 'vue';
 import { useStudyStore } from '@/stores/study';
 import type { Study } from '@/stores/study';
@@ -113,9 +112,7 @@ watch(
         <span class="form-icon" aria-hidden="true"><v-icon icon="mdi-flask-outline" /></span>
         <span>{{ formData.id ? 'Edit Study' : 'Create Study' }}</span>
       </v-card-title>
-      <div v-if="formData.id" class="px-6 pt-2">
-        <ReviewStatus endpoint="study" :id="formData.id" />
-      </div>
+      <p class="modal-note">Only you see your studies and can choose them.</p>
       <v-card-text>
         <!-- Study Name -->
         <v-text-field v-model="formData.name" variant="outlined" required class="mb-4">
