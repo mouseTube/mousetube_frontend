@@ -457,13 +457,25 @@ async function saveSession() {
       });
     } else {
       const wasPublished = formData.value.status === 'published';
-      await recordingSessionStore.updateSession(Number(selectedSessionId.value), formData.value);
-      showSnackbar(
-        wasPublished
-          ? 'Session updated. Its record in the repository is being updated.'
-          : 'Session updated successfully!',
-        'success'
+      const saved = await recordingSessionStore.updateSession(
+        Number(selectedSessionId.value),
+        formData.value
       );
+      if (saved?.pending_entries?.length && ['shared', 'published'].includes(saved.status)) {
+        // the session stays public, but what nobody validated is not shown to the others
+        const names = saved.pending_entries.map((e: { name: string }) => e.name).join(', ');
+        showSnackbar(
+          `Session updated. Not shown to the public until an administrator validates them: ${names}.`,
+          'warning'
+        );
+      } else {
+        showSnackbar(
+          wasPublished
+            ? 'Session updated. Its record in the repository is being updated.'
+            : 'Session updated successfully!',
+          'success'
+        );
+      }
 
       const updated = await recordingSessionStore.getSessionById(Number(selectedSessionId.value));
       if (updated) {

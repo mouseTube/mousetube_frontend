@@ -231,8 +231,12 @@ async function confirmDuplicate() {
 }
 
 // === Delete ===
+// the API says what the user may do with a session (only a draft is deleted)
+const canDelete = (session: RecordingSession) =>
+  session.rights ? session.rights.can_delete : session.status === 'draft';
+
 function openDeleteDialog(session: RecordingSession) {
-  if (session.status === 'shared') return;
+  if (!canDelete(session)) return;
   sessionToDelete = session;
   showDeleteDialog.value = true;
 }
@@ -379,11 +383,13 @@ onMounted(async () => {
                     size="small"
                     color="error"
                     variant="text"
-                    :class="{ 'disabled-btn': item.status === 'shared' }"
-                    @click.stop="item.status !== 'shared' && openDeleteDialog(item)"
+                    :class="{ 'disabled-btn': !canDelete(item) }"
+                    @click.stop="canDelete(item) && openDeleteDialog(item)"
                   />
                 </template>
-                <span v-if="item.status === 'shared'">Cannot delete shared session</span>
+                <span v-if="!canDelete(item)">
+                  Only a draft can be deleted: this session is {{ item.status }}
+                </span>
                 <span v-else>Delete</span>
               </v-tooltip>
             </div>
