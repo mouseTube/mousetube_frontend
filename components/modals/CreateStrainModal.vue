@@ -184,7 +184,8 @@ async function submit() {
 
   const payload = {
     name: formData.value.name,
-    background: formData.value.background,
+    // the background of a strain of the ontology is its label (the server does it too)
+    background: formData.value.background || formData.value.ontology_term?.label || '',
     bibliography: formData.value.bibliography,
     species_id: formData.value.species,
     ontology_term: formData.value.ontology_term,
@@ -288,22 +289,35 @@ onMounted(() => {
               </v-chip>
             </div>
 
-            <v-text-field
-              v-model="formData.background"
-              variant="outlined"
-              required
-              class="mb-4"
-              :rules="[(v) => !!v || 'Background is required']"
+            <!-- a strain of the ontology is what the ontology says: nothing more to write -->
+            <v-alert
+              v-if="formData.ontology_term"
+              type="info"
+              variant="tonal"
+              density="compact"
+              class="mb-2"
             >
-              <template #label>Genetic Background <span style="color: red">*</span></template>
-            </v-text-field>
+              Chosen in the ontology: the strain is validated at once, and the one that already has
+              this term is used if there is one.
+            </v-alert>
+            <template v-else>
+              <v-text-field
+                v-model="formData.background"
+                variant="outlined"
+                required
+                class="mb-4"
+                :rules="[(v) => !!v || 'Background is required']"
+              >
+                <template #label>Genetic Background <span style="color: red">*</span></template>
+              </v-text-field>
 
-            <v-textarea
-              v-model="formData.bibliography"
-              label="Bibliography"
-              variant="outlined"
-              class="mb-4"
-            />
+              <v-textarea
+                v-model="formData.bibliography"
+                label="Bibliography"
+                variant="outlined"
+                class="mb-4"
+              />
+            </template>
           </v-form>
         </template>
       </v-card-text>
