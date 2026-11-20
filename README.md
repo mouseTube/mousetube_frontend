@@ -8,7 +8,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 <p align="center">
-  <img src="https://mousetube.pasteur.fr/images/logo_mousetube_big.png" alt="Mousetube" width="50%">
+  <img src="public/logo_mousetube_big.png" alt="Mousetube" width="50%">
 </p>
 
 ## What is mouseTube?
@@ -19,9 +19,10 @@
 
 To run Mousetube Client locally, a working Mousetube API environment is required and the following tools have to be installed:
 
-- [yarn](https://yarnpkg.com/) (or [npm](https://www.npmjs.com/))
-- [nodejs](https://nodejs.org/)
+- [Node.js](https://nodejs.org/) **24 or later** (see `engines` in `package.json`) with npm
 - [Git](https://git-scm.com/)
+
+The lock file is `package-lock.json`, so use npm (yarn is not tested).
 
 ## Installation
 
@@ -34,42 +35,49 @@ Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduct
 Make sure to install dependencies:
 
 ```bash
-# npm
 npm install
-# or yarn
-yarn install
 ```
+
+Create a `.env` file (copy `.env.example`). The API must be reachable at `NUXT_PUBLIC_API_BASE_URL`.
 
 ### Development Server
 
-Start the development server on http://localhost:3000:
+Start the development server on http://localhost:3000 (with Docker, the container runs it only when `DEBUG=true` is set in its environment; the development compose file does it for you):
 
 ```bash
-# npm
 npm run dev
-
-# or yarn
-yarn dev
 ```
 
 ### Production
 
-1. Add a .env file in the mousetube_frontendv0-5 folder with the following content:
+1. Create a `.env` file:
 
    ```env
-   DEBUG=false #DEBUG muste be false in production mode, not mandatory for development mode
-   NUXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api #if not provided, the default value will be http://127.0.0.1:8000/api
+   DEBUG=false
+   NUXT_PUBLIC_API_BASE_URL=https://your-domain/api
    ```
 
-2. Build the application for production:
+   In Docker, `entrypoint.sh` starts the development server only when `DEBUG` is explicitly `true`: a missing `DEBUG` means production, `DEBUG=false` says it explicitly. If `NUXT_PUBLIC_API_BASE_URL` is missing, `http://127.0.0.1:8000/api` is used.
+
+2. Build, then start the server:
+
+   ```bash
+   npm ci
+   npm run build
+   npm start
+   ```
+
+   With Docker, `entrypoint.sh` does these steps unless `DEBUG=true`.
+
+### Quality checks
 
 ```bash
-# npm
-npm run build
-
-# or yarn
-yarn build
+npm run lint
 ```
+
+The version of the website is the `version` of `package.json`; the footer shows it with the one of the API, which it asks to `GET /api/version/` (the API reads it in its `pyproject.toml`). Change them with each release, nothing else is written by hand.
+
+The access token lasts one hour and is renewed automatically with the refresh token (`composables/tokenRefresh.ts`, attached to the global axios by `plugins/axios-refresh.client.ts` and to the hardware store's own client). The file form reads `GET /api/file/upload-limit/` and refuses a file the server could not hold before sending it.
 
 ## Check out mouseTube's publications:
 

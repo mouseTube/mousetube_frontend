@@ -1,5 +1,6 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import OrcidIcon from '@/components/OrcidIcon.vue';
+import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
@@ -13,9 +14,9 @@ const errorMessage = ref('');
 const successMessage = ref('');
 
 const orcid = route.query.orcid;
+const orcidProof = route.query.orcid_proof; // signed by the API after the ORCID login
 const firstName = route.query.first_name;
 const lastName = route.query.last_name;
-const userId = route.query.user_id;
 
 const confirmLink = async () => {
   loading.value = true;
@@ -25,7 +26,7 @@ const confirmLink = async () => {
   try {
     await axios.post(
       `${apiBaseUrl}/link-orcid/`,
-      { orcid, firstName, lastName },
+      { orcid_proof: orcidProof, firstName, lastName },
       { headers: { Authorization: `Bearer ${auth.token.value}` } }
     );
 
@@ -35,7 +36,11 @@ const confirmLink = async () => {
       router.push('/account/details');
     }, 1500);
   } catch (err) {
-    errorMessage.value = 'An error occurred while linking your ORCID.';
+    errorMessage.value =
+      err.response?.status === 400
+        ? 'The ORCID confirmation expired (30 minutes). Go back to your profile and click ' +
+          '"Link my Orcid account" again.'
+        : 'An error occurred while linking your ORCID.';
   } finally {
     loading.value = false;
   }
@@ -61,7 +66,7 @@ const cancelLink = () => {
       "
     >
       <v-card-title class="text-h6 font-weight-medium mb-4 d-flex align-center">
-        <v-icon color="green darken-2" size="28" class="mr-2">mdi-orcid</v-icon>
+        <v-icon color="green darken-2" size="28" class="mr-2" :icon="OrcidIcon" />
         Link your ORCID account
       </v-card-title>
 

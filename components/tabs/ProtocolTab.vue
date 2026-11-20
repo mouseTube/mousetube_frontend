@@ -49,13 +49,14 @@ const formData = ref({
     bedding: '',
     light_cycle: '',
   },
-  status: 'draft' as 'draft' | 'awaiting validation' | 'validated' | null,
+  status: 'draft' as 'draft' | 'waiting validation' | 'validated' | null,
 });
 
 const snackbar = ref(false);
 const snackbarMessage = ref('');
 const snackbarColor = ref('');
 const session = ref<RecordingSession | null>(null);
+const sessionLocked = computed(() => isLocked(session.value));
 
 const skipNextProtocolPropWatch = ref(false);
 const skipNextSessionStoreWatch = ref(false);
@@ -84,6 +85,25 @@ const selectItems = computed(() => {
 
 const isValidated = computed(() => formData.value.status === 'validated');
 
+// The protocol told by its fields, next to its name: sex, age, housing, number of animals,
+// duration, cage, bedding, light cycle (what is not specified is left out)
+const protocolLabels = computed(() => {
+  const p = selectedProtocolObject.value;
+  if (!p) return [];
+  const f = mapProtocolToFormData(p);
+  const animals = f.context.number_of_animals;
+  return [
+    f.animals.sex,
+    f.animals.age,
+    f.animals.housing,
+    animals ? `${animals} animal${String(animals) === '1' ? '' : 's'}` : '',
+    f.context.duration,
+    f.context.cage,
+    f.context.bedding,
+    f.context.light_cycle,
+  ].filter((v) => v && v !== 'unspecified');
+});
+
 const isSaveEnabled = computed(() => {
   const formChanged = snapshotFormData(formData.value) !== initialFormData.value;
   const protocolSelectedButNotLinked =
@@ -98,7 +118,7 @@ const canLinkValidatedProtocol = computed(() => {
   return (
     selectedProtocolObject.value !== null &&
     selectedProtocolObject.value.status === 'validated' &&
-    session.value?.status !== 'shared' &&
+    !sessionLocked.value &&
     session.value?.protocol?.id !== selectedProtocolObject.value.id
   );
 });
@@ -116,6 +136,18 @@ function showSnackbar(message: string, color: string) {
 
 function snapshotFormData(data: typeof formData.value) {
   return JSON.stringify(JSON.parse(JSON.stringify(data)));
+}
+
+// a protocol is linked to the session: Undo goes back to it, instead of emptying the form
+const hasSavedProtocol = computed(() => !!session.value?.protocol?.id);
+
+/* Put the form back as the linked protocol is saved: what was typed or chosen since is dropped. */
+async function undoChanges() {
+  const id = session.value?.protocol?.id;
+  if (!id) return;
+  await loadProtocol(id);
+  emit('protocol-dirty', { dirty: false });
+  showSnackbar('Changes undone.', 'info');
 }
 
 function resetForm() {
@@ -552,6 +584,9 @@ onMounted(async () => {
 <template>
   <v-container>
     <!-- Protocol Selection -->
+    <v-alert v-if="sessionLocked" type="info" variant="tonal" class="mb-4">
+      {{ lockedReason(session) }}
+    </v-alert>
     <v-select
       v-model="selectedProtocolIdRef"
       :items="selectItems"
@@ -561,10 +596,10 @@ onMounted(async () => {
       outlined
       dense
       :value-comparator="(a: any, b: any) => a === b"
-      @update:modelValue="handleProtocolSelection"
-      :disabled="isValidated && session?.status === 'shared'"
+      @update:model-value="handleProtocolSelection"
+      :disabled="sessionLocked"
     >
-      <template #selection="{ item, index }">
+      <template #selection>
         <span>
           {{
             selectedProtocolObject?.name ||
@@ -573,6 +608,11 @@ onMounted(async () => {
         </span>
       </template>
     </v-select>
+    <div v-if="protocolLabels.length" class="protocol-labels" aria-label="What this protocol says">
+      <v-chip v-for="label in protocolLabels" :key="label" size="small" label variant="tonal">
+        {{ label }}
+      </v-chip>
+    </div>
 
     <!-- Form Card -->
     <v-card class="pa-6" outlined>
@@ -583,7 +623,7 @@ onMounted(async () => {
             :color="
               formData.status === 'validated'
                 ? 'green'
-                : formData.status === 'awaiting validation'
+                : formData.status === 'waiting validation'
                   ? 'blue'
                   : 'grey'
             "
@@ -607,6 +647,18 @@ onMounted(async () => {
           </template>
           <template v-else>
             <v-btn
+              v-if="hasSavedProtocol"
+              color="grey"
+              variant="outlined"
+              prepend-icon="mdi-undo"
+              class="mr-2"
+              :disabled="!isSaveEnabled || sessionLocked"
+              @click="undoChanges"
+            >
+              Undo changes
+            </v-btn>
+            <v-btn
+              v-else
               color="grey"
               variant="outlined"
               @click="resetForm"
@@ -618,7 +670,7 @@ onMounted(async () => {
             <v-btn
               color="primary"
               @click="onSubmit"
-              :disabled="!isSaveEnabled || isValidated || isSaving"
+              :disabled="!isSaveEnabled || isValidated || isSaving || sessionLocked"
             >
               Save
             </v-btn>
@@ -756,6 +808,18 @@ onMounted(async () => {
           </template>
           <template v-else>
             <v-btn
+              v-if="hasSavedProtocol"
+              color="grey"
+              variant="outlined"
+              prepend-icon="mdi-undo"
+              class="mr-2"
+              :disabled="!isSaveEnabled || sessionLocked"
+              @click="undoChanges"
+            >
+              Undo changes
+            </v-btn>
+            <v-btn
+              v-else
               color="grey"
               variant="outlined"
               @click="resetForm"
@@ -796,3 +860,12 @@ onMounted(async () => {
     <ProtocolSelectModal v-model="showProtocolSelectModal" @select="onProtocolSelected" />
   </v-container>
 </template>
+
+<style scoped>
+.protocol-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -6px 0 16px;
+}
+</style>

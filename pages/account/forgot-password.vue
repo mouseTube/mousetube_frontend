@@ -16,7 +16,7 @@ const sendResetEmail = async () => {
       email: email.value,
     });
     emailSent.value = true;
-  } catch (error) {
+  } catch {
     errorMessage.value = 'An error occurred. Please check the email address.';
   } finally {
     loading.value = false;

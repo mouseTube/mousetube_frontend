@@ -14,14 +14,13 @@ Code under GPL v3.0 licence
 
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
-import debounce from 'lodash/debounce.js';
-import { Warehouse } from 'lucide-vue-next';
+import debounce from 'lodash-es/debounce';
+import { Warehouse } from '@lucide/vue';
 
 ////////////////////////////////
 // DATA
 ////////////////////////////////
 
-const loading = ref(true);
 const dataLoaded = ref(false);
 const search = ref('');
 const repositoriesList = ref([]);
@@ -30,8 +29,6 @@ const previous = ref(null);
 const count = ref(0);
 const currentPage = ref(1);
 const perPage = ref(10);
-const showFilters = ref(false);
-const filters = ref(['all']);
 const apiBaseUrl = useApiBaseUrl();
 
 const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
@@ -167,7 +164,7 @@ onMounted(() => fetchRepositories());
               <template v-slot:default="{ items }">
                 <v-container class="pa-2" fluid>
                   <v-card
-                    class="mt-5 border-sm"
+                    class="list-card border-sm"
                     v-bind="repository"
                     v-for="repository in items"
                     :key="repository.raw.name"

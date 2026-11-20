@@ -50,6 +50,18 @@ export const useSoftwareStore = defineStore('software', {
     loading: false,
     error: null as string | null,
   }),
+  getters: {
+    // the software of the account list: acquisition ones, counted once whatever their versions
+    acquisitionSoftwareCount: (state) =>
+      new Set(
+        state.softwareVersions
+          .filter(
+            (sv) =>
+              sv.software.type === 'acquisition' || sv.software.type === 'acquisition and analysis'
+          )
+          .map((sv) => sv.software.id)
+      ).size,
+  },
   actions: {
     getAuthHeaders() {
       return token.value ? { Authorization: `Bearer ${token.value}` } : {};

@@ -4,12 +4,18 @@ set -e
 
 echo "📦 Installing dependencies..."
 
-if [ "$(echo "$DEBUG" | tr '[:upper:]' '[:lower:]')" = "false" ]; then
-    echo "⚙️ Production mode detected (DEBUG=false)"
+# the development server only runs when DEBUG is explicitly true: an unset DEBUG means production
+case "$(echo "$DEBUG" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|on) DEV_MODE=true ;;
+    *) DEV_MODE=false ;;
+esac
+
+if [ "$DEV_MODE" = "false" ]; then
+    echo "⚙️ Production mode (DEBUG=$DEBUG)"
     export NODE_ENV=production
 
     echo "🔧 Installing production dependencies only..."
-    npm install --omit=dev
+    npm ci --omit=dev
 
     echo "🚀 Building Nuxt app for production..."
     npm run build

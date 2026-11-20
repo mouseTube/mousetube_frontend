@@ -12,7 +12,7 @@ Code under GPL v3.0 licence
 // IMPORT
 ////////////////////////////////
 
-import { Users } from 'lucide-vue-next';
+import { Users } from '@lucide/vue';
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -85,7 +85,7 @@ watch(
     <v-container fluid>
       <v-row>
         <v-col>
-          <v-card variant="flat" class="mx-auto" max-width="800">
+          <v-card variant="flat" class="mx-auto" max-width="1000">
             <!-- <v-img
               cover
               :width="500"
@@ -94,9 +94,11 @@ watch(
               class="mx-auto d-block"
               style="min-height: 249px"
             /> -->
-            <h1 class="ml-5 text-center mt-1"><Users /> Team and information</h1>
+            <div class="d-flex align-center mt-1 mb-4">
+              <h1><Users /> Team and information</h1>
+            </div>
 
-            <v-card-item>
+            <v-card-item class="px-0">
               <v-card class="mx-auto my-2 pt-2 pl-2 rounded-lg border elevation-3" variant="tonal">
                 <v-card-title class="font-weight-bold mx-4 my-4">
                   <v-icon class="me-2">mdi-account-group-outline</v-icon>
@@ -156,7 +158,7 @@ watch(
               </v-card>
             </v-card-item>
 
-            <v-card-item>
+            <v-card-item class="px-0">
               <v-card
                 id="contact"
                 class="mx-auto my-2 pt-1 pl-2 rounded-lg border elevation-3"
@@ -196,7 +198,7 @@ watch(
               </v-card>
             </v-card-item>
 
-            <v-card-item>
+            <v-card-item class="px-0">
               <v-card class="mx-auto my-2 pt-1 pl-2 rounded-lg border elevation-3" variant="tonal">
                 <v-card-title class="font-weight-bold mx-4 my-4">
                   <v-icon class="me-2">mdi-bookshelf</v-icon>
@@ -227,7 +229,7 @@ watch(
               </v-card>
             </v-card-item>
 
-            <v-card-item>
+            <v-card-item class="px-0">
               <v-card class="mx-auto my-2 pt-1 pl-2 rounded-lg border elevation-3" variant="tonal">
                 <v-card-title class="font-weight-bold mx-4 my-4">
                   <v-icon class="me-2">mdi-multimedia</v-icon>
@@ -259,7 +261,7 @@ watch(
               </v-card>
             </v-card-item>
 
-            <v-card-item>
+            <v-card-item class="px-0">
               <v-card class="mx-auto my-2 pt-1 pl-2 rounded-lg border elevation-3" variant="tonal">
                 <v-card-title class="font-weight-bold mx-4 my-4">
                   <v-icon class="me-2">mdi-handshake-outline</v-icon>
@@ -307,7 +309,7 @@ watch(
                 </v-card-text>
               </v-card>
             </v-card-item>
-            <v-card-item>
+            <v-card-item class="px-0">
               <v-card
                 id="privacy"
                 class="mx-auto my-2 pt-1 pl-2 rounded-lg border elevation-3"
@@ -388,7 +390,7 @@ watch(
                 </v-card-text>
               </v-card>
             </v-card-item>
-            <v-card-item>
+            <v-card-item class="px-0">
               <v-card
                 id="term"
                 class="mx-auto my-2 pt-1 pl-2 rounded-lg border elevation-3"
@@ -497,12 +499,14 @@ watch(
 
 <style scoped>
 a {
-  text-decoration: none;
-  color: #b71c1c;
+  color: #222;
+  text-decoration: underline;
+  text-decoration-color: #bbb;
+  text-underline-offset: 3px;
 }
 
 a:hover {
-  text-decoration: underline;
+  text-decoration-color: #c62828;
 }
 
 .max-v-list-height {

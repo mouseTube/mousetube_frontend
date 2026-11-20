@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { type File as StoreFile, useFileStore } from '~/stores/file';
+import axios from 'axios';
+import UsvOutputsField, { type Output } from '@/components/UsvOutputsField.vue';
+import { token } from '@/composables/useAuth';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 
 const props = defineProps<{
@@ -11,7 +14,7 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:modelValue', 'saved']);
 const fileStore = useFileStore();
-const { currentUser, fetchUser } = useAuth();
+const { fetchUser } = useAuth();
 const isAdmin = ref(false);
 
 interface FormDataType {
@@ -24,6 +27,7 @@ interface FormDataType {
   notes: string;
   size: number | null;
   doi: string;
+  deposit_images: boolean;
   spectrogram: globalThis.File | null;
   plot: globalThis.File | null;
   number: number | null;
@@ -42,6 +46,7 @@ const formData = ref<FormDataType>({
   notes: '',
   size: null,
   doi: '',
+  deposit_images: false,
   spectrogram: null,
   plot: null,
   number: null,
@@ -51,9 +56,17 @@ const formData = ref<FormDataType>({
 });
 
 const uploading = ref(false);
+
+// the tables of the detectors the author adds for an audio file
+const usvOutputs = ref<Output[]>([]);
+const isAudio = computed(() => {
+  const f = formData.value.file;
+  return !!f && (f.type.startsWith('audio/') || /\.(wav|flac|mp3|ogg|aiff?)$/i.test(f.name));
+});
+const uploadError = ref('');
 const isEditMode = computed(() => !!props.modelValue?.id);
 const isDoiOnly = computed(
-  () => !isEditMode.value && (!!formData.value.doi || !!formData.value.link)
+  () => !isEditMode.value && !formData.value.file && (!!formData.value.doi || !!formData.value.link)
 );
 
 const canSave = computed(() => {
@@ -84,6 +97,7 @@ const linkRules = [
 watch(
   () => props.modelValue,
   (file) => {
+    usvOutputs.value = []; // the tables added for a previous file are not this file's
     if (file) {
       formData.value = {
         name: file.name || '',
@@ -95,6 +109,7 @@ watch(
         notes: file.notes || '',
         size: file.size || null,
         doi: file.doi || '',
+        deposit_images: !!file.deposit_images,
         spectrogram: file.spectrogram || null,
         plot: file.plot || null,
         link: file.link || null,
@@ -113,6 +128,7 @@ watch(
         notes: '',
         size: null,
         doi: '',
+        deposit_images: false,
         spectrogram: null,
         plot: null,
         link: null,
@@ -126,14 +142,82 @@ watch(
 );
 
 // =====================================================
+// Size the server accepts right now (the free disk space minus a reserve, and a ceiling)
+// =====================================================
+const uploadLimit = ref<number | null>(null);
+
+function readableSize(bytes: number) {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  const mb = bytes / 1024 ** 2;
+  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+}
+
+function tooLargeMessage(size: number) {
+  return `This file weighs ${readableSize(size)}; the server accepts ${readableSize(uploadLimit.value ?? 0)} at most right now.`;
+}
+
+async function refreshUploadLimit() {
+  try {
+    const res = await axios.get(`${useApiBaseUrl()}/file/upload-limit/`, {
+      headers: token.value ? { Authorization: `Bearer ${token.value}` } : {},
+    });
+    uploadLimit.value = res.data.limit;
+  } catch {
+    uploadLimit.value = null; // unknown: the server still refuses what is too large
+  }
+}
+
+// the room changes with the disk: read it when the form opens, and again before sending
+watch(
+  () => props.modelValue,
+  (value, before) => {
+    if (value !== before && !isEditMode.value) refreshUploadLimit();
+  },
+  { immediate: true }
+);
+const fileSizeRule = (file: globalThis.File | globalThis.File[] | null) => {
+  const f = Array.isArray(file) ? file[0] : file;
+  return !f || uploadLimit.value === null || f.size <= uploadLimit.value || tooLargeMessage(f.size);
+};
+
+// the results of the detectors go to the file once it exists; a failure does not lose the file
+async function attachUsvOutputs(fileId: number) {
+  const failed: string[] = [];
+  for (const output of usvOutputs.value) {
+    const body = new FormData();
+    body.append('tool', output.tool);
+    body.append('file', output.file);
+    body.append('deposit', output.deposit ? 'true' : 'false');
+    try {
+      await axios.post(`${useApiBaseUrl()}/file/${fileId}/usv-detections/`, body, {
+        headers: token.value ? { Authorization: `Bearer ${token.value}` } : {},
+      });
+    } catch {
+      failed.push(output.label);
+    }
+  }
+  if (failed.length) {
+    // eslint-disable-next-line no-console
+    console.warn('Results not added:', failed.join(', '));
+  }
+  usvOutputs.value = [];
+}
+
+// =====================================================
 // Upload and creation (Only in creation)
 // =====================================================
 async function uploadFileAndCreate() {
   if (!formData.value.file) return;
+  uploadError.value = '';
+  await refreshUploadLimit();
+  if (uploadLimit.value !== null && formData.value.file.size > uploadLimit.value) {
+    uploadError.value = tooLargeMessage(formData.value.file.size);
+    return;
+  }
   uploading.value = true;
 
   try {
-    const { temp_path, task_id } = await fileStore.uploadFile(formData.value.file);
+    const { temp_path } = await fileStore.uploadFile(formData.value.file);
 
     const apiBaseUrl = useApiBaseUrl();
     const baseUrl = apiBaseUrl.replace(/\/api\/?$/, '');
@@ -159,7 +243,6 @@ async function uploadFileAndCreate() {
       formPayload.append('recording_session_id', String(props.recordingSessionId));
     if (props.repository?.id) formPayload.append('repository_id', String(props.repository.id));
     formPayload.append('link', publicUrl);
-    formPayload.append('celery_task_id', task_id);
 
     if (formData.value.spectrogram) {
       formPayload.append('spectrogram', formData.value.spectrogram as globalThis.File);
@@ -167,14 +250,22 @@ async function uploadFileAndCreate() {
     if (formData.value.plot) {
       formPayload.append('plot', formData.value.plot as globalThis.File);
     }
+    if (isAdmin.value) formPayload.append('deposit_images', String(formData.value.deposit_images));
 
     // const newFile = await fileStore.createFile(formPayload);
     const newFile = await fileStore.createFileMultipart(formPayload);
+    await attachUsvOutputs(newFile.id);
     emit('saved', newFile);
     emit('update:modelValue', null);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Erreur upload ou file creation:', err);
+    const e = err as {
+      response?: { data?: { error?: string; detail?: string } };
+      message?: string;
+    };
+    uploadError.value =
+      e.response?.data?.error || e.response?.data?.detail || e.message || 'The upload failed.';
   } finally {
     uploading.value = false;
   }
@@ -185,9 +276,10 @@ async function uploadFileAndCreate() {
 // =====================================================
 async function handleSubmit() {
   try {
-    const { file, uploadedUrl, doi, spectrogram, plot, ...rest } = formData.value;
+    const { file, uploadedUrl, doi, spectrogram, plot, deposit_images, ...rest } = formData.value;
     const payload = {
       ...rest,
+      ...(isAdmin.value ? { deposit_images } : {}), // only an administrator sets it
       doi: formData.value.doi,
       recording_session_id: props.recordingSessionId ?? null,
       repository_id: props.repository?.id ?? null,
@@ -214,11 +306,76 @@ function extractFileName(path: string | null) {
   return path.split('/').pop() || '';
 }
 
+const FORMATS = [
+  'WAV',
+  'MP3',
+  'FLAC',
+  'OGG',
+  'AIFF',
+  'AVI',
+  'MP4',
+  'MOV',
+  'MKV',
+  'CSV',
+  'TXT',
+  'XLSX',
+  'XLS',
+  'ZIP',
+  'JPEG',
+  'PNG',
+  'PDF',
+  'JSON',
+];
+const EXTENSIONS: Record<string, string> = { JPG: 'JPEG', AIF: 'AIFF' };
+
+// sampling rate, bit depth and duration are in the header of a WAV file
+async function readWavHeader(file: globalThis.File) {
+  const view = new DataView(await file.slice(0, 65536).arrayBuffer());
+  const tag = (at: number) =>
+    at + 4 <= view.byteLength ? String.fromCharCode(...new Uint8Array(view.buffer, at, 4)) : '';
+  if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return null;
+  let rate = 0;
+  let bits = 0;
+  let byteRate = 0;
+  for (let at = 12; at + 8 <= view.byteLength;) {
+    const id = tag(at);
+    let size = view.getUint32(at + 4, true);
+    if (id === 'fmt ' && at + 24 <= view.byteLength) {
+      rate = view.getUint32(at + 12, true);
+      byteRate = view.getUint32(at + 16, true);
+      bits = view.getUint16(at + 22, true);
+    } else if (id === 'data') {
+      // streamed files may leave the size empty
+      if (!size || size === 0xffffffff) size = file.size - at - 8;
+      return {
+        sampling_rate: rate || null,
+        bit_depth: [8, 16, 24, 32].includes(bits) ? bits : null,
+        duration: byteRate ? Math.round((size / byteRate) * 1000) / 1000 : null,
+      };
+    }
+    at += 8 + size + (size % 2);
+  }
+  return null;
+}
+
+// choosing the file fills what can be read from it; every field stays editable
 watch(
   () => formData.value.file,
-  (file) => {
-    if (file && !formData.value.name) {
-      formData.value.name = file.name;
+  async (file) => {
+    if (!file) return;
+    const form = formData.value;
+    if (!form.name) form.name = file.name;
+    form.size = file.size;
+    const ext = file.name.split('.').pop()?.toUpperCase() ?? '';
+    const format = EXTENSIONS[ext] ?? ext;
+    if (FORMATS.includes(format)) form.format = format;
+    if (format === 'WAV') {
+      try {
+        const header = await readWavHeader(file);
+        if (header && form.file === file) Object.assign(form, header);
+      } catch {
+        // unreadable header: the user fills the fields
+      }
     }
   }
 );
@@ -250,82 +407,107 @@ onMounted(async () => {
     </v-card-title>
 
     <v-card-text>
+      <!-- the file comes first: it fills most of the fields below -->
+      <template v-if="!isEditMode && !isDoiOnly">
+        <v-file-input
+          v-model="formData.file"
+          label="Select File"
+          prepend-icon="mdi-upload"
+          show-size
+          accept="audio/*, video/*,
+            image/jpeg, image/png,
+            text/csv, text/plain,
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/vnd.ms-excel,
+            application/zip, application/pdf, application/json"
+          variant="outlined"
+          :rules="[fileSizeRule]"
+          hint="Name, format, size and, for WAV files, sampling rate, bit depth and duration are filled from the file. No file to upload? Fill DOI and Download Link below instead."
+          persistent-hint
+          class="mb-5"
+        />
+      </template>
+
+      <UsvOutputsField v-if="isAudio && !isEditMode && !isDoiOnly" v-model="usvOutputs" />
+
       <h3 class="mb-3">File Metadata</h3>
 
-      <v-text-field v-model="formData.name" label="File Name *" outlined required class="mb-3" />
-
       <v-text-field
-        v-model="formData.date"
-        label="Recording Date"
-        type="date"
-        outlined
+        v-model="formData.name"
+        label="File Name *"
+        variant="outlined"
+        required
         class="mb-3"
       />
 
-      <v-text-field
-        v-model="formData.duration"
-        label="Duration (seconds)"
-        type="number"
-        outlined
-        class="mb-3"
-      />
+      <v-row dense>
+        <v-col cols="12" sm="6">
+          <v-select
+            v-model="formData.format"
+            :items="FORMATS"
+            label="File Format"
+            variant="outlined"
+            class="mb-0"
+          />
+        </v-col>
+        <v-col cols="12" sm="6">
+          <v-text-field
+            v-model="formData.size"
+            label="File Size (bytes)"
+            type="number"
+            variant="outlined"
+            class="mb-0"
+          />
+        </v-col>
+      </v-row>
 
-      <v-select
-        v-model="formData.format"
-        :items="[
-          'WAV',
-          'MP3',
-          'FLAC',
-          'OGG',
-          'AIFF',
-          'AVI',
-          'MP4',
-          'MOV',
-          'MKV',
-          'CSV',
-          'TXT',
-          'XLSX',
-          'XLS',
-          'ZIP',
-          'JPEG',
-          'PNG',
-          'PDF',
-          'JSON',
-        ]"
-        label="File Format"
-        outlined
-        class="mb-3"
-      />
+      <v-row dense>
+        <v-col cols="12" sm="6">
+          <v-text-field
+            v-model="formData.duration"
+            label="Duration (seconds)"
+            type="number"
+            variant="outlined"
+            class="mb-0"
+          />
+        </v-col>
+        <v-col cols="12" sm="6">
+          <v-text-field
+            v-model="formData.sampling_rate"
+            label="Sampling Rate (Hz)"
+            type="number"
+            variant="outlined"
+            class="mb-0"
+          />
+        </v-col>
+      </v-row>
 
-      <v-text-field
-        v-model="formData.sampling_rate"
-        label="Sampling Rate (Hz)"
-        type="number"
-        outlined
-        class="mb-3"
-      />
-
-      <v-select
-        v-model="formData.bit_depth"
-        :items="[8, 16, 24, 32]"
-        label="Bit Depth"
-        outlined
-        class="mb-3"
-      />
-
-      <v-text-field
-        v-model="formData.size"
-        label="File Size (bytes)"
-        type="number"
-        outlined
-        class="mb-3"
-      />
+      <v-row dense>
+        <v-col cols="12" sm="6">
+          <v-text-field
+            v-model="formData.date"
+            label="Recording Date"
+            type="date"
+            variant="outlined"
+            class="mb-0"
+          />
+        </v-col>
+        <v-col cols="12" sm="6">
+          <v-select
+            v-model="formData.bit_depth"
+            :items="[8, 16, 24, 32]"
+            label="Bit Depth"
+            variant="outlined"
+            class="mb-0"
+          />
+        </v-col>
+      </v-row>
 
       <!-- DOI -->
       <v-text-field
         v-model="formData.doi"
         label="DOI"
-        outlined
+        variant="outlined"
         class="mb-3"
         :readonly="isEditMode"
         :rules="doiRules"
@@ -353,7 +535,7 @@ onMounted(async () => {
             label="Spectrogram Image"
             prepend-icon="mdi-image"
             accept="image/*"
-            outlined
+            variant="outlined"
             class="mb-3"
           />
         </template>
@@ -374,18 +556,26 @@ onMounted(async () => {
             label="Data Plot File"
             prepend-icon="mdi-chart-line"
             accept="image/*"
-            outlined
+            variant="outlined"
             class="mb-3"
           />
         </template>
+
+        <v-checkbox
+          v-model="formData.deposit_images"
+          density="compact"
+          hide-details
+          color="primary"
+          label="Also send these images to Zenodo with the record (unticked: they stay on mouseTube)"
+        />
       </div>
 
       <!-- Link -->
 
       <v-text-field
         v-model="formData.link"
-        label="Donwload Link (required if DOI is set)"
-        outlined
+        label="Download Link (required if DOI is set)"
+        variant="outlined"
         class="mb-3"
         :disabled="isEditMode"
         :rules="linkRules"
@@ -396,11 +586,11 @@ onMounted(async () => {
         v-model="formData.number"
         label="File Number"
         type="number"
-        outlined
+        variant="outlined"
         class="mb-3"
       />
 
-      <v-textarea v-model="formData.notes" label="Notes" outlined class="mb-3" />
+      <v-textarea v-model="formData.notes" label="Notes" variant="outlined" class="mb-3" />
 
       <!-- DOI given -->
       <v-alert v-if="isDoiOnly" type="info" class="mb-4" border="start" variant="tonal">
@@ -410,48 +600,34 @@ onMounted(async () => {
         correctly filled.
       </v-alert>
 
-      <!-- upload file -->
-      <template v-else-if="!isEditMode">
-        <h3 class="mt-6 mb-3">Upload File</h3>
+      <v-alert v-if="uploadError" type="error" variant="tonal" class="mb-3">
+        {{ uploadError }}
+      </v-alert>
 
-        <v-file-input
-          v-model="formData.file"
-          label="Select File"
-          prepend-icon="mdi-upload"
-          show-size
-          accept="audio/*, video/*,
-            image/jpeg, image/png,
-            text/csv, text/plain,
-            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
-            application/vnd.ms-excel,
-            application/zip, application/pdf, application/json"
-          outlined
-          class="mb-3"
-        />
-
-        <v-btn
-          :disabled="!formData.file || uploading"
-          color="primary"
-          block
-          class="mb-3"
-          @click="uploadFileAndCreate"
-        >
-          {{ uploading ? 'Uploading...' : 'Upload & Create File' }}
-        </v-btn>
-
-        <v-progress-linear
-          v-if="uploading"
-          :model-value="fileStore.uploadProgress"
-          height="6"
-          color="primary"
-          class="mb-3"
-        />
-      </template>
+      <p v-if="uploading" class="text-caption mb-1">
+        Sending the file to the server… {{ fileStore.uploadProgress }} %. Keep this window open; the
+        transfer to the repository then continues in the background.
+      </p>
+      <v-progress-linear
+        v-if="uploading"
+        :model-value="fileStore.uploadProgress"
+        height="6"
+        color="primary"
+        class="mb-3"
+      />
     </v-card-text>
 
     <v-card-actions>
       <v-spacer />
-      <v-btn color="primary" :disabled="!canSave" @click="handleSubmit">
+      <v-btn
+        v-if="!isEditMode && formData.file"
+        color="primary"
+        :disabled="!formData.name || uploading"
+        @click="uploadFileAndCreate"
+      >
+        {{ uploading ? 'Uploading...' : 'Upload & Create File' }}
+      </v-btn>
+      <v-btn v-else color="primary" :disabled="!canSave" @click="handleSubmit">
         {{ isEditMode ? 'Save Metadata' : 'Save without Upload' }}
       </v-btn>
     </v-card-actions>

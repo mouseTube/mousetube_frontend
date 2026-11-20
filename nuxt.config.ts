@@ -1,4 +1,5 @@
 import vuetify from 'vite-plugin-vuetify';
+import pkg from './package.json';
 
 export default defineNuxtConfig({
   devtools: { enabled: true },
@@ -16,6 +17,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000/api',
+      appVersion: pkg.version, // shown in the footer: written once, in package.json
     },
   },
   modules: ['@pinia/nuxt'],

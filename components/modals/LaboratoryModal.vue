@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
-import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
-import { useAuth } from '@/composables/useAuth';
+import ReviewStatus from '@/components/ReviewStatus.vue';
+import OntologyField from '@/components/OntologyField.vue';
+import { ref, watch } from 'vue';
 import { useLaboratoryStore, type Laboratory } from '@/stores/laboratory';
 
 import countriesList from '@/data/countries';
@@ -27,6 +27,7 @@ const form = ref({
   unit: '',
   address: '',
   country: '', // ISO code
+  organization: null as { curie: string; label: string } | null, // ROR registry
 });
 
 const snackbar = ref(false);
@@ -51,6 +52,7 @@ async function loadLaboratory() {
         unit: lab.unit || '',
         address: lab.address || '',
         country: lab.country || '',
+        organization: (lab as any).organization ?? null,
       };
     }
   } catch (e) {
@@ -63,8 +65,8 @@ async function loadLaboratory() {
 }
 
 async function save() {
-  const { valid } = await formRef.value?.validate();
-  if (!valid) {
+  const result = await formRef.value?.validate();
+  if (!result?.valid) {
     showSnackbar('Please fill all required fields.', 'error');
     return;
   }
@@ -103,10 +105,19 @@ watch(
         unit: '',
         address: '',
         country: '',
+        organization: null,
       };
     }
   },
   { immediate: true }
+);
+
+// choosing the organization in the registry fills the institution when it is empty
+watch(
+  () => form.value.organization,
+  (organization) => {
+    if (organization && !form.value.institution) form.value.institution = organization.label;
+  }
 );
 
 watch(
@@ -126,21 +137,39 @@ watch(
     max-width="500"
   >
     <v-card>
-      <v-card-title>{{ props.editId ? 'Edit Laboratory' : 'Create Laboratory' }}</v-card-title>
+      <v-card-title class="form-title">
+        <span class="form-icon" aria-hidden="true"><v-icon icon="mdi-domain" /></span>
+        <span>{{ props.editId ? 'Edit Laboratory' : 'Create Laboratory' }}</span>
+      </v-card-title>
+      <div v-if="props.editId" class="px-6 pt-2">
+        <ReviewStatus endpoint="laboratory" :id="props.editId" />
+      </div>
+      <v-card-subtitle v-if="!props.editId" class="modal-note">
+        Until an administrator validates it, only you can see this entry.
+      </v-card-subtitle>
       <v-card-text>
-        <v-form ref="formRef" v-slot="{ validate }">
+        <v-form ref="formRef">
           <v-text-field
+            variant="outlined"
             v-model="form.name"
             label="Name *"
             required
             :rules="[(v) => !!v || 'Name is required']"
           />
-          <v-text-field v-model="form.institution" label="Institution" />
-          <v-text-field v-model="form.unit" label="Unit" />
-          <v-text-field v-model="form.address" label="Address" />
+          <OntologyField
+            v-model="form.organization"
+            field="organization"
+            label="Find your institution (ROR registry)"
+            hint="Optional: links the laboratory to its identifier in the Research Organization Registry."
+            class="mb-2"
+          />
+          <v-text-field v-model="form.institution" label="Institution" variant="outlined" />
+          <v-text-field v-model="form.unit" label="Unit" variant="outlined" />
+          <v-text-field v-model="form.address" label="Address" variant="outlined" />
 
           <!-- Country select -->
           <v-select
+            variant="outlined"
             v-model="form.country"
             :items="countriesList"
             label="Country *"
@@ -154,8 +183,10 @@ watch(
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="emit('update:modelValue', false)">Cancel</v-btn>
-        <v-btn color="primary" :loading="loading" @click="save">{{
+        <v-btn variant="text" color="grey-darken-1" @click="emit('update:modelValue', false)"
+          >Cancel</v-btn
+        >
+        <v-btn color="primary" variant="flat" :loading="loading" @click="save">{{
           props.editId ? 'Update' : 'Create'
         }}</v-btn>
       </v-card-actions>

@@ -231,8 +231,12 @@ async function confirmDuplicate() {
 }
 
 // === Delete ===
+// the API says what the user may do with a session (only a draft is deleted)
+const canDelete = (session: RecordingSession) =>
+  session.rights ? session.rights.can_delete : session.status === 'draft';
+
 function openDeleteDialog(session: RecordingSession) {
-  if (session.status === 'shared') return;
+  if (!canDelete(session)) return;
   sessionToDelete = session;
   showDeleteDialog.value = true;
 }
@@ -304,7 +308,7 @@ onMounted(async () => {
           item-key="id"
           hover
           hide-default-footer
-          :sort-by.sync="sortBy"
+          v-model:sort-by="sortBy"
           @update:sort-by="onSortUpdate"
           @click:row="
             (event: MouseEvent, { item }: { item: RecordingSession }) => selectSession(item)
@@ -358,9 +362,9 @@ onMounted(async () => {
           <template #item.actions="{ item }">
             <div class="d-flex gap-2">
               <v-tooltip top>
-                <template #activator="{ props }">
+                <template #activator="{ props: activatorProps }">
                   <v-btn
-                    v-bind="props"
+                    v-bind="activatorProps"
                     icon="mdi-content-copy"
                     size="small"
                     color="primary"
@@ -372,18 +376,20 @@ onMounted(async () => {
               </v-tooltip>
 
               <v-tooltip top>
-                <template #activator="{ props }">
+                <template #activator="{ props: activatorProps }">
                   <v-btn
-                    v-bind="props"
+                    v-bind="activatorProps"
                     icon="mdi-delete"
                     size="small"
                     color="error"
                     variant="text"
-                    :class="{ 'disabled-btn': item.status === 'shared' }"
-                    @click.stop="item.status !== 'shared' && openDeleteDialog(item)"
+                    :class="{ 'disabled-btn': !canDelete(item) }"
+                    @click.stop="canDelete(item) && openDeleteDialog(item)"
                   />
                 </template>
-                <span v-if="item.status === 'shared'">Cannot delete shared session</span>
+                <span v-if="!canDelete(item)">
+                  Only a draft can be deleted: this session is {{ item.status }}
+                </span>
                 <span v-else>Delete</span>
               </v-tooltip>
             </div>
@@ -401,7 +407,7 @@ onMounted(async () => {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="close">Close</v-btn>
+        <v-btn variant="text" @click="close">Close</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -413,7 +419,12 @@ onMounted(async () => {
 
       <v-card-text>
         <v-form>
-          <v-text-field v-model="duplicateForm.name" label="New Session Name" outlined required />
+          <v-text-field
+            v-model="duplicateForm.name"
+            label="New Session Name"
+            variant="outlined"
+            required
+          />
 
           <v-menu
             v-if="!duplicateForm.is_multiple"
@@ -422,8 +433,8 @@ onMounted(async () => {
             transition="scale-transition"
             offset-y
           >
-            <template #activator="{ props }">
-              <v-text-field v-model="formattedDate" readonly outlined class="mb-4">
+            <template #activator>
+              <v-text-field v-model="formattedDate" readonly variant="outlined" class="mb-4">
                 <template #label>Recording Date</template>
               </v-text-field>
             </template>
@@ -432,7 +443,7 @@ onMounted(async () => {
                 <v-col cols="6">
                   <v-date-picker
                     v-model="date"
-                    @update:modelValue="updateDate"
+                    @update:model-value="updateDate"
                     show-adjacent-months
                   />
                 </v-col>
@@ -451,7 +462,7 @@ onMounted(async () => {
 
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="showDuplicateDialog = false">Cancel</v-btn>
+        <v-btn variant="text" @click="showDuplicateDialog = false">Cancel</v-btn>
         <v-btn color="primary" @click="confirmDuplicate">Duplicate</v-btn>
       </v-card-actions>
     </v-card>
@@ -466,7 +477,7 @@ onMounted(async () => {
       </v-card-text>
       <v-card-actions>
         <v-spacer />
-        <v-btn text @click="showDeleteDialog = false">Cancel</v-btn>
+        <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
         <v-btn color="error" @click="confirmDelete">Delete</v-btn>
       </v-card-actions>
     </v-card>

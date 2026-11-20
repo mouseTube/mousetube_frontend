@@ -5,3 +5,8 @@ node_modules
 Dockerfile
 docker-compose.yml
 *.log
+.env
+.env.*
+!.env.example
+.output
+.npm

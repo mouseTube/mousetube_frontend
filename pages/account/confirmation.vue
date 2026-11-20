@@ -14,7 +14,7 @@ const activate = async () => {
     });
     alert('Account activated !');
     router.push('/account/login');
-  } catch (err) {
+  } catch {
     alert('Activation error.');
   }
 };

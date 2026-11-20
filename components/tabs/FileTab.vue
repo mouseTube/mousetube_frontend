@@ -30,6 +30,19 @@ const publishDone = ref(false);
 const publishError = ref<string | null>(null);
 const publishProgress = ref(0);
 const sessionStatus = ref<string | null>(null);
+const isPublished = computed(() => sessionStatus.value === 'published');
+// the versions of the record in the repository: each one has its own DOI
+const versions = ref<{ number: number; doi: string; url: string; published_at: string }[]>([]);
+const conceptDoi = ref('');
+// what an administrator still has to validate before the session can be shared
+const pendingEntries = ref<{ kind: string; id: number; name: string; status: string }[]>([]);
+const sharing = ref(false);
+// Publication after validation: the author asks for it when sharing, approves the preview while
+// the session waits, and it goes out by itself once an administrator validates the session.
+const autoPublish = ref(false);
+const showAutoModal = ref(false);
+const autoState = ref('');
+const autoMessage = ref('');
 
 // === SNACKBAR ===
 const snackbar = ref(false);
@@ -38,7 +51,8 @@ const snackbarColor = ref('');
 
 // === FILES ===
 const files = computed(() => fileStore.files);
-const canPublish = computed(() => files.value.some((file) => file.status === 'done'));
+// only the files mouseTube sent and nobody published yet (the others have their DOI already)
+const canPublish = computed(() => files.value.some((file) => file.status === 'done' && !file.doi));
 const currentPageNumber = ref(1);
 const showPublishModal = ref(false);
 const session = ref<RecordingSession | null>(null);
@@ -51,7 +65,105 @@ function getAuthHeaders() {
   return token.value ? { headers: { Authorization: `Bearer ${token.value}` } } : {};
 }
 
-// ---- PUBLISH SESSION ----
+// ---- SHARE THE SESSION (visible to everybody once what it uses is validated) ----
+async function loadSessionState() {
+  const id = props.selectedRecordingSessionId;
+  if (!id) return;
+  const res = await axios.get(`${apiBaseUrl}/recording-session/${id}/`, getAuthHeaders());
+  sessionStatus.value = res.data.status ?? null;
+  pendingEntries.value = res.data.pending_entries ?? [];
+  versions.value = res.data.publication_versions ?? [];
+  conceptDoi.value = res.data.concept_doi ?? '';
+  autoState.value = res.data.auto_publish_state ?? '';
+  autoMessage.value = res.data.auto_publish_message ?? '';
+}
+
+async function changeSharing(status: 'shared' | 'draft') {
+  const id = props.selectedRecordingSessionId;
+  if (!id) return;
+  sharing.value = true;
+  try {
+    const res = await axios.patch(
+      `${apiBaseUrl}/recording-session/${id}/`,
+      { status },
+      getAuthHeaders()
+    );
+    sessionStatus.value = res.data.status;
+    pendingEntries.value = res.data.pending_entries ?? [];
+    // the other tabs read the session from the store: the lock follows its new status
+    recordingSessionStore.sessions = recordingSessionStore.sessions.map((s) =>
+      s.id === id ? res.data : s
+    );
+    if (res.data.status === 'shared') {
+      showSnackbar('✅ Your session is shared: everybody can see it.', 'success');
+    } else if (res.data.status === 'waiting validation') {
+      showSnackbar(
+        'Your session uses new entries: an administrator will review them, then it is shared.',
+        'info'
+      );
+      // asked: the preview of the publication opens, to approve it
+      if (autoPublish.value && repositoryStore.selectedRepository) showAutoModal.value = true;
+    } else {
+      showSnackbar('Your session is a draft again.', 'info');
+    }
+  } catch (err: any) {
+    const data = err?.response?.data;
+    showSnackbar(
+      (typeof data === 'object' && (data.detail || data.status?.[0])) ||
+        'The change could not be saved.',
+      'error'
+    );
+  } finally {
+    sharing.value = false;
+  }
+}
+
+// ---- PUBLISH AFTER VALIDATION ----
+async function approveAutoPublish(payload: any) {
+  showAutoModal.value = false;
+  const id = props.selectedRecordingSessionId;
+  if (!id || !repositoryStore.selectedRepository) return;
+  try {
+    await axios.post(
+      `${apiBaseUrl}/recording-session/${id}/auto-publish/`,
+      { repository_id: repositoryStore.selectedRepository.id, payload },
+      getAuthHeaders()
+    );
+    await loadSessionState();
+    showSnackbar(
+      'It will be published as you approved it once an administrator validates it.',
+      'success'
+    );
+  } catch (err: any) {
+    const data = err?.response?.data;
+    showSnackbar(data?.detail || data?.error || 'The approval could not be saved.', 'error');
+  }
+}
+
+// the preview was closed without approving: no automatic publication
+function declineAutoPublish() {
+  showAutoModal.value = false;
+  autoPublish.value = false;
+  showSnackbar(
+    'Not approved: the session is not published automatically. You can publish it yourself once it is shared.',
+    'info'
+  );
+}
+
+async function cancelAutoPublish() {
+  const id = props.selectedRecordingSessionId;
+  if (!id) return;
+  try {
+    await axios.delete(`${apiBaseUrl}/recording-session/${id}/auto-publish/`, getAuthHeaders());
+    autoPublish.value = false;
+    await loadSessionState();
+    showSnackbar('Automatic publication cancelled.', 'info');
+  } catch {
+    showSnackbar('The approval could not be withdrawn.', 'error');
+  }
+}
+
+// ---- PUBLISH SESSION (deposit in a repository, with a DOI) ----
 async function publishSession(payload: any = null) {
   if (!props.selectedRecordingSessionId) return;
 
@@ -77,9 +189,11 @@ async function publishSession(payload: any = null) {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(err);
-    publishError.value = 'Failed to start sharing.';
+    const e = err as { response?: { data?: { detail?: string; error?: string } } };
+    publishError.value =
+      e.response?.data?.detail || e.response?.data?.error || 'Failed to start the deposit.';
     isPublishing.value = false;
-    showSnackbar('❌ Failed to start sharing.', 'error');
+    showSnackbar(`❌ ${publishError.value}`, 'error');
   }
 }
 
@@ -90,7 +204,8 @@ async function pollPublishTask() {
   const interval = setInterval(async () => {
     try {
       const res = await axios.get(
-        `${apiBaseUrl}/recording-session/get_task_status?task_id=${publishTaskId.value}`
+        `${apiBaseUrl}/recording-session/get_task_status?task_id=${publishTaskId.value}`,
+        getAuthHeaders()
       );
 
       const state = res.data.state;
@@ -100,21 +215,16 @@ async function pollPublishTask() {
         clearInterval(interval);
         publishProgress.value = 100;
         isPublishing.value = false;
-        publishDone.value = true;
-
         await fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId!);
 
-        await recordingSessionStore.updateSessionStatus(
-          props.selectedRecordingSessionId!,
-          'shared'
-        );
-        const updatedSession = await recordingSessionStore.getSessionById(
-          props.selectedRecordingSessionId!
-        );
-        sessionStatus.value = updatedSession?.status ?? null;
-        publishDone.value = sessionStatus.value === 'shared';
+        await loadSessionState();
 
-        showSnackbar('✅ Session shared successfully!', 'success');
+        showSnackbar(
+          isPublished.value && versions.value.length > 1
+            ? `✅ Version ${versions.value.length} published.`
+            : '✅ Session published in the repository.',
+          'success'
+        );
       } else if (state === 'FAILURE') {
         clearInterval(interval);
         isPublishing.value = false;
@@ -134,14 +244,42 @@ async function pollPublishTask() {
   }, 3000);
 }
 
+// ---- FILE LINE: format · size · date · duration ----
+function formatSize(bytes?: number | null) {
+  if (!bytes) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0;
+  let value = bytes;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i++;
+  }
+  return `${value >= 10 || i === 0 ? Math.round(value) : value.toFixed(1)} ${units[i]}`;
+}
+function fileMeta(file: any) {
+  return [
+    file.format,
+    formatSize(file.size),
+    file.duration ? `${file.duration} s` : '',
+    file.sampling_rate ? `${file.sampling_rate / 1000} kHz` : '',
+    file.date,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 // ---- FILES POLLING ----
 function pollFileStatus(fileId: number) {
   if (pollingIntervals.has(fileId)) return;
 
   const interval = setInterval(async () => {
     try {
-      const res = await axios.get(`${apiBaseUrl}/file/${fileId}/status/`);
-      fileStore.updateFileStatus(fileId, { status: res.data.status });
+      const res = await axios.get(`${apiBaseUrl}/file/${fileId}/status/`, getAuthHeaders());
+      fileStore.updateFileStatus(fileId, {
+        status: res.data.status,
+        progress: res.data.progress,
+        error_message: res.data.error_message,
+      });
 
       if (['done', 'error'].includes(res.data.status)) {
         clearInterval(interval);
@@ -197,9 +335,7 @@ watch(
     stopAllPolling();
 
     if (newId) {
-      const session = await recordingSessionStore.getSessionById(newId);
-      sessionStatus.value = session?.status ?? null;
-      publishDone.value = sessionStatus.value === 'shared';
+      await loadSessionState().catch(() => null);
       await fileStore.fetchFilesBySessionId(newId);
     } else {
       fileStore.files.splice(0, fileStore.files.length);
@@ -224,6 +360,14 @@ watch(
   { immediate: true }
 );
 
+// Zenodo when it exists, else the first repository: the same rule as the API
+function pickDefaultRepository(repositories: { id: number; name?: string }[]) {
+  return (
+    repositories.find((r) => r.name?.toLowerCase() === 'zenodo') ??
+    [...repositories].sort((a, b) => a.id - b.id)[0]
+  );
+}
+
 // ---- LIFECYCLE ----
 onMounted(async () => {
   // Load repositories in background (non-blocking)
@@ -232,7 +376,7 @@ onMounted(async () => {
       .fetchRepositories()
       .then(() => {
         if (!repositoryStore.selectedRepository) {
-          const defaultRepo = repositoryStore.repositories.find((r) => r.id === 1);
+          const defaultRepo = pickDefaultRepository(repositoryStore.repositories);
           if (defaultRepo) {
             repositoryStore.selectRepository(defaultRepo);
           }
@@ -242,7 +386,7 @@ onMounted(async () => {
         showSnackbar('⚠️ Could not load repositories.', 'warning');
       });
   } else if (!repositoryStore.selectedRepository) {
-    const defaultRepo = repositoryStore.repositories.find((r) => r.id === 1);
+    const defaultRepo = pickDefaultRepository(repositoryStore.repositories);
     if (defaultRepo) {
       repositoryStore.selectRepository(defaultRepo);
     }
@@ -250,9 +394,7 @@ onMounted(async () => {
 
   // Load files only if session is selected
   if (props.selectedRecordingSessionId) {
-    const session = await recordingSessionStore.getSessionById(props.selectedRecordingSessionId);
-    sessionStatus.value = session?.status ?? null;
-    publishDone.value = sessionStatus.value === 'shared';
+    await loadSessionState().catch(() => null);
     await fileStore.fetchFilesBySessionId(props.selectedRecordingSessionId);
     startPollingForActiveFiles();
   }
@@ -275,9 +417,6 @@ function openFileLink(link: string) {
   window.open(link, '_blank');
 }
 
-function openExternalUrl(url?: string | null) {
-  if (url) window.open(url, '_blank');
-}
 function fetchPage(page: number) {
   if (!props.selectedRecordingSessionId) return;
   currentPageNumber.value = page;
@@ -343,9 +482,9 @@ async function deleteFile() {
               <div class="text-subtitle-1 font-weight-medium">Repository selection</div>
 
               <v-menu>
-                <template #activator="{ props }">
+                <template #activator="{ props: activatorProps }">
                   <v-btn
-                    v-bind="props"
+                    v-bind="activatorProps"
                     variant="outlined"
                     color="primary"
                     class="text-none"
@@ -396,18 +535,163 @@ async function deleteFile() {
           </v-sheet>
         </div>
 
+        <!-- 🔹 Sharing of the session -->
+        <v-sheet class="share-panel w-100 mb-4" rounded="lg">
+          <div class="d-flex flex-wrap align-center justify-space-between ga-3">
+            <div class="d-flex align-center ga-2">
+              <strong>Visibility</strong>
+              <v-chip
+                size="small"
+                label
+                variant="tonal"
+                :color="
+                  sessionStatus === 'shared' || sessionStatus === 'published'
+                    ? 'success'
+                    : sessionStatus === 'waiting validation'
+                      ? 'warning'
+                      : 'grey'
+                "
+              >
+                {{
+                  sessionStatus === 'waiting validation'
+                    ? 'Waiting for validation'
+                    : sessionStatus === 'shared'
+                      ? 'Shared'
+                      : sessionStatus === 'published'
+                        ? 'Published'
+                        : 'Draft'
+                }}
+              </v-chip>
+            </div>
+            <div class="d-flex flex-wrap align-center justify-end ga-2 ml-auto">
+              <v-checkbox
+                v-if="
+                  sessionStatus === 'draft' &&
+                  pendingEntries.length &&
+                  repositoryStore.selectedRepository
+                "
+                v-model="autoPublish"
+                density="compact"
+                hide-details
+                label="Publish automatically once validated"
+                title="Used when an administrator has to review something in the session: you approve the preview of the publication first"
+              />
+              <v-btn
+                v-if="sessionStatus === 'waiting validation' && autoState === 'approved'"
+                variant="text"
+                @click="cancelAutoPublish"
+              >
+                Cancel automatic publication
+              </v-btn>
+              <v-btn
+                v-if="sessionStatus === 'draft'"
+                color="primary"
+                prepend-icon="mdi-share-variant-outline"
+                :loading="sharing"
+                :disabled="files.length === 0"
+                @click="changeSharing('shared')"
+              >
+                Share this session
+              </v-btn>
+              <v-btn
+                v-else-if="sessionStatus === 'waiting validation'"
+                variant="outlined"
+                :loading="sharing"
+                @click="changeSharing('draft')"
+              >
+                Withdraw
+              </v-btn>
+            </div>
+          </div>
+          <p class="text-body-2 text-medium-emphasis mb-0 mt-1">
+            <template v-if="sessionStatus === 'published'">
+              This session is public and deposited in a repository. You can still edit it: its
+              record follows. Files you add make a new version, with its own DOI.
+            </template>
+            <template v-else-if="sessionStatus === 'shared'">
+              This session is public. Publish it in a repository to get a DOI.
+            </template>
+            <template v-else-if="sessionStatus === 'waiting validation'">
+              An administrator reviews what is new in it, then it is shared. You cannot edit it
+              meanwhile; withdraw it to make changes.
+              <template v-if="autoState === 'approved'">
+                <strong>You approved the preview: it will be published automatically</strong>
+                once it is validated.
+              </template>
+            </template>
+            <template v-else>
+              Only you can see this session. Share it to make it, and its files, public.
+              <template v-if="pendingEntries.length">
+                It uses entries nobody validated yet (below): an administrator reviews them first.
+              </template>
+            </template>
+          </p>
+          <div v-if="versions.length" class="versions w-100">
+            <span class="versions-label">Versions of the record</span>
+            <v-chip
+              v-for="v in versions"
+              :key="v.number"
+              :href="`https://doi.org/${v.doi}`"
+              target="_blank"
+              rel="noopener"
+              size="small"
+              label
+              variant="tonal"
+              color="teal"
+            >
+              v{{ v.number }} · {{ v.doi }}
+            </v-chip>
+            <span v-if="conceptDoi" class="text-caption text-medium-emphasis">
+              All versions:
+              <a :href="`https://doi.org/${conceptDoi}`" target="_blank" rel="noopener">
+                {{ conceptDoi }}
+              </a>
+            </span>
+          </div>
+          <v-alert
+            v-if="autoState === 'stale' || autoState === 'failed'"
+            :type="autoState === 'failed' ? 'error' : 'warning'"
+            variant="tonal"
+            density="compact"
+            class="mt-3"
+          >
+            {{ autoMessage }}
+          </v-alert>
+          <p
+            v-if="['shared', 'published'].includes(sessionStatus ?? '') && pendingEntries.length"
+            class="text-body-2 mt-3 mb-0"
+          >
+            The session is public, but these entries are not shown to the public until an
+            administrator validates them (it can be published in a repository once they are):
+          </p>
+          <ul v-if="pendingEntries.length" class="share-pending text-body-2 mt-3">
+            <li v-for="entry in pendingEntries" :key="entry.kind + entry.id">
+              <span class="text-medium-emphasis">{{ entry.kind }}</span> {{ entry.name }}
+              <v-chip size="x-small" variant="tonal" label>{{ entry.status }}</v-chip>
+            </li>
+          </ul>
+        </v-sheet>
+
         <!-- 🔹 Title + Buttons -->
-        <div class="d-flex justify-space-between align-center w-100">
+        <div class="d-flex flex-wrap justify-space-between align-center ga-2 w-100">
           <h3 class="ma-0 pa-0">Files</h3>
 
-          <div class="d-flex align-center" style="gap: 1.5rem">
+          <div class="d-flex flex-wrap align-center" style="gap: 0.75rem 1.5rem">
             <!-- 🔹 Share Button -->
             <div class="d-flex flex-row justify-end align-center">
               <v-btn
-                :color="
-                  publishError ? 'red' : publishDone ? 'teal' : isPublishing ? 'warning' : 'success'
+                :color="publishError ? 'red' : isPublishing ? 'warning' : 'success'"
+                :disabled="
+                  !canPublish ||
+                  isPublishing ||
+                  pendingEntries.length > 0 ||
+                  !['shared', 'published'].includes(sessionStatus ?? '')
                 "
-                :disabled="!canPublish || isPublishing || publishDone"
+                :title="
+                  pendingEntries.length
+                    ? 'Available once an administrator validates the entries listed above'
+                    : ''
+                "
                 @click="showPublishModal = true"
                 style="min-width: 140px"
               >
@@ -417,15 +701,13 @@ async function deleteFile() {
                       ? 'mdi-alert-circle'
                       : isPublishing
                         ? 'mdi-progress-clock'
-                        : publishDone
-                          ? 'mdi-check'
-                          : 'mdi-upload'
+                        : 'mdi-upload'
                   }}
                 </v-icon>
                 <span v-if="publishError">Error</span>
-                <span v-else-if="isPublishing">Sharing...</span>
-                <span v-else-if="publishDone">Shared</span>
-                <span v-else>Share</span>
+                <span v-else-if="isPublishing">Publishing...</span>
+                <span v-else-if="isPublished">Publish a new version</span>
+                <span v-else>Publish in a repository</span>
               </v-btn>
             </div>
 
@@ -435,7 +717,7 @@ async function deleteFile() {
                 color="primary"
                 @click="createNewFile"
                 style="min-width: 120px"
-                :disabled="isPublishing || publishDone"
+                :disabled="isPublishing"
               >
                 <v-icon start>mdi-plus</v-icon>
                 Add File
@@ -445,118 +727,137 @@ async function deleteFile() {
         </div>
       </v-card-title>
 
-      <!-- === FILES TABLE === -->
-      <v-table v-if="files.length > 0">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Date</th>
-            <th>Format</th>
-            <th>Size</th>
-            <th>Actions</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="file in files" :key="file.id">
-            <td>{{ file.name }}</td>
-            <td>{{ file.date }}</td>
-            <td>{{ file.format }}</td>
-            <td>{{ file.size ? file.size.toLocaleString() : '-' }}</td>
-            <td class="d-inline-flex align-center gap-1">
-              <v-tooltip location="top">
-                <template #activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon
-                    size="small"
-                    color="primary"
-                    variant="text"
-                    :disabled="file.status !== 'done' || publishDone"
-                    @click.stop="editFile(file)"
-                  >
-                    <v-icon>mdi-pencil</v-icon>
-                  </v-btn>
-                </template>
-                <span>Edit file</span>
-              </v-tooltip>
-              <v-tooltip location="top">
-                <template #activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon
-                    size="small"
-                    color="primary"
-                    variant="text"
-                    :disabled="file.status !== 'done' || !publishDone"
-                    @click="openFileLink(file.link)"
-                  >
-                    <v-icon>mdi-download</v-icon>
-                  </v-btn>
-                </template>
-                <span>Download</span>
-              </v-tooltip>
-              <!-- Delete (only error) -->
-              <v-tooltip location="top">
-                <template #activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon
-                    size="small"
-                    color="primary"
-                    variant="text"
-                    :disabled="publishDone"
-                    @click="confirmDelete(file.id)"
-                  >
-                    <v-icon>mdi-delete</v-icon>
-                  </v-btn>
-                </template>
-                <span>Delete file</span>
-              </v-tooltip>
-            </td>
+      <!-- === PUBLISH PROGRESS AND ERROR === -->
+      <div v-if="isPublishing" class="px-4 pb-3">
+        <div class="text-caption mb-1">Publishing in the repository… {{ publishProgress }} %</div>
+        <v-progress-linear :model-value="publishProgress" color="primary" height="6" rounded />
+      </div>
+      <v-alert v-if="publishError" type="error" variant="tonal" class="mx-4 mb-3" closable>
+        {{ publishError }} You can try again with the button above.
+      </v-alert>
 
-            <td>
-              <v-chip v-if="file.status === 'pending'" color="grey" label small>
-                ⏳ Pending
-              </v-chip>
+      <!-- === FILES === -->
+      <ul v-if="files.length > 0" class="entry-list file-list">
+        <li v-for="file in files" :key="file.id" class="entry-row">
+          <div class="file-main">
+            <div class="entry-name">{{ file.name }}</div>
+            <div class="entry-meta">{{ fileMeta(file) }}</div>
 
-              <v-chip v-else-if="file.status === 'processing'" color="blue" label small>
-                🔄 Processing
-              </v-chip>
+            <div v-if="file.status === 'processing'" class="file-progress">
+              <v-progress-linear
+                :model-value="file.progress ?? 0"
+                :indeterminate="!file.progress"
+                color="primary"
+                height="6"
+                rounded
+              />
+              <span class="text-caption text-medium-emphasis">
+                Sending to {{ file.repository?.name ?? 'the repository' }}
+                <template v-if="file.progress">· {{ file.progress }} %</template>
+              </span>
+            </div>
+            <div v-else-if="file.status === 'error'" class="file-error">
+              {{
+                file.error_message || 'The file could not be sent. Delete it and upload it again.'
+              }}
+            </div>
+          </div>
 
-              <v-chip v-else-if="file.status === 'done' && !publishDone" color="green" label small>
-                ✅ Ready (unshared)
-              </v-chip>
+          <v-chip v-if="file.status === 'pending'" size="small" label variant="tonal">
+            <v-icon start size="16">mdi-clock-outline</v-icon>Pending
+          </v-chip>
+          <v-chip
+            v-else-if="file.status === 'processing'"
+            size="small"
+            label
+            variant="tonal"
+            color="primary"
+          >
+            <v-icon start size="16">mdi-cloud-upload-outline</v-icon>Sending
+          </v-chip>
+          <v-chip
+            v-else-if="file.status === 'done' && !file.doi"
+            size="small"
+            label
+            variant="tonal"
+            color="success"
+          >
+            <v-icon start size="16">mdi-check-circle-outline</v-icon
+            >{{ isPublished ? 'For the next version' : 'Ready' }}
+          </v-chip>
+          <v-chip
+            v-else-if="file.status === 'done' && !!file.doi"
+            size="small"
+            label
+            variant="tonal"
+            color="teal"
+            :href="file.external_url || undefined"
+            target="_blank"
+            rel="noopener"
+          >
+            <v-icon start size="16">mdi-earth</v-icon>Published
+            <v-icon v-if="file.external_url" end size="14">mdi-open-in-new</v-icon>
+          </v-chip>
+          <v-chip
+            v-else-if="file.status === 'error'"
+            size="small"
+            label
+            variant="tonal"
+            color="error"
+          >
+            <v-icon start size="16">mdi-alert-circle-outline</v-icon>Error
+          </v-chip>
 
-              <v-chip v-else-if="file.status === 'done' && publishDone" color="teal" label small>
-                <a
-                  :href="file.external_url || undefined"
-                  target="_blank"
-                  rel="noopener"
-                  class="ml-1 hover:opacity-80"
-                  style="text-decoration: none; color: inherit"
-                >
-                  🌍 Shared
-                </a>
-                <v-icon
-                  v-if="file.external_url"
-                  size="16"
-                  class="ml-1 cursor-pointer"
-                  @click.stop="openExternalUrl(file.external_url)"
-                >
-                  mdi-open-in-new
-                </v-icon>
-              </v-chip>
+          <div class="entry-actions">
+            <v-tooltip location="top">
+              <template #activator="{ props: activatorProps }">
+                <v-btn
+                  v-bind="activatorProps"
+                  icon="mdi-pencil-outline"
+                  size="small"
+                  variant="text"
+                  :disabled="file.status !== 'done'"
+                  @click.stop="editFile(file)"
+                />
+              </template>
+              <span>Edit file</span>
+            </v-tooltip>
+            <v-tooltip location="top">
+              <template #activator="{ props: activatorProps }">
+                <v-btn
+                  v-bind="activatorProps"
+                  icon="mdi-download-outline"
+                  size="small"
+                  variant="text"
+                  :disabled="file.status !== 'done' || !file.doi"
+                  @click="openFileLink(file.link)"
+                />
+              </template>
+              <span>Download</span>
+            </v-tooltip>
+            <v-tooltip location="top">
+              <template #activator="{ props: activatorProps }">
+                <v-btn
+                  v-bind="activatorProps"
+                  icon="mdi-delete-outline"
+                  size="small"
+                  variant="text"
+                  :disabled="!!file.doi"
+                  @click="confirmDelete(file.id)"
+                />
+              </template>
+              <span>{{
+                file.doi ? 'Part of a published version: it cannot be removed' : 'Delete file'
+              }}</span>
+            </v-tooltip>
+          </div>
+        </li>
+      </ul>
 
-              <v-chip v-else-if="file.status === 'error'" color="red" label small>
-                ❌ Error
-              </v-chip>
-            </td>
-          </tr>
-        </tbody>
-      </v-table>
-
-      <p v-else>No files found for this session.</p>
+      <p v-else class="file-empty">
+        No file yet. Add the recording files of this session: the metadata are filled in from the
+        file as far as possible.
+      </p>
 
       <v-pagination
         v-model="currentPageNumber"
@@ -573,7 +874,7 @@ async function deleteFile() {
         <FileForm
           v-if="showFileForm"
           v-model="editingFile"
-          :recordingSessionId="props.selectedRecordingSessionId"
+          :recording-session-id="props.selectedRecordingSessionId"
           :repository="repositoryStore.selectedRepository"
           @saved="handleSaved"
         />
@@ -585,22 +886,39 @@ async function deleteFile() {
           <v-card-title class="text-h6">Confirm deletion</v-card-title>
           <v-card-text>Are you sure you want to delete this file?</v-card-text>
           <v-card-actions class="justify-end">
-            <v-btn text @click="showDeleteDialog = false">Cancel</v-btn>
+            <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
             <v-btn color="red" text @click="deleteFile">Delete</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
 
       <!-- === SNACKBAR === -->
-      <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000" top right>
+      <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000" location="top" right>
         {{ snackbarMessage }}
       </v-snackbar>
       <RepositoryPublishModal
         v-if="
           props.selectedRecordingSessionId != null && repositoryStore.selectedRepository != null
         "
-        :recordingSessionId="props.selectedRecordingSessionId"
-        :recordingSessionName="session?.name || ''"
+        auto
+        :recording-session-id="props.selectedRecordingSessionId"
+        :recording-session-name="session?.name || ''"
+        :repository="{
+          id: repositoryStore.selectedRepository.id,
+          name: repositoryStore.selectedRepository.name,
+          logo_url: repositoryStore.selectedRepository.logo_url ?? undefined,
+        }"
+        :show="showAutoModal"
+        @close="declineAutoPublish"
+        @publish-confirmed="approveAutoPublish"
+      />
+      <RepositoryPublishModal
+        v-if="
+          props.selectedRecordingSessionId != null && repositoryStore.selectedRepository != null
+        "
+        :recording-session-id="props.selectedRecordingSessionId"
+        :new-version="isPublished"
+        :recording-session-name="session?.name || ''"
         :repository="{
           id: repositoryStore.selectedRepository.id,
           name: repositoryStore.selectedRepository.name,
@@ -608,7 +926,7 @@ async function deleteFile() {
         }"
         :show="showPublishModal"
         @close="showPublishModal = false"
-        @publishConfirmed="
+        @publish-confirmed="
           (payload: any) => {
             showPublishModal = false;
             publishSession(payload);
@@ -627,5 +945,48 @@ async function deleteFile() {
   margin-right: 0.75rem;
   display: inline-block;
   vertical-align: middle;
+}
+
+.share-panel {
+  white-space: normal; /* the tab inherits nowrap: the sentences must wrap, not be cut */
+  padding: 16px;
+  background: #f6f6f6;
+  border: 1px solid #e4e4e4;
+}
+.versions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.versions-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #666;
+}
+.share-pending {
+  margin: 12px 0 0;
+  padding-left: 18px;
+}
+
+/* the files: rows of the shared entry style (see the layout) */
+.file-list {
+  margin: 0 16px 16px;
+}
+.file-progress {
+  margin-top: 8px;
+  max-width: 420px;
+}
+.file-error {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: rgb(var(--v-theme-error));
+}
+.file-empty {
+  color: #666;
+  margin: 0 16px 16px;
 }
 </style>

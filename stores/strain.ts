@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
-import { type Species } from '~/stores/species';
+import type { Species } from '~/stores/species';
 
 export interface Strain {
   id: number;
@@ -10,6 +10,7 @@ export interface Strain {
   background?: string | null;
   species?: Species | null;
   bibliography?: string | null;
+  ontology_term?: { curie: string; label: string; iri?: string } | null;
   status?: string | null;
   created_by?: number | null;
   created_at?: string | null;

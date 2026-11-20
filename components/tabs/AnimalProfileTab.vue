@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import { type AnimalProfile } from '@/stores/animalProfile';
+import type { AnimalProfile } from '@/stores/animalProfile';
 import { useRecordingSessionStore } from '@/stores/recordingSession';
 import AnimalProfileSelectionModal from '@/components/modals/AnimalProfileSelectionModal.vue';
-import { cloneDeep } from 'lodash';
+import AnimalProfileFacts from '@/components/AnimalProfileFacts.vue';
+import { cloneDeep } from 'lodash-es';
 
 // ----------------------
 // Props & Emits
@@ -41,7 +42,7 @@ const isDirty = computed(() => {
 });
 
 const currentSession = ref<any>(null);
-const isShared = computed(() => currentSession.value?.status === 'shared');
+const isShared = computed(() => isLocked(currentSession.value)); // locked while an administrator reviews it
 
 // ----------------------
 // Functions
@@ -62,6 +63,16 @@ async function loadAnimalProfilesFromSession(sessionId: number) {
     emit('animal-selected', { animalProfileId: null });
     emit('animal-saved', { saved: false });
   }
+}
+
+/* Put the list back as it is saved for the session: what was added or removed since is dropped. */
+async function undoChanges() {
+  if (props.selectedRecordingSessionId === null) return;
+  await loadAnimalProfilesFromSession(props.selectedRecordingSessionId);
+  emit('animal-dirty', { dirty: false });
+  snackbarText.value = 'Changes undone.';
+  snackbarColor.value = 'info';
+  snackbar.value = true;
 }
 
 function removeAnimalProfile(id: number) {
@@ -105,7 +116,7 @@ async function updateAnimalProfiles() {
     if (selectedAnimalProfiles.value.length > 0) {
       emit('animal-selected', { animalProfileId: selectedAnimalProfiles.value[0].id });
     }
-  } catch (err) {
+  } catch {
     snackbarText.value = 'Failed to update animal profiles.';
     snackbarColor.value = 'error';
     snackbar.value = true;
@@ -159,27 +170,49 @@ watch(
 
 <template>
   <v-container>
+    <v-alert v-if="isShared" type="info" variant="tonal" class="mb-4">
+      {{ lockedReason(currentSession) }}
+    </v-alert>
     <v-card outlined class="pa-6 mb-5">
       <v-card-title class="d-flex justify-space-between align-center mb-4">
         <h3>Animal Profiles</h3>
-        <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isShared || !isDirty">
-          Save
-        </v-btn>
+        <div>
+          <v-btn
+            color="grey"
+            variant="outlined"
+            prepend-icon="mdi-undo"
+            class="mr-2"
+            :disabled="isShared || !isDirty"
+            @click="undoChanges"
+          >
+            Undo changes
+          </v-btn>
+          <v-btn color="primary" @click="updateAnimalProfiles" :disabled="isShared || !isDirty">
+            Save
+          </v-btn>
+        </div>
       </v-card-title>
 
       <v-card-text>
+        <div v-if="selectedAnimalProfiles.length" class="selected-profiles">
+          <div v-for="profile in selectedAnimalProfiles" :key="profile.id" class="selected-profile">
+            <div class="selected-profile-head">
+              <strong class="selected-profile-name">{{ profile.name }}</strong>
+              <v-btn
+                v-if="!isShared"
+                icon="mdi-close"
+                size="x-small"
+                variant="text"
+                color="grey-darken-1"
+                :aria-label="`Remove ${profile.name}`"
+                @click="removeAnimalProfile(profile.id)"
+              />
+            </div>
+            <AnimalProfileFacts :profile="profile" />
+          </div>
+        </div>
+        <p v-else class="text-body-2 text-medium-emphasis mb-2">No animal profile chosen yet.</p>
         <div class="chip-list d-flex flex-wrap align-center">
-          <v-chip
-            v-for="profile in selectedAnimalProfiles"
-            :key="profile.id"
-            variant="outlined"
-            class="ma-1"
-            :closable="!isShared"
-            @click:close="removeAnimalProfile(profile.id)"
-          >
-            {{ profile.name }}
-          </v-chip>
-
           <v-chip
             v-if="selectedAnimalProfiles.length > 0"
             color="primary"
@@ -222,8 +255,8 @@ watch(
 
     <AnimalProfileSelectionModal
       v-model="showSelectionModal"
-      :selectedAnimalProfiles="selectedAnimalProfiles"
-      @update:selectedAnimalProfiles="onUpdateSelectedAnimalProfiles"
+      :selected-animal-profiles="selectedAnimalProfiles"
+      @update:selected-animal-profiles="onUpdateSelectedAnimalProfiles"
     />
 
     <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000" location="top right">
@@ -236,3 +269,29 @@ watch(
     </v-snackbar>
   </v-container>
 </template>
+
+<style scoped>
+.selected-profiles {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.selected-profile {
+  padding: 10px 14px 12px;
+  border: 1px solid #e4e4e4;
+  border-left: 4px solid rgb(var(--v-theme-primary));
+  border-radius: 12px;
+  background: #fff;
+}
+.selected-profile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.selected-profile-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+</style>

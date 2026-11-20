@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, markRaw, defineAsyncComponent } from 'vue';
-import { AudioLines } from 'lucide-vue-next';
+import { AudioLines } from '@lucide/vue';
+
+import { useRoute, useRouter } from 'vue-router';
+import { useFileStore } from '@/stores/file';
 
 // Lazy load components for better initial performance
 const RecordingSessionTab = defineAsyncComponent(
@@ -12,9 +15,12 @@ const AnimalProfileTab = defineAsyncComponent(
 );
 const FileTab = defineAsyncComponent(() => import('@/components/tabs/FileTab.vue'));
 
-import { useFileStore } from '@/stores/file';
-
 // === STATE ===
+const route = useRoute();
+const router = useRouter();
+// The address remembers where you are: ?session=<id>&step=protocol|animal|file, so a reload (or
+// "My vocalizations") comes back to the same session and the same step.
+const initialSessionId = Number(route.query.session) || undefined;
 const tab = ref(0);
 const selectedRecordingSessionId = ref<number | null>(null);
 const selectedProtocolId = ref<number | null>(null);
@@ -90,6 +96,45 @@ watch(
   { immediate: true }
 );
 
+// the step of the address, for each tab (the first one has none)
+const STEP_OF_TAB: Record<string, string> = {
+  protocol: 'protocol',
+  animalProfile: 'animal',
+  file: 'file',
+};
+const wantedStep = Object.keys(STEP_OF_TAB).find((k) => STEP_OF_TAB[k] === route.query.step);
+let stepRestored = !wantedStep; // until the session is loaded, the address must not be overwritten
+
+// once the opened session is loaded and the wanted step is open, go to it
+watch(
+  () => tabs.find((t) => t.name === wantedStep)?.disabled,
+  (disabled) => {
+    if (disabled === false && !stepRestored) {
+      stepRestored = true;
+      const index = tabs.findIndex((t) => t.name === wantedStep);
+      if (index !== -1) tab.value = index;
+    }
+  }
+);
+
+function rememberInAddress(change: Record<string, string | undefined>) {
+  const query = { ...route.query, ...change };
+  // an undefined value removes the key from the address
+  router.replace({
+    query: Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined)),
+  });
+}
+
+// the session being worked on, and the current step, are kept in the address
+watch(selectedRecordingSessionId, (id, before) => {
+  if (id) rememberInAddress({ session: String(id) });
+  else if (before) rememberInAddress({ session: undefined, step: undefined });
+});
+watch(tab, (index) => {
+  if (!stepRestored) return;
+  rememberInAddress({ step: STEP_OF_TAB[tabs[index]?.name ?? ''] });
+});
+
 // === VALIDATION HANDLER ===
 function onValidate(tabName: string, validation: { hasErrors: boolean; message: string }) {
   const tabToUpdate = tabs.find((t) => t.name === tabName);
@@ -151,9 +196,20 @@ function onProtocolSaved(payload: { saved: boolean }) {
 function onAnimalDirty(payload: { dirty: boolean }) {
   setTabUnsaved('animalProfile', !!payload.dirty);
 }
+// called only once the profiles are saved (a fresh tab must not look unsaved)
 function onAnimalSavedFlag(payload: { saved: boolean }) {
   setTabUnsaved('animalProfile', !payload.saved);
 }
+
+// === STEPS ===
+// A step is "done" once what it produces exists: used by the numbered header.
+function stepDone(name: string) {
+  if (name === 'recordingSession') return !!selectedRecordingSessionId.value;
+  if (name === 'protocol') return !!selectedProtocolId.value;
+  if (name === 'animalProfile') return animalProfileSaved.value;
+  return filesCount.value > 0;
+}
+const doneCount = computed(() => tabs.filter((t) => stepDone(t.name)).length);
 
 // === TOOLTIP MESSAGES ===
 function getTooltipMessage(tabName: string) {
@@ -186,116 +242,207 @@ function goToFileTab() {
 </script>
 
 <template>
-  <v-container fluid>
-    <v-card variant="flat" class="mx-auto mt-16 mb-4" max-width="1000">
-      <div class="d-flex align-center mt-1 mb-4">
-        <h1><AudioLines class="mr-2" /> New Vocalization Entry</h1>
-      </div>
+  <v-main class="w-100">
+    <v-container fluid>
+      <v-card variant="flat" class="mx-auto" max-width="1000">
+        <div class="eyebrow">
+          <span class="title-bar" aria-hidden="true"></span>
+          <span class="text-overline">New recording</span>
+        </div>
+        <h1 class="d-flex align-center"><AudioLines class="mr-2" /> Add a vocalization</h1>
+        <p class="create-lead">
+          Describe how the recording was made, then add its files. Each step unlocks the next one,
+          and you can come back to any step you have already saved.
+        </p>
 
-      <v-card-text>
-        <p>Fill in the details for the new vocalization.</p>
-      </v-card-text>
+        <!-- STEPS -->
+        <div class="d-flex align-center justify-space-between flex-wrap ga-2 mb-2">
+          <span class="text-caption text-medium-emphasis" aria-live="polite">
+            {{ doneCount }} of {{ tabs.length }} steps done
+          </span>
+        </div>
+        <v-tabs
+          v-model="tab"
+          class="steps w-100 overflow-x-auto"
+          color="primary"
+          hide-slider
+          show-arrows
+        >
+          <v-tooltip
+            v-for="(item, index) in tabs"
+            :key="item.name"
+            :text="getTooltipMessage(item.name)"
+            :disabled="!item.disabled"
+            location="bottom"
+          >
+            <template #activator="{ props: tipProps }">
+              <div v-bind="tipProps" class="step-wrap">
+                <v-tab :value="index" :disabled="item.disabled" class="step">
+                  <span class="step-badge" :class="{ done: stepDone(item.name) }">
+                    <v-icon v-if="stepDone(item.name)" size="16">mdi-check</v-icon>
+                    <v-icon v-else-if="item.disabled" size="14">mdi-lock-outline</v-icon>
+                    <template v-else>{{ index + 1 }}</template>
+                  </span>
+                  <span class="step-label">{{ item.label }}</span>
+                  <v-chip
+                    v-if="item.name === 'file' && !item.disabled && filesCount > 0"
+                    size="x-small"
+                    class="ms-2"
+                    color="primary"
+                    variant="tonal"
+                  >
+                    {{ filesCount }}
+                  </v-chip>
+                  <v-icon
+                    v-if="item.unsaved"
+                    color="warning"
+                    size="small"
+                    class="ms-1"
+                    title="Unsaved changes"
+                  >
+                    mdi-content-save-alert-outline
+                  </v-icon>
+                  <v-icon
+                    v-if="item.hasErrors"
+                    color="error"
+                    size="small"
+                    class="ms-1"
+                    :title="item.errorMessage || 'To complete'"
+                  >
+                    mdi-alert-circle-outline
+                  </v-icon>
+                </v-tab>
+              </div>
+            </template>
+          </v-tooltip>
+        </v-tabs>
 
-      <!-- TABS -->
-      <v-tabs v-model="tab" background-color="black" dark class="w-100 overflow-x-auto">
-        <v-hover v-for="item in tabs" :key="item.name" v-slot="{ isHovering, props }">
-          <div class="position-relative">
-            <v-tab v-bind="props" :disabled="item.disabled" class="d-flex align-center">
-              {{ item.label }}
-
-              <v-icon
-                v-if="item.disabled && item.name !== 'recordingSession'"
-                color="grey"
-                size="small"
-                class="ms-1"
-              >
-                mdi-lock
-              </v-icon>
-
-              <v-chip
-                v-if="item.name === 'file' && !item.disabled && filesCount > 0"
-                small
-                class="ms-2"
-                color="primary"
-                text-color="white"
-              >
-                {{ filesCount }}
-              </v-chip>
-
-              <v-icon v-if="item.unsaved" color="primary" size="small" class="ms-1">
-                mdi-content-save-outline
-              </v-icon>
-              <v-icon v-if="item.hasErrors" color="primary" class="ms-2">
-                mdi-alert-circle-outline
-              </v-icon>
-            </v-tab>
-
-            <v-menu
-              v-if="item.disabled && item.name !== 'recordingSession'"
-              :open="isHovering"
-              activator="parent"
-              location="bottom"
-              max-width="250"
-            >
-              <v-card class="pa-2 text-body-2">{{ getTooltipMessage(item.name) }}</v-card>
-            </v-menu>
-          </div>
-        </v-hover>
-      </v-tabs>
-
-      <!-- TAB CONTENT -->
-      <v-window v-model="tab">
-        <v-window-item v-for="(item, index) in tabs" :key="item.name" :value="index">
-          <component
-            :is="item.component"
-            @validate="onValidate(item.name, $event)"
-            @session-selected="onSessionSelected"
-            @animal-selected="onAnimalSelected"
-            @animal-saved="onAnimalSaved($event.saved)"
-            @update:selectedProtocolId="selectedProtocolId = $event"
-            @session-dirty="onSessionDirty($event)"
-            @session-saved="onSessionSaved($event)"
-            @protocol-dirty="onProtocolDirty($event)"
-            @protocol-saved="onProtocolSaved($event)"
-            @animal-dirty="onAnimalDirty($event)"
-            v-bind="{
-              ...(item.name === 'recordingSession'
-                ? {
-                    selectedRecordingSessionId: selectedRecordingSessionId,
-                    onGoToProtocol: goToProtocolTab,
+        <!-- TAB CONTENT -->
+        <v-card variant="outlined" rounded="xl" class="step-card mt-4">
+          <v-window v-model="tab">
+            <v-window-item v-for="(item, index) in tabs" :key="item.name" :value="index">
+              <component
+                :is="item.component"
+                @validate="onValidate(item.name, $event)"
+                @session-selected="onSessionSelected"
+                @animal-selected="onAnimalSelected"
+                @animal-saved="
+                  (e: { saved: boolean }) => {
+                    onAnimalSaved(e.saved);
+                    if (e.saved) onAnimalSavedFlag(e);
                   }
-                : {}),
-              ...(item.name === 'protocol'
-                ? {
-                    selectedProtocolId: safeSelectedProtocolId,
-                    selectedRecordingSessionId: safeSelectedRecordingSessionId,
-                    onGoToAnimalProfile: goToAnimalProfileTab,
-                  }
-                : {}),
-              ...(item.name === 'animalProfile'
-                ? {
-                    selectedProtocolId: safeSelectedProtocolId,
-                    selectedRecordingSessionId: safeSelectedRecordingSessionId,
-                    onGoToFile: goToFileTab,
-                  }
-                : {}),
-              ...(item.name === 'file'
-                ? {
-                    selectedProtocolId: safeSelectedProtocolId,
-                    selectedRecordingSessionId: safeSelectedRecordingSessionId,
-                    selectedAnimalProfileId: safeSelectedAnimalProfileId,
-                  }
-                : {}),
-            }"
-          />
-        </v-window-item>
-      </v-window>
-    </v-card>
-  </v-container>
+                "
+                @update:selected-protocol-id="selectedProtocolId = $event"
+                @session-dirty="onSessionDirty($event)"
+                @session-saved="onSessionSaved($event)"
+                @protocol-dirty="onProtocolDirty($event)"
+                @protocol-saved="onProtocolSaved($event)"
+                @animal-dirty="onAnimalDirty($event)"
+                v-bind="{
+                  ...(item.name === 'recordingSession'
+                    ? {
+                        selectedRecordingSessionId: selectedRecordingSessionId,
+                        onGoToProtocol: goToProtocolTab,
+                        initialSessionId,
+                      }
+                    : {}),
+                  ...(item.name === 'protocol'
+                    ? {
+                        selectedProtocolId: safeSelectedProtocolId,
+                        selectedRecordingSessionId: safeSelectedRecordingSessionId,
+                        onGoToAnimalProfile: goToAnimalProfileTab,
+                      }
+                    : {}),
+                  ...(item.name === 'animalProfile'
+                    ? {
+                        selectedProtocolId: safeSelectedProtocolId,
+                        selectedRecordingSessionId: safeSelectedRecordingSessionId,
+                        onGoToFile: goToFileTab,
+                      }
+                    : {}),
+                  ...(item.name === 'file'
+                    ? {
+                        selectedProtocolId: safeSelectedProtocolId,
+                        selectedRecordingSessionId: safeSelectedRecordingSessionId,
+                        selectedAnimalProfileId: safeSelectedAnimalProfileId,
+                      }
+                    : {}),
+                }"
+              />
+            </v-window-item>
+          </v-window>
+        </v-card>
+      </v-card>
+    </v-container>
+  </v-main>
 </template>
 
 <style scoped>
 :deep(.v-row) {
   margin: 0 !important;
+}
+
+.create-lead {
+  max-width: 46rem;
+  margin: 4px 0 20px;
+  color: #555;
+  line-height: 1.6;
+}
+
+/* numbered steps: the active one is underlined in red, locked ones are greyed */
+.steps :deep(.v-slide-group__content) {
+  gap: 8px;
+}
+.step-wrap {
+  display: inline-flex;
+}
+.step {
+  min-width: 0;
+  padding: 0 14px;
+  border-radius: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.step.v-tab--selected {
+  background: #f6f6f6;
+}
+.step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+  border-radius: 50%;
+  border: 1.5px solid #bdbdbd;
+  color: #666;
+  font-size: 0.8rem;
+}
+/* the current step: red disc with a white number (or check). This rule must not be outranked by
+   .done below, or a completed current step is red on red and shows nothing */
+.step.v-tab--selected .step-badge,
+.step.v-tab--selected .step-badge.done {
+  background: #c62828;
+  border-color: #c62828;
+  color: #fff;
+}
+.step-badge.done {
+  background: #c62828;
+  border-color: #c62828;
+  color: #fff;
+}
+
+.step-card {
+  border-color: #e4e4e4;
+  overflow: hidden;
+}
+/* the boxes inside the four steps: same soft look as the rest of the site */
+.step-card :deep(.v-card.v-card--variant-elevated) {
+  box-shadow: none;
+  border: 1px solid #e4e4e4;
+  border-radius: 12px;
+  background: #fafafa;
 }
 </style>
