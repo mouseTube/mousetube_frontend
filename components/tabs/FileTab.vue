@@ -37,6 +37,12 @@ const conceptDoi = ref('');
 // what an administrator still has to validate before the session can be shared
 const pendingEntries = ref<{ kind: string; id: number; name: string; status: string }[]>([]);
 const sharing = ref(false);
+// Publication after validation: the author asks for it when sharing, approves the preview while
+// the session waits, and it goes out by itself once an administrator validates the session.
+const autoPublish = ref(false);
+const showAutoModal = ref(false);
+const autoState = ref('');
+const autoMessage = ref('');
 
 // === SNACKBAR ===
 const snackbar = ref(false);
@@ -68,6 +74,8 @@ async function loadSessionState() {
   pendingEntries.value = res.data.pending_entries ?? [];
   versions.value = res.data.publication_versions ?? [];
   conceptDoi.value = res.data.concept_doi ?? '';
+  autoState.value = res.data.auto_publish_state ?? '';
+  autoMessage.value = res.data.auto_publish_message ?? '';
 }
 
 async function changeSharing(status: 'shared' | 'draft') {
@@ -82,6 +90,10 @@ async function changeSharing(status: 'shared' | 'draft') {
     );
     sessionStatus.value = res.data.status;
     pendingEntries.value = res.data.pending_entries ?? [];
+    // the other tabs read the session from the store: the lock follows its new status
+    recordingSessionStore.sessions = recordingSessionStore.sessions.map((s) =>
+      s.id === id ? res.data : s
+    );
     if (res.data.status === 'shared') {
       showSnackbar('✅ Your session is shared: everybody can see it.', 'success');
     } else if (res.data.status === 'waiting validation') {
@@ -89,6 +101,8 @@ async function changeSharing(status: 'shared' | 'draft') {
         'Your session uses new entries: an administrator will review them, then it is shared.',
         'info'
       );
+      // asked: the preview of the publication opens, to approve it
+      if (autoPublish.value && repositoryStore.selectedRepository) showAutoModal.value = true;
     } else {
       showSnackbar('Your session is a draft again.', 'info');
     }
@@ -101,6 +115,51 @@ async function changeSharing(status: 'shared' | 'draft') {
     );
   } finally {
     sharing.value = false;
+  }
+}
+
+// ---- PUBLISH AFTER VALIDATION ----
+async function approveAutoPublish(payload: any) {
+  showAutoModal.value = false;
+  const id = props.selectedRecordingSessionId;
+  if (!id || !repositoryStore.selectedRepository) return;
+  try {
+    await axios.post(
+      `${apiBaseUrl}/recording-session/${id}/auto-publish/`,
+      { repository_id: repositoryStore.selectedRepository.id, payload },
+      getAuthHeaders()
+    );
+    await loadSessionState();
+    showSnackbar(
+      'It will be published as you approved it once an administrator validates it.',
+      'success'
+    );
+  } catch (err: any) {
+    const data = err?.response?.data;
+    showSnackbar(data?.detail || data?.error || 'The approval could not be saved.', 'error');
+  }
+}
+
+// the preview was closed without approving: no automatic publication
+function declineAutoPublish() {
+  showAutoModal.value = false;
+  autoPublish.value = false;
+  showSnackbar(
+    'Not approved: the session is not published automatically. You can publish it yourself once it is shared.',
+    'info'
+  );
+}
+
+async function cancelAutoPublish() {
+  const id = props.selectedRecordingSessionId;
+  if (!id) return;
+  try {
+    await axios.delete(`${apiBaseUrl}/recording-session/${id}/auto-publish/`, getAuthHeaders());
+    autoPublish.value = false;
+    await loadSessionState();
+    showSnackbar('Automatic publication cancelled.', 'info');
+  } catch {
+    showSnackbar('The approval could not be withdrawn.', 'error');
   }
 }
 
@@ -479,72 +538,51 @@ async function deleteFile() {
         <!-- 🔹 Sharing of the session -->
         <v-sheet class="share-panel w-100 mb-4" rounded="lg">
           <div class="d-flex flex-wrap align-center justify-space-between ga-3">
-            <div style="flex: 1 1 320px; min-width: 0">
-              <div class="d-flex align-center ga-2">
-                <strong>Visibility</strong>
-                <v-chip
-                  size="small"
-                  label
-                  variant="tonal"
-                  :color="
-                    sessionStatus === 'shared' || sessionStatus === 'published'
-                      ? 'success'
-                      : sessionStatus === 'waiting validation'
-                        ? 'warning'
-                        : 'grey'
-                  "
-                >
-                  {{
-                    sessionStatus === 'waiting validation'
-                      ? 'Waiting for validation'
-                      : sessionStatus === 'shared'
-                        ? 'Shared'
-                        : sessionStatus === 'published'
-                          ? 'Published'
-                          : 'Draft'
-                  }}
-                </v-chip>
-              </div>
-              <p class="text-body-2 text-medium-emphasis mb-0 mt-1">
-                <template v-if="sessionStatus === 'published'">
-                  This session is public and deposited in a repository. You can still edit it: its
-                  record follows. Files you add make a new version, with its own DOI.
-                </template>
-                <template v-else-if="sessionStatus === 'shared'">
-                  This session is public. Publish it in a repository to get a DOI.
-                </template>
-                <template v-else-if="sessionStatus === 'waiting validation'">
-                  An administrator reviews what is new in it, then it is shared. You cannot edit it
-                  meanwhile; withdraw it to make changes.
-                </template>
-                <template v-else>
-                  Only you can see this session. Share it to make it, and its files, public.
-                </template>
-              </p>
-            </div>
-            <div v-if="versions.length" class="versions w-100">
-              <span class="versions-label">Versions of the record</span>
+            <div class="d-flex align-center ga-2">
+              <strong>Visibility</strong>
               <v-chip
-                v-for="v in versions"
-                :key="v.number"
-                :href="`https://doi.org/${v.doi}`"
-                target="_blank"
-                rel="noopener"
                 size="small"
                 label
                 variant="tonal"
-                color="teal"
+                :color="
+                  sessionStatus === 'shared' || sessionStatus === 'published'
+                    ? 'success'
+                    : sessionStatus === 'waiting validation'
+                      ? 'warning'
+                      : 'grey'
+                "
               >
-                v{{ v.number }} · {{ v.doi }}
+                {{
+                  sessionStatus === 'waiting validation'
+                    ? 'Waiting for validation'
+                    : sessionStatus === 'shared'
+                      ? 'Shared'
+                      : sessionStatus === 'published'
+                        ? 'Published'
+                        : 'Draft'
+                }}
               </v-chip>
-              <span v-if="conceptDoi" class="text-caption text-medium-emphasis">
-                All versions:
-                <a :href="`https://doi.org/${conceptDoi}`" target="_blank" rel="noopener">
-                  {{ conceptDoi }}
-                </a>
-              </span>
             </div>
-            <div class="d-flex ga-2">
+            <div class="d-flex flex-wrap align-center justify-end ga-2 ml-auto">
+              <v-checkbox
+                v-if="
+                  sessionStatus === 'draft' &&
+                  pendingEntries.length &&
+                  repositoryStore.selectedRepository
+                "
+                v-model="autoPublish"
+                density="compact"
+                hide-details
+                label="Publish automatically once validated"
+                title="Used when an administrator has to review something in the session: you approve the preview of the publication first"
+              />
+              <v-btn
+                v-if="sessionStatus === 'waiting validation' && autoState === 'approved'"
+                variant="text"
+                @click="cancelAutoPublish"
+              >
+                Cancel automatic publication
+              </v-btn>
               <v-btn
                 v-if="sessionStatus === 'draft'"
                 color="primary"
@@ -565,10 +603,68 @@ async function deleteFile() {
               </v-btn>
             </div>
           </div>
-          <ul
-            v-if="sessionStatus === 'waiting validation' && pendingEntries.length"
-            class="share-pending text-body-2 mt-3"
+          <p class="text-body-2 text-medium-emphasis mb-0 mt-1">
+            <template v-if="sessionStatus === 'published'">
+              This session is public and deposited in a repository. You can still edit it: its
+              record follows. Files you add make a new version, with its own DOI.
+            </template>
+            <template v-else-if="sessionStatus === 'shared'">
+              This session is public. Publish it in a repository to get a DOI.
+            </template>
+            <template v-else-if="sessionStatus === 'waiting validation'">
+              An administrator reviews what is new in it, then it is shared. You cannot edit it
+              meanwhile; withdraw it to make changes.
+              <template v-if="autoState === 'approved'">
+                <strong>You approved the preview: it will be published automatically</strong>
+                once it is validated.
+              </template>
+            </template>
+            <template v-else>
+              Only you can see this session. Share it to make it, and its files, public.
+              <template v-if="pendingEntries.length">
+                It uses entries nobody validated yet (below): an administrator reviews them first.
+              </template>
+            </template>
+          </p>
+          <div v-if="versions.length" class="versions w-100">
+            <span class="versions-label">Versions of the record</span>
+            <v-chip
+              v-for="v in versions"
+              :key="v.number"
+              :href="`https://doi.org/${v.doi}`"
+              target="_blank"
+              rel="noopener"
+              size="small"
+              label
+              variant="tonal"
+              color="teal"
+            >
+              v{{ v.number }} · {{ v.doi }}
+            </v-chip>
+            <span v-if="conceptDoi" class="text-caption text-medium-emphasis">
+              All versions:
+              <a :href="`https://doi.org/${conceptDoi}`" target="_blank" rel="noopener">
+                {{ conceptDoi }}
+              </a>
+            </span>
+          </div>
+          <v-alert
+            v-if="autoState === 'stale' || autoState === 'failed'"
+            :type="autoState === 'failed' ? 'error' : 'warning'"
+            variant="tonal"
+            density="compact"
+            class="mt-3"
           >
+            {{ autoMessage }}
+          </v-alert>
+          <p
+            v-if="['shared', 'published'].includes(sessionStatus ?? '') && pendingEntries.length"
+            class="text-body-2 mt-3 mb-0"
+          >
+            The session is public, but these entries are not shown to the public until an
+            administrator validates them (it can be published in a repository once they are):
+          </p>
+          <ul v-if="pendingEntries.length" class="share-pending text-body-2 mt-3">
             <li v-for="entry in pendingEntries" :key="entry.kind + entry.id">
               <span class="text-medium-emphasis">{{ entry.kind }}</span> {{ entry.name }}
               <v-chip size="x-small" variant="tonal" label>{{ entry.status }}</v-chip>
@@ -588,7 +684,13 @@ async function deleteFile() {
                 :disabled="
                   !canPublish ||
                   isPublishing ||
+                  pendingEntries.length > 0 ||
                   !['shared', 'published'].includes(sessionStatus ?? '')
+                "
+                :title="
+                  pendingEntries.length
+                    ? 'Available once an administrator validates the entries listed above'
+                    : ''
                 "
                 @click="showPublishModal = true"
                 style="min-width: 140px"
@@ -794,6 +896,22 @@ async function deleteFile() {
       <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="4000" location="top" right>
         {{ snackbarMessage }}
       </v-snackbar>
+      <RepositoryPublishModal
+        v-if="
+          props.selectedRecordingSessionId != null && repositoryStore.selectedRepository != null
+        "
+        auto
+        :recording-session-id="props.selectedRecordingSessionId"
+        :recording-session-name="session?.name || ''"
+        :repository="{
+          id: repositoryStore.selectedRepository.id,
+          name: repositoryStore.selectedRepository.name,
+          logo_url: repositoryStore.selectedRepository.logo_url ?? undefined,
+        }"
+        :show="showAutoModal"
+        @close="declineAutoPublish"
+        @publish-confirmed="approveAutoPublish"
+      />
       <RepositoryPublishModal
         v-if="
           props.selectedRecordingSessionId != null && repositoryStore.selectedRepository != null

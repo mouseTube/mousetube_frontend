@@ -33,6 +33,7 @@ const props = defineProps<{
   repository: Repository;
   show: boolean;
   newVersion?: boolean; // the session is already published: new files make a new version
+  auto?: boolean; // the author approves what will be published once an administrator validates
 }>();
 
 const emit = defineEmits<{
@@ -201,8 +202,13 @@ function isFieldReadOnly(field: FieldSchema) {
       <!-- Header -->
       <div class="publish-head">
         <div>
-          <div class="text-overline publish-eyebrow">Deposit in a repository</div>
-          <h2>Publish “{{ props.recordingSessionName }}”</h2>
+          <div class="text-overline publish-eyebrow">
+            {{ props.auto ? 'Publication after validation' : 'Deposit in a repository' }}
+          </div>
+          <h2 v-if="props.auto">
+            Preview of the publication of “{{ props.recordingSessionName }}”
+          </h2>
+          <h2 v-else>Publish “{{ props.recordingSessionName }}”</h2>
         </div>
         <div class="d-flex align-center ga-3">
           <span v-if="props.repository.logo_url" class="repo-logo-badge">
@@ -226,7 +232,13 @@ function isFieldReadOnly(field: FieldSchema) {
         <v-alert v-else-if="error" type="error" variant="tonal">{{ error }}</v-alert>
 
         <template v-else>
-          <p v-if="props.newVersion" class="publish-lead">
+          <p v-if="props.auto" class="publish-lead">
+            An administrator will review what is new in your session. Check what will be published:
+            once it is validated, the session is published on
+            {{ props.repository.name }} with a DOI, as shown here, without asking you again. If
+            something changes in it before then, it is not published and you are told.
+          </p>
+          <p v-else-if="props.newVersion" class="publish-lead">
             The new files are on {{ props.repository.name }} in the draft of a new version of the
             record. Publishing it gives that version its own DOI; the earlier versions and their
             DOIs stay valid.
@@ -415,7 +427,11 @@ function isFieldReadOnly(field: FieldSchema) {
               v-model="understood"
               density="compact"
               hide-details
-              label="I checked the description and want to publish."
+              :label="
+                props.auto
+                  ? 'I checked the preview and want it published automatically once validated.'
+                  : 'I checked the description and want to publish.'
+              "
             />
           </v-alert>
         </template>
@@ -431,7 +447,13 @@ function isFieldReadOnly(field: FieldSchema) {
           :disabled="loading || !!error || !understood"
           @click="confirmPublish"
         >
-          {{ props.newVersion ? 'Publish the new version' : 'Publish and get a DOI' }}
+          {{
+            props.auto
+              ? 'Approve and publish after validation'
+              : props.newVersion
+                ? 'Publish the new version'
+                : 'Publish and get a DOI'
+          }}
         </v-btn>
       </v-card-actions>
     </v-card>
