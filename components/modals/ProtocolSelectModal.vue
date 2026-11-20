@@ -60,7 +60,7 @@ const options = {
 // Headers
 // ----------------------
 const headers = [
-  { title: 'Protocol Name', key: 'name', sortable: false },
+  { title: '', key: 'favorite', sortable: false }, // the star: the name of a protocol is a code, not shown
   { title: 'Sex', key: 'animals_sex', sortable: false },
   { title: 'Age', key: 'animals_age', sortable: false },
   { title: 'Housing', key: 'animals_housing', sortable: false },
@@ -99,9 +99,7 @@ async function fetchData(pg: number) {
 //   fetchData(1);
 // }
 const sortOptions = [
-  { label: 'Favorites & Name', value: '-is_favorite_int,name' },
-  { label: 'Name asc', value: 'name' },
-  { label: 'Name desc', value: '-name' },
+  { label: 'Favorites first', value: '-is_favorite_int,name' },
   { label: 'Creation date asc', value: 'created_at' },
   { label: 'Creation date desc', value: '-created_at' },
 ];
@@ -140,6 +138,19 @@ function openDeleteDialog(protocol: Protocol) {
   deleteDialog.value = true;
 }
 
+// a protocol told by its fields (its name is a code): "male(s) · pup · grouped · 2 · ..."
+function protocolSummary(p: any) {
+  if (!p) return '';
+  const fields = [
+    p.animals?.sex ?? p.animals_sex,
+    p.animals?.age ?? p.animals_age,
+    p.animals?.housing ?? p.animals_housing,
+    p.context?.duration ?? p.context_duration,
+    p.context?.cage ?? p.context_cage,
+  ];
+  return fields.filter((v) => v && v !== 'unspecified').join(' · ') || 'this protocol';
+}
+
 async function confirmDelete() {
   if (!protocolToDelete.value) return;
 
@@ -147,7 +158,7 @@ async function confirmDelete() {
     await store.deleteProtocol(protocolToDelete.value.id);
     deleteDialog.value = false;
     if (selectedProtocolId.value === protocolToDelete.value.id) selectedProtocolId.value = null;
-    showSuccess(`Protocol "${protocolToDelete.value.name}" deleted successfully`);
+    showSuccess('Protocol deleted successfully');
     protocolToDelete.value = null;
   } catch (err: any) {
     //eslint-disable-next-line no-console
@@ -277,7 +288,7 @@ function close() {
               :class="{ 'protocol-selected': selectedProtocolId === item.id }"
               @click="selectProtocol(item)"
             >
-              <!-- Name with tooltip -->
+              <!-- Favorite: the name of a protocol is a code built from its fields, the fields say more -->
               <td>
                 <div class="d-flex align-center gap-2">
                   <!-- Star icon -->
@@ -294,9 +305,6 @@ function close() {
                         : 'mdi-star-outline'
                     }}
                   </v-icon>
-
-                  <!-- Name -->
-                  {{ item.name || '—' }}
                 </div>
               </td>
 
@@ -499,7 +507,7 @@ function close() {
       <v-card-title class="text-h6">Confirm Deletion</v-card-title>
       <v-card-text>
         Are you sure you want to delete
-        <strong>{{ protocolToDelete?.name }}</strong> ?
+        <strong>{{ protocolSummary(protocolToDelete) }}</strong> ?
       </v-card-text>
       <v-card-actions>
         <v-spacer />

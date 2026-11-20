@@ -85,6 +85,25 @@ const selectItems = computed(() => {
 
 const isValidated = computed(() => formData.value.status === 'validated');
 
+// The protocol told by its fields, next to its name: sex, age, housing, number of animals,
+// duration, cage, bedding, light cycle (what is not specified is left out)
+const protocolLabels = computed(() => {
+  const p = selectedProtocolObject.value;
+  if (!p) return [];
+  const f = mapProtocolToFormData(p);
+  const animals = f.context.number_of_animals;
+  return [
+    f.animals.sex,
+    f.animals.age,
+    f.animals.housing,
+    animals ? `${animals} animal${String(animals) === '1' ? '' : 's'}` : '',
+    f.context.duration,
+    f.context.cage,
+    f.context.bedding,
+    f.context.light_cycle,
+  ].filter((v) => v && v !== 'unspecified');
+});
+
 const isSaveEnabled = computed(() => {
   const formChanged = snapshotFormData(formData.value) !== initialFormData.value;
   const protocolSelectedButNotLinked =
@@ -589,6 +608,11 @@ onMounted(async () => {
         </span>
       </template>
     </v-select>
+    <div v-if="protocolLabels.length" class="protocol-labels" aria-label="What this protocol says">
+      <v-chip v-for="label in protocolLabels" :key="label" size="small" label variant="tonal">
+        {{ label }}
+      </v-chip>
+    </div>
 
     <!-- Form Card -->
     <v-card class="pa-6" outlined>
@@ -836,3 +860,12 @@ onMounted(async () => {
     <ProtocolSelectModal v-model="showProtocolSelectModal" @select="onProtocolSelected" />
   </v-container>
 </template>
+
+<style scoped>
+.protocol-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -6px 0 16px;
+}
+</style>
