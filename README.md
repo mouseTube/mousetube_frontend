@@ -57,7 +57,7 @@ npm run dev
    NUXT_PUBLIC_API_BASE_URL=https://your-domain/api
    ```
 
-   In Docker, `entrypoint.sh` starts the development server only when `DEBUG` is explicitly `true`: a missing `DEBUG` means production, `DEBUG=false` says it explicitly. If `NUXT_PUBLIC_API_BASE_URL` is missing, `http://127.0.0.1:8000/api` is used.
+   In Docker, `entrypoint.sh` starts the development server only when `DEBUG` is explicitly `true`: a missing `DEBUG` means production, `DEBUG=false` says it explicitly. If `NUXT_PUBLIC_API_BASE_URL` is missing, `http://127.0.0.1:8000/api` is used. The footer links the [documentation](https://mousetube.github.io/mousetube_API/); `NUXT_PUBLIC_DOCS_URL` changes its address.
 
 2. Build, then start the server:
 
