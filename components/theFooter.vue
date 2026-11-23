@@ -16,6 +16,8 @@ const { currentUser } = useAuth();
 // the API documentation is served by the API itself, next to /api
 const apiBaseUrl = useApiBaseUrl();
 const apiDocs = `${apiBaseUrl.replace(/\/api\/?$/, '')}/swagger/`;
+// the documentation of mouseTube: how to use it, and how it works (database, rights, API)
+const docsUrl = useRuntimeConfig().public.docsUrl;
 
 // the version of the web application: package.json; the one of the API: asked to the API, which
 // reads it in its pyproject.toml (nothing is shown while it is not known)
@@ -135,8 +137,11 @@ const explore = [
           <h2 class="footer-title">Resources</h2>
           <ul class="footer-list">
             <li>
+              <a :href="docsUrl" target="_blank" rel="noopener" class="nuxt-link">Documentation</a>
+            </li>
+            <li>
               <a :href="apiDocs" target="_blank" rel="noopener" class="nuxt-link"
-                >API documentation</a
+                >API reference (Swagger)</a
               >
             </li>
             <li>

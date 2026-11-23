@@ -18,6 +18,8 @@ export default defineNuxtConfig({
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000/api',
       appVersion: pkg.version, // shown in the footer: written once, in package.json
+      // the documentation (user guide and developer documentation), linked from the footer
+      docsUrl: process.env.NUXT_PUBLIC_DOCS_URL || 'https://mousetube.github.io/mousetube_API/',
     },
   },
   modules: ['@pinia/nuxt'],
