@@ -323,7 +323,7 @@ watch(
                   <p>
                     The <strong>MouseTube</strong> platform respects your privacy and complies with
                     the <strong>General Data Protection Regulation (GDPR)</strong>. It is operated
-                    by the MouseTube team at the IGBMC (see the contact above).
+                    by the MouseTube team at PHEN-ICS (see the contact above).
                   </p>
 
                   <h3 class="text-subtitle-1 font-weight-medium mt-4">
@@ -541,9 +541,8 @@ watch(
                 <v-card-text class="mt-4">
                   <h3 class="text-subtitle-1 font-weight-medium">Publisher</h3>
                   <p>
-                    The <strong>MouseTube</strong> team, IGBMC (Institut de Génétique et de Biologie
-                    Moléculaire et Cellulaire), CNRS UMR 7104 – Inserm U964 – Université de
-                    Strasbourg, Illkirch, France.
+                    The <strong>MouseTube</strong> team, PHEN-ICS (PHENotypage et Ingénierie
+                    préClinique des Systèmes d’organismes modèles), CNRS UAR 2062, Illkirch, France.
                   </p>
                   <p>
                     Contact:
@@ -552,8 +551,8 @@ watch(
 
                   <h3 class="text-subtitle-1 font-weight-medium mt-4">Director of publication</h3>
                   <p>
-                    Nicolas Torquet, Research and Development pole, PHEN-ICS (PHENotypage et
-                    Ingénierie préClinique des Systèmes d’organismes modèles).
+                    Nicolas Torquet, Neuro-Ethology Research and Development, PHEN-ICS (CNRS UAR
+                    2062).
                   </p>
 
                   <h3 class="text-subtitle-1 font-weight-medium mt-4">Hosting</h3>
