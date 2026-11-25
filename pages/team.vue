@@ -122,9 +122,7 @@ watch(
                     </v-list-item>
                     <v-list-item
                       ><strong>Nicolas Torquet</strong> (Research and Development pole -
-                      <nuxt-link to="http://www.ics-mci.fr/en/" target="_blank"
-                        >Institut Clinique de la Souris</nuxt-link
-                      >
+                      <nuxt-link to="http://www.ics-mci.fr/en/" target="_blank">PHEN-ICS</nuxt-link>
                       -
                       <nuxt-link to="https://www.igbmc.fr/" target="_blank"
                         >CNRS UMR 7104 - Institut de Génétique et de Biologie Moléculaire et
@@ -144,9 +142,7 @@ watch(
                     <v-list-item
                       ><strong>Laurent Bouri</strong> (Web developer - Research and Development pole
                       -
-                      <nuxt-link to="http://www.ics-mci.fr/en/" target="_blank"
-                        >Institut Clinique de la Souris</nuxt-link
-                      >
+                      <nuxt-link to="http://www.ics-mci.fr/en/" target="_blank">PHEN-ICS</nuxt-link>
                       -
                       <nuxt-link to="https://www.igbmc.fr/" target="_blank"
                         >CNRS UMR 7104 - Institut de Génétique et de Biologie Moléculaire et
@@ -320,73 +316,121 @@ watch(
                   Privacy policy
                 </v-card-title>
                 <v-card-subtitle class="text-caption text-grey mx-4"
-                  >Last updated: May 5th, 2025</v-card-subtitle
+                  >Last updated: November 25th, 2026</v-card-subtitle
                 >
 
                 <v-card-text class="mt-4">
                   <p>
                     The <strong>MouseTube</strong> platform respects your privacy and complies with
-                    the <strong>General Data Protection Regulation (GDPR)</strong>.
+                    the <strong>General Data Protection Regulation (GDPR)</strong>. It is operated
+                    by the MouseTube team at the IGBMC (see the contact above).
                   </p>
 
                   <h3 class="text-subtitle-1 font-weight-medium mt-4">
                     1. Data Collected and Displayed
                   </h3>
-                  <p>
-                    MouseTube may display limited personal data associated with audio files
-                    referenced on the platform, including:
-                  </p>
+                  <p>MouseTube holds the following personal data:</p>
                   <ul class="pl-4">
-                    <li>Full names of contributors</li>
-                    <li>Email</li>
-                    <li>Academic or professional addresses (optionally)</li>
+                    <li>
+                      <strong>Your account</strong>, when you ask for one: username, first and last
+                      name, institutional e-mail address, password (stored only as a salted hash, it
+                      cannot be read back), and your laboratory.
+                    </li>
+                    <li>
+                      <strong>Your ORCID iD</strong>, if you give it or sign in with ORCID.
+                      MouseTube only receives the identifier and the name that ORCID shares with it;
+                      it never sees your ORCID password.
+                    </li>
+                    <li>
+                      <strong>Contributors and contacts</strong> entered with a recording: full
+                      name, e-mail address, institution, unit and professional address (optional).
+                      They are entered by the contributor of the recording for scientific
+                      attribution.
+                    </li>
+                    <li>
+                      <strong>Technical data</strong>: the address (IP) of your connection and the
+                      requests made are written in the server logs, and the site keeps your sign-in
+                      tokens in your browser.
+                    </li>
                   </ul>
                   <p>
-                    This information is provided voluntarily by users for scientific attribution and
-                    collaboration.
+                    MouseTube does not ask for a telephone number, a postal address of the user, or
+                    any sensitive data. Your e-mail address is <strong>hidden by default</strong>:
+                    it is shown next to your recordings only if you tick the box in your account.
+                    Names and institutions of contributors are public, for scientific attribution.
                   </p>
 
                   <h3 class="text-subtitle-1 font-weight-medium mt-4">2. Legal Basis</h3>
-                  <p>The publication of personal data on MouseTube is based on:</p>
                   <ul class="pl-4">
-                    <li>Explicit consent given at the time of submission, and/or</li>
                     <li>
-                      The legitimate interest of promoting transparency in scientific research.
+                      Your account and your sign-in: they are
+                      <strong>necessary to provide the service</strong> you request.
+                    </li>
+                    <li>
+                      The names of contributors displayed with the recordings: the
+                      <strong>legitimate interest</strong> of promoting transparency and attribution
+                      in scientific research, and the consent given at the time of submission.
+                    </li>
+                    <li>
+                      The server logs: the <strong>legitimate interest</strong> of keeping the
+                      service secure.
                     </li>
                   </ul>
 
                   <h3 class="text-subtitle-1 font-weight-medium mt-4">3. Data Retention</h3>
-                  <p>
-                    MouseTube does not host the actual data files. It only stores references (links)
-                    to external repositories where the data are hosted.
-                  </p>
-                  <p>
-                    These links remain visible and accessible on MouseTube as long as they are valid
-                    and publicly available, unless the data owner requests their removal.
-                  </p>
+                  <ul class="pl-4">
+                    <li>
+                      Your account and its data are kept
+                      <strong>as long as the account exists</strong>. A rejected account request is
+                      deleted.
+                    </li>
+                    <li>
+                      The names and e-mail addresses attached to a recording are kept as long as the
+                      recording is on MouseTube. They are deleted or corrected on request.
+                    </li>
+                    <li>
+                      A published recording is kept by the repository that received it (see section
+                      5), under its own policy.
+                    </li>
+                  </ul>
 
                   <h3 class="text-subtitle-1 font-weight-medium mt-4">4. Your Rights</h3>
                   <p>
-                    You may request access to, correction of, or deletion of your personal data by
-                    contacting us at:
-                    <a href="mailto:mousetube@igbmc.fr" class="text-primary">mousetube@igbmc.fr</a>
+                    You may request access to, correction of, deletion of, or limitation of the use
+                    of your personal data, and object to it, by contacting us at:
+                    <a href="mailto:mousetube@igbmc.fr" class="text-primary">mousetube@igbmc.fr</a>.
+                    If you think your rights are not respected, you can complain to the CNIL (<a
+                      href="https://www.cnil.fr"
+                      target="_blank"
+                      >www.cnil.fr</a
+                    >).
                   </p>
 
-                  <h3 class="text-subtitle-1 font-weight-medium mt-4">5. Hosting and Security</h3>
+                  <h3 class="text-subtitle-1 font-weight-medium mt-4">
+                    5. Files, Hosting and Third Parties
+                  </h3>
                   <p>
-                    MouseTube does not host the data files themselves. Instead, it provides curated
-                    links to externally hosted datasets, typically stored on institutional
-                    repositories or other trusted platforms.
+                    When you let MouseTube deposit a recording, the file is sent to the repository
+                    you choose (Zenodo) and receives a DOI: the file itself is hosted there, not on
+                    MouseTube, which keeps its description. A record published on Zenodo is public
+                    and includes the names and, when given, the ORCID iD of the authors. The tables
+                    of detection tools and the images (spectrogram, plot) that you choose to send
+                    are kept on the MouseTube server until they are published with the record.
                   </p>
                   <p>
-                    These links and associated contributor information are publicly visible for
-                    transparency and scientific attribution. While the platform is openly
-                    accessible, administrative actions such as editing or removing content are
-                    restricted to authorized users to ensure data integrity and security.
+                    MouseTube is hosted by the <strong>IFB</strong> (Institut Français de
+                    Bioinformatique), in France. The other services reached are ORCID (sign-in),
+                    Zenodo (deposit) and public vocabularies (EBI OLS, ROR), which receive only the
+                    term being checked. Administrative actions, such as editing or removing content,
+                    are restricted to authorized users.
                   </p>
 
                   <h3 class="text-subtitle-1 font-weight-medium mt-4">6. Cookies</h3>
-                  <p>MouseTube does not use any tracking or analytics cookies.</p>
+                  <p>
+                    MouseTube does not use any tracking or analytics cookies. Only the cookies
+                    needed for signing in to the administration and to ORCID are used, and your
+                    sign-in tokens are kept in the storage of your browser until you sign out.
+                  </p>
                 </v-card-text>
               </v-card>
             </v-card-item>
@@ -476,6 +520,61 @@ watch(
                   <p>
                     MouseTube administrators reserve the right to modify these terms of use at any
                     time.
+                  </p>
+                </v-card-text>
+              </v-card>
+            </v-card-item>
+            <v-card-item class="px-0">
+              <v-card
+                id="legal"
+                class="mx-auto my-2 pt-1 pl-2 rounded-lg border elevation-3"
+                variant="tonal"
+              >
+                <v-card-title class="font-weight-bold mx-4 my-4">
+                  <v-icon class="me-2">mdi-gavel</v-icon>
+                  Legal notice (mentions légales)
+                </v-card-title>
+                <v-card-subtitle class="text-caption text-grey mx-4">
+                  Last updated: November 25th, 2026
+                </v-card-subtitle>
+
+                <v-card-text class="mt-4">
+                  <h3 class="text-subtitle-1 font-weight-medium">Publisher</h3>
+                  <p>
+                    The <strong>MouseTube</strong> team, IGBMC (Institut de Génétique et de Biologie
+                    Moléculaire et Cellulaire), CNRS UMR 7104 – Inserm U964 – Université de
+                    Strasbourg, Illkirch, France.
+                  </p>
+                  <p>
+                    Contact:
+                    <a href="mailto:mousetube@igbmc.fr" class="text-primary">mousetube@igbmc.fr</a>
+                  </p>
+
+                  <h3 class="text-subtitle-1 font-weight-medium mt-4">Director of publication</h3>
+                  <p>
+                    Nicolas Torquet, Research and Development pole, PHEN-ICS (PHENotypage et
+                    Ingénierie préClinique des Systèmes d’organismes modèles).
+                  </p>
+
+                  <h3 class="text-subtitle-1 font-weight-medium mt-4">Hosting</h3>
+                  <p>
+                    <nuxt-link to="https://www.france-bioinformatique.fr/" target="_blank"
+                      >IFB – Institut Français de Bioinformatique</nuxt-link
+                    >, France.
+                  </p>
+
+                  <h3 class="text-subtitle-1 font-weight-medium mt-4">Intellectual property</h3>
+                  <p>
+                    The source code is released under the GNU General Public License v3 (see the
+                    terms of use above). The recordings and their descriptions remain the property
+                    of the laboratories that contributed them, under the license given with each
+                    record.
+                  </p>
+
+                  <h3 class="text-subtitle-1 font-weight-medium mt-4">Personal data</h3>
+                  <p>
+                    See the <nuxt-link to="/team#privacy">privacy policy</nuxt-link> for the data
+                    collected, how long they are kept, and how to exercise your rights.
                   </p>
                 </v-card-text>
               </v-card>
