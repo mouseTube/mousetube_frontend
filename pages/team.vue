@@ -532,7 +532,7 @@ watch(
               >
                 <v-card-title class="font-weight-bold mx-4 my-4">
                   <v-icon class="me-2">mdi-gavel</v-icon>
-                  Legal notice (mentions légales)
+                  Legal notice
                 </v-card-title>
                 <v-card-subtitle class="text-caption text-grey mx-4">
                   Last updated: November 25th, 2026
