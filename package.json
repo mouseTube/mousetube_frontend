@@ -20,7 +20,7 @@
     "axios": "^1.21.0",
     "chart.js": "^4.3.0",
     "lodash-es": "^4.17.21",
-    "nuxt": "^4.6.4",
+    "nuxt": "^4.7.0",
     "pinia": "^3.0.4",
     "sass": "^1.107.1",
     "vite-plugin-vuetify": "^2.1.3",
