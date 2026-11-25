@@ -160,7 +160,7 @@ const explore = [
 
       <div class="footer-bottom">
         <div class="footer-text">
-          mouseTube v{{ version }} · © CNRS · INSERM · UNISTRA · ICS · IGBMC 2025
+          mouseTube v{{ version }} · © CNRS · INSERM · UNISTRA · PHEN-ICS · IGBMC 2025
         </div>
         <nav class="d-flex flex-wrap justify-center ga-5" aria-label="Legal">
           <nuxt-link to="/team#privacy" class="nuxt-link">
@@ -168,6 +168,9 @@ const explore = [
           </nuxt-link>
           <nuxt-link to="/team#term" class="nuxt-link">
             <v-icon size="16" class="me-1">mdi-scale-balance</v-icon>Terms of Use
+          </nuxt-link>
+          <nuxt-link to="/team#legal" class="nuxt-link">
+            <v-icon size="16" class="me-1">mdi-gavel</v-icon>Legal notice
           </nuxt-link>
         </nav>
       </div>

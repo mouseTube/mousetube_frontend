@@ -24,7 +24,6 @@ const formData = ref({
   first_name: props.contact?.first_name ?? '',
   last_name: props.contact?.last_name ?? '',
   email: props.contact?.email ?? '',
-  phone: props.contact?.phone ?? '',
   unit: (props.contact as any)?.unit ?? '',
   institution: (props.contact as any)?.institution ?? '',
   address: (props.contact as any)?.address ?? '',
@@ -45,7 +44,6 @@ function resetForm() {
     first_name: '',
     last_name: '',
     email: '',
-    phone: '',
     unit: '',
     institution: '',
     address: '',
@@ -63,7 +61,6 @@ watch(
         first_name: c.first_name,
         last_name: c.last_name,
         email: c.email ?? '',
-        phone: c.phone ?? '',
         unit: (c as any).unit ?? '',
         institution: (c as any).institution ?? '',
         address: (c as any).address ?? '',
@@ -103,7 +100,6 @@ async function saveContact() {
       first_name: formData.value.first_name ?? '',
       last_name: formData.value.last_name ?? '',
       email: formData.value.email ?? '',
-      phone: formData.value.phone ?? '',
       unit: formData.value.unit ?? '',
       institution: formData.value.institution ?? '',
       address: formData.value.address ?? '',
@@ -153,7 +149,7 @@ async function saveContact() {
             <v-col cols="12" sm="6">
               <v-text-field v-model="formData.last_name" label="Last name" variant="outlined" />
             </v-col>
-            <v-col cols="12" sm="6">
+            <v-col cols="12">
               <v-text-field
                 v-model="formData.email"
                 label="Email *"
@@ -162,9 +158,6 @@ async function saveContact() {
                 :rules="[emailRequired, emailFormat]"
                 required
               />
-            </v-col>
-            <v-col cols="12" sm="6">
-              <v-text-field v-model="formData.phone" label="Phone" variant="outlined" />
             </v-col>
             <v-col cols="12" sm="6">
               <v-text-field v-model="formData.unit" label="Unit" variant="outlined" />

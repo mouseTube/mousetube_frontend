@@ -8,7 +8,6 @@ export interface Contact {
   first_name: string;
   last_name: string;
   email?: string | null;
-  phone?: string | null;
   institution?: string | null;
   position?: string | null;
   unit?: string | null;
@@ -24,7 +23,6 @@ export interface ContactPayload {
   first_name: string;
   last_name: string;
   email?: string | null;
-  phone?: string | null;
   institution?: string | null;
   position?: string | null;
   unit?: string | null;
