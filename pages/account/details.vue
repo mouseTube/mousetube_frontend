@@ -11,6 +11,7 @@ import SoftwareListContent from '@/components/SoftwareListContent.vue';
 import HardwareListContent from '@/components/HardwareListContent.vue';
 import EmailVisibility from '@/components/EmailVisibility.vue';
 import PasswordChange from '@/components/PasswordChange.vue';
+import LogoutEverywhere from '@/components/LogoutEverywhere.vue';
 import MyVocalizations from '@/components/MyVocalizations.vue';
 import ReviewStatus from '@/components/ReviewStatus.vue';
 import LaboratoryModal from '@/components/modals/LaboratoryModal.vue';
@@ -564,6 +565,9 @@ watch(
 
               <h2 class="section-title mt-8">Password</h2>
               <PasswordChange />
+
+              <h2 class="section-title mt-8">Sessions</h2>
+              <LogoutEverywhere />
 
               <h2 class="section-title mt-8">Delete my account</h2>
               <p class="text-body-2 mb-2">

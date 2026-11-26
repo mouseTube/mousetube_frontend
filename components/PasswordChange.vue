@@ -4,10 +4,13 @@
 // follows the rules of the registration form; the API applies the real ones.
 import { ref, computed } from 'vue';
 import axios from 'axios';
-import { token } from '@/composables/useAuth';
+import { useRouter } from 'vue-router';
+import { useAuth } from '@/composables/useAuth';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 import { passwordHint, passwordLengthRule, passwordDigitsRule } from '@/composables/passwordRules';
 
+const router = useRouter();
+const { token, currentUser, login, logout } = useAuth();
 const apiBaseUrl = useApiBaseUrl();
 const baseUrl = computed(() => apiBaseUrl.replace(/\/api\/?$/, ''));
 
@@ -55,8 +58,17 @@ const submit = async () => {
       },
       { headers: { Authorization: `Bearer ${token.value}` } }
     );
+    // a new password ends every sign-in made with the old one, this one included: sign in again
+    const username = currentUser.value;
+    const newPassword = password.value;
     form.value?.reset();
-    done.value = true;
+    try {
+      await login(username as string, newPassword);
+      done.value = true;
+    } catch {
+      logout();
+      router.push('/account/login');
+    }
   } catch (error) {
     const response = (error as { response?: { status?: number; data?: unknown } }).response;
     errors.value =
