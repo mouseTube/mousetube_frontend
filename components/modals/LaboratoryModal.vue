@@ -3,6 +3,7 @@ import ReviewStatus from '@/components/ReviewStatus.vue';
 import OntologyField from '@/components/OntologyField.vue';
 import { ref, watch } from 'vue';
 import { useLaboratoryStore, type Laboratory } from '@/stores/laboratory';
+import { isStaff } from '@/composables/useAuth';
 
 import countriesList from '@/data/countries';
 
@@ -81,7 +82,11 @@ async function save() {
       lab = await labStore.updateLaboratory(props.editId, form.value);
       showSnackbar('Laboratory updated successfully.');
     } else {
-      lab = await labStore.createLaboratory(form.value);
+      // a user's new laboratory goes to review at once (nobody else can do it for him); an
+      // administrator's is validated by the server
+      lab = await labStore.createLaboratory(
+        isStaff.value ? form.value : { ...form.value, status: 'waiting validation' }
+      );
       showSnackbar('Laboratory created successfully.');
     }
     emit('saved', lab);
@@ -145,7 +150,11 @@ watch(
         <ReviewStatus endpoint="laboratory" :id="props.editId" />
       </div>
       <v-card-subtitle v-if="!props.editId" class="modal-note">
-        Until an administrator validates it, only you can see this entry.
+        {{
+          isStaff
+            ? 'As an administrator, what you create is validated at once.'
+            : 'An administrator will review it. Until then, only you can see this entry.'
+        }}
       </v-card-subtitle>
       <v-card-text>
         <v-form ref="formRef">
