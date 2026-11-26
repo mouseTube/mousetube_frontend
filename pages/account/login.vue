@@ -49,7 +49,12 @@ const handleLogin = async () => {
   try {
     const success = await auth.login(username.value, password.value);
     if (success) {
-      router.push('/account/details');
+      // a link to confirm a new e-mail address was opened before signing in: go back to it
+      router.push(
+        sessionStorage.getItem('pending_email_change')
+          ? '/account/confirm-email'
+          : '/account/details'
+      );
     } else {
       loginErrorMessage.value = explain('No active account');
     }

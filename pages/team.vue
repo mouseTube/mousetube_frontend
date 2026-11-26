@@ -399,7 +399,9 @@ watch(
                     You may request access to, correction of, deletion of, or limitation of the use
                     of your personal data, and object to it, by contacting us at:
                     <a href="mailto:mousetube@igbmc.fr" class="text-primary">mousetube@igbmc.fr</a>.
-                    If you think your rights are not respected, you can complain to the CNIL (<a
+                    You can also download a copy of your data yourself (account page, Preferences,
+                    “My data”), and correct your name and your e-mail address there. If you think
+                    your rights are not respected, you can complain to the CNIL (<a
                       href="https://www.cnil.fr"
                       target="_blank"
                       >www.cnil.fr</a

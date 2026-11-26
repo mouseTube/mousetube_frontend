@@ -21,6 +21,7 @@ export interface LaboratoryPayload {
   unit?: string | null;
   address?: string | null;
   country?: string | null;
+  status?: string; // only asked at the creation: who creates it decides who validates it
 }
 
 export const useLaboratoryStore = defineStore('laboratory', {

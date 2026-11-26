@@ -12,6 +12,11 @@ import HardwareListContent from '@/components/HardwareListContent.vue';
 import EmailVisibility from '@/components/EmailVisibility.vue';
 import PasswordChange from '@/components/PasswordChange.vue';
 import LogoutEverywhere from '@/components/LogoutEverywhere.vue';
+import ChangeEmail from '@/components/ChangeEmail.vue';
+import UnlinkOrcid from '@/components/UnlinkOrcid.vue';
+import AccountStats from '@/components/AccountStats.vue';
+import NotificationSettings from '@/components/NotificationSettings.vue';
+import DownloadMyData from '@/components/DownloadMyData.vue';
 import MyVocalizations from '@/components/MyVocalizations.vue';
 import ReviewStatus from '@/components/ReviewStatus.vue';
 import LaboratoryModal from '@/components/modals/LaboratoryModal.vue';
@@ -144,6 +149,15 @@ async function fetchLaboratories() {
   await labStore.fetchAllLaboratories();
   laboratories.value = labStore.laboratories;
 }
+
+// the list is searched on what tells two laboratories apart, not only on the name
+const labDetail = (lab) => [lab.unit, lab.institution, lab.country].filter(Boolean).join(' · ');
+const labFilter = (_value, query, item) => {
+  const lab = item?.raw;
+  if (!lab) return false;
+  const text = `${lab.name} ${lab.unit || ''} ${lab.institution || ''}`.toLowerCase();
+  return text.includes((query || '').toLowerCase());
+};
 
 function openCreateLabModal() {
   editLabId.value = null;
@@ -361,6 +375,7 @@ watch(
                 <v-icon start size="16" :icon="OrcidIcon" />
                 {{ userProfile.orcid }}
               </v-chip>
+              <UnlinkOrcid v-if="userProfile?.orcid" @unlinked="fetchUserProfile" />
               <v-btn
                 v-else-if="userProfile"
                 size="small"
@@ -481,36 +496,62 @@ watch(
                   </div>
                   <div class="fact">
                     <dt>E-mail</dt>
-                    <dd>{{ userProfile.user?.email || '—' }}</dd>
+                    <dd>
+                      {{ userProfile.user?.email || '—' }}
+                      <ChangeEmail />
+                    </dd>
                   </div>
                 </dl>
 
                 <h2 class="section-title">Laboratory</h2>
-                <div class="d-flex align-start flex-wrap ga-3">
-                  <v-select
-                    v-model="selectedLabId"
-                    :items="laboratories"
-                    item-title="name"
-                    item-value="id"
-                    label="Your laboratory"
-                    density="comfortable"
-                    variant="outlined"
-                    clearable
-                    hide-details
-                    class="flex-grow-1"
-                    style="min-width: 260px"
-                    @update:model-value="saveLaboratory"
-                  />
-                  <v-btn variant="outlined" prepend-icon="mdi-plus" @click="openCreateLabModal">
-                    New laboratory
+                <v-autocomplete
+                  v-model="selectedLabId"
+                  :items="laboratories"
+                  item-title="name"
+                  item-value="id"
+                  label="Your laboratory"
+                  placeholder="Search by name, unit or institution"
+                  prepend-inner-icon="mdi-magnify"
+                  density="comfortable"
+                  variant="outlined"
+                  clearable
+                  hide-details
+                  :custom-filter="labFilter"
+                  no-data-text="No laboratory matches. You can create it below."
+                  @update:model-value="saveLaboratory"
+                >
+                  <template #item="{ props: itemProps, item }">
+                    <v-list-item
+                      v-bind="itemProps"
+                      :title="item.raw.name"
+                      :subtitle="labDetail(item.raw)"
+                    >
+                      <template v-if="item.raw.status !== 'validated'" #append>
+                        <v-chip size="x-small" variant="tonal" label>
+                          {{ item.raw.status === 'draft' ? 'Draft' : 'Waiting for validation' }}
+                        </v-chip>
+                      </template>
+                    </v-list-item>
+                  </template>
+                </v-autocomplete>
+                <div class="d-flex align-center flex-wrap ga-1 mt-1 text-body-2">
+                  <span class="text-medium-emphasis">Not in the list?</span>
+                  <v-btn
+                    variant="text"
+                    size="small"
+                    prepend-icon="mdi-plus"
+                    @click="openCreateLabModal"
+                  >
+                    Create a laboratory
                   </v-btn>
                   <v-btn
                     v-if="canEditSelectedLab"
                     variant="text"
+                    size="small"
                     prepend-icon="mdi-pencil-outline"
                     @click="openEditLabModal"
                   >
-                    Edit
+                    Edit this one
                   </v-btn>
                 </div>
 
@@ -539,6 +580,8 @@ watch(
                     :status="selectedLab.status"
                   />
                 </div>
+
+                <AccountStats class="mt-8" />
               </div>
             </v-window-item>
 
@@ -563,11 +606,17 @@ watch(
               <h2 class="section-title">Privacy</h2>
               <EmailVisibility />
 
+              <h2 class="section-title mt-8">Notifications</h2>
+              <NotificationSettings />
+
               <h2 class="section-title mt-8">Password</h2>
               <PasswordChange />
 
               <h2 class="section-title mt-8">Sessions</h2>
               <LogoutEverywhere />
+
+              <h2 class="section-title mt-8">My data</h2>
+              <DownloadMyData />
 
               <h2 class="section-title mt-8">Delete my account</h2>
               <p class="text-body-2 mb-2">
@@ -718,7 +767,7 @@ h1 {
   background: rgb(var(--v-theme-primary));
   color: #fff;
 }
-.section-title {
+:deep(.section-title) {
   margin: 0 0 12px;
   font-size: 1rem;
   font-weight: 700;
