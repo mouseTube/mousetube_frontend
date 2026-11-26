@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import debounce from 'lodash-es/debounce';
 import { Database } from '@lucide/vue';
@@ -104,10 +104,92 @@ function fileExt(name?: string) {
 function isAudio(ext: string) {
   return ['wav', 'mp3', 'flac', 'ogg', 'm4a', 'aac'].includes(ext);
 }
-function datasetDownloadLink(dataset: DatasetType) {
-  if (dataset.link) return dataset.link;
-  return `${apiBaseUrl}/dataset/${dataset.id}/download/`;
+// A link to a whole Zenodo record (`.../files-archive`) is no longer given to programs, and it is
+// the zip of every file of the record: the row downloads its own file instead.
+function fileLink(file: FileType) {
+  const archive = (file.link || '').match(
+    /^(https?:\/\/(?:sandbox\.)?zenodo\.org)\/api\/records\/(\d+)\/files-archive/
+  );
+  return archive
+    ? `${archive[1]}/records/${archive[2]}/files/${encodeURIComponent(file.name)}?download=1`
+    : file.link;
 }
+
+// --- the files of the Zenodo record of a file: shown to everybody when its row is unfolded ---
+interface RecordFile {
+  name: string;
+  size: number | null;
+  url: string;
+}
+interface RecordInfo {
+  loading: boolean;
+  error: string;
+  record: string;
+  files: RecordFile[];
+}
+const records = ref<Record<number, RecordInfo>>({});
+const onZenodo = (file: FileType) => /^https?:\/\/(sandbox\.)?zenodo\.org\//.test(file.link || '');
+const hasDetails = (file: FileType) => !!(file.spectrogram_url || file.plot_url || onZenodo(file));
+const formatSize = (bytes?: number | null) => {
+  if (!bytes) return '';
+  if (bytes < 1024 ** 2) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+};
+const loadRecord = async (file: FileType) => {
+  records.value[file.id] = { loading: true, error: '', record: '', files: [] };
+  try {
+    const { data } = await axios.get(`${apiBaseUrl}/file/${file.id}/zenodo-files/`);
+    records.value[file.id] = { loading: false, error: '', record: data.record, files: data.files };
+  } catch (error: any) {
+    const busy = error?.response?.status === 429;
+    records.value[file.id] = {
+      loading: false,
+      error: busy
+        ? 'Too many requests, try again in a minute.'
+        : 'The list of files could not be read from Zenodo.',
+      record: '',
+      files: [],
+    };
+  }
+};
+
+// --- the whole dataset: signed-in users only, so that robots do not take it ---
+const signedIn = computed(() => !!token.value);
+const downloading = ref<Record<number, boolean>>({});
+const notice = ref({ shown: false, text: '', color: 'success' });
+const say = (text: string, color = 'success') => {
+  notice.value = { shown: true, text, color };
+};
+const downloadDataset = async (dataset: DatasetType) => {
+  downloading.value[dataset.id] = true;
+  try {
+    // a link cannot carry the token of the login: the server gives an address valid two minutes
+    const { data } = await axios.post(
+      `${apiBaseUrl}/dataset/${dataset.id}/download/`,
+      {},
+      { headers: { Authorization: `Bearer ${token.value}` } }
+    );
+    window.location.assign(
+      `${apiBaseUrl}/dataset/${dataset.id}/download/?token=${encodeURIComponent(data.token)}`
+    );
+    const elsewhere = data.left_out
+      ? ` ${data.left_out} file${data.left_out === 1 ? ' is' : 's are'} hosted elsewhere and not in the zip.`
+      : '';
+    say(
+      `Download started: ${data.files} files${data.bytes ? `, ${formatSize(data.bytes)}` : ''}.${elsewhere}`
+    );
+  } catch (error: any) {
+    const code = error?.response?.status;
+    say(
+      error?.response?.data?.detail ||
+        (code === 401 ? 'Sign in to download the dataset.' : 'The download could not start.'),
+      'error'
+    );
+  } finally {
+    setTimeout(() => (downloading.value[dataset.id] = false), 3000);
+  }
+};
 function sortFiles(files: FileType[] = []) {
   return [...files].sort((a, b) => {
     const aIsAudio = isAudio(fileExt(a.name));
@@ -150,6 +232,18 @@ const toggleFiles = (dataset: DatasetType) => {
 
 // --- panel states for each file (independent) ---
 const activePanels = ref<Record<number, boolean>>({});
+
+watch(
+  activePanels,
+  (open) => {
+    for (const dataset of datasetList.value) {
+      for (const file of dataset.files) {
+        if (open[file.id] && onZenodo(file) && !records.value[file.id]) loadRecord(file);
+      }
+    }
+  },
+  { deep: true }
+);
 
 // --- fetch datasets ---
 const fetchDatasets = async (url = `${apiBaseUrl}/dataset/?page_size=${perPage.value}`) => {
@@ -341,14 +435,27 @@ onMounted(() => fetchDatasets());
                       <v-icon size="18">mdi-code-json</v-icon>
                     </v-btn>
 
-                    <!-- Bouton download compact -->
+                    <!-- a link given with the dataset, else the zip (signed-in users only) -->
                     <v-btn
+                      v-if="dataset.link"
                       icon
-                      :href="datasetDownloadLink(dataset)"
+                      :href="dataset.link"
                       target="_blank"
                       title="Download dataset (archive)"
                       density="compact"
                       class="ms-1"
+                    >
+                      <v-icon size="18">mdi-download</v-icon>
+                    </v-btn>
+                    <v-btn
+                      v-else-if="signedIn"
+                      icon
+                      :loading="downloading[dataset.id]"
+                      :disabled="downloading[dataset.id]"
+                      title="Download the dataset (zip of the files hosted on Zenodo)"
+                      density="compact"
+                      class="ms-1"
+                      @click="downloadDataset(dataset)"
                     >
                       <v-icon size="18">mdi-download</v-icon>
                     </v-btn>
@@ -390,8 +497,8 @@ onMounted(() => fetchDatasets());
                       v-for="file in sortFiles(matchingFiles(dataset.files))"
                       :key="file.id"
                       v-model:active="activePanels[file.id]"
-                      :readonly="!file.spectrogram_url && !file.plot_url"
-                      :hide-actions="!file.spectrogram_url && !file.plot_url"
+                      :readonly="!hasDetails(file)"
+                      :hide-actions="!hasDetails(file)"
                     >
                       <v-expansion-panel-title>
                         <v-row align="center" justify="space-between" class="w-100">
@@ -463,7 +570,7 @@ onMounted(() => fetchDatasets());
                             <v-btn
                               v-if="file.link"
                               icon
-                              :href="file.link"
+                              :href="fileLink(file)"
                               target="_blank"
                               color="teal-darken-2"
                               title="Download file"
@@ -476,7 +583,50 @@ onMounted(() => fetchDatasets());
                         </v-row>
                       </v-expansion-panel-title>
 
-                      <v-expansion-panel-text v-if="file.spectrogram_url || file.plot_url">
+                      <v-expansion-panel-text v-if="hasDetails(file)">
+                        <div v-if="onZenodo(file)" class="mb-4">
+                          <strong>Files of this record on Zenodo</strong>
+                          <v-progress-linear
+                            v-if="records[file.id]?.loading"
+                            indeterminate
+                            class="my-2"
+                          />
+                          <v-alert
+                            v-else-if="records[file.id]?.error"
+                            type="warning"
+                            variant="tonal"
+                            density="compact"
+                            class="mt-2"
+                          >
+                            {{ records[file.id].error }}
+                            <a
+                              :href="file.doi ? `https://doi.org/${file.doi}` : fileLink(file)"
+                              target="_blank"
+                              >Open the record on Zenodo</a
+                            >
+                          </v-alert>
+                          <v-list v-else-if="records[file.id]" density="compact" class="py-0">
+                            <v-list-item
+                              v-for="recordFile in records[file.id].files"
+                              :key="recordFile.name"
+                              :title="recordFile.name"
+                              :subtitle="formatSize(recordFile.size)"
+                            >
+                              <template #append>
+                                <v-btn
+                                  icon
+                                  :href="recordFile.url"
+                                  color="teal-darken-2"
+                                  :title="`Download ${recordFile.name}`"
+                                  density="compact"
+                                  variant="text"
+                                >
+                                  <v-icon size="18">mdi-download</v-icon>
+                                </v-btn>
+                              </template>
+                            </v-list-item>
+                          </v-list>
+                        </div>
                         <v-row>
                           <v-col cols="12" sm="6" v-if="file.spectrogram_url">
                             <strong>Spectrogram:</strong>
@@ -541,6 +691,9 @@ onMounted(() => fetchDatasets());
       </v-card>
     </v-dialog>
     <v-snackbar v-model="createdMessage" color="success" timeout="4000">{{ savedText }}</v-snackbar>
+    <v-snackbar v-model="notice.shown" :color="notice.color" timeout="7000">{{
+      notice.text
+    }}</v-snackbar>
   </v-main>
 </template>
 
