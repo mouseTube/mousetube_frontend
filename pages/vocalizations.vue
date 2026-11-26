@@ -9,6 +9,7 @@ Code under GPL v3.0 licence
 
 <script setup>
 import FileDetails from '@/components/FileDetails.vue';
+import { downloadLink } from '@/composables/zenodoLink';
 import UsvDetections from '@/components/UsvDetections.vue';
 ////////////////////////////////
 // IMPORT
@@ -451,7 +452,7 @@ const facts = (file) => {
                   variant="tonal"
                   elevation="4"
                   class="ma-1 hover-effect border-sm"
-                  @click="incrementDownloads(item.id, item.link)"
+                  @click="incrementDownloads(item.id, downloadLink(item))"
                 >
                   Download
                 </v-btn>
@@ -462,7 +463,7 @@ const facts = (file) => {
                   variant="tonal"
                   elevation="4"
                   class="ma-1 border-sm"
-                  :href="item.link"
+                  :href="downloadLink(item)"
                   target="_blank"
                 >
                   Invalid link
@@ -600,7 +601,7 @@ const facts = (file) => {
                             variant="flat"
                             elevation="0"
                             class="ma-2 hover-effect border-sm"
-                            @click="incrementDownloads(file.id, file.link)"
+                            @click="incrementDownloads(file.id, downloadLink(file))"
                           >
                             Download
                           </v-btn>
@@ -612,7 +613,7 @@ const facts = (file) => {
                             elevation="0"
                             class="ma-2 border-sm"
                           >
-                            <a :href="file.link" target="_blank"> Invalid link</a>
+                            <a :href="downloadLink(file)" target="_blank"> Invalid link</a>
                           </v-btn>
                         </v-col>
                       </v-row>

@@ -5,6 +5,7 @@ import debounce from 'lodash-es/debounce';
 import { Database } from '@lucide/vue';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 import { isStaff, token } from '@/composables/useAuth';
+import { downloadLink } from '@/composables/zenodoLink';
 import DatasetCreateModal from '@/components/modals/DatasetCreateModal.vue';
 import FileImagesModal from '@/components/modals/FileImagesModal.vue';
 
@@ -104,17 +105,6 @@ function fileExt(name?: string) {
 function isAudio(ext: string) {
   return ['wav', 'mp3', 'flac', 'ogg', 'm4a', 'aac'].includes(ext);
 }
-// A link to a whole Zenodo record (`.../files-archive`) is no longer given to programs, and it is
-// the zip of every file of the record: the row downloads its own file instead.
-function fileLink(file: FileType) {
-  const archive = (file.link || '').match(
-    /^(https?:\/\/(?:sandbox\.)?zenodo\.org)\/api\/records\/(\d+)\/files-archive/
-  );
-  return archive
-    ? `${archive[1]}/records/${archive[2]}/files/${encodeURIComponent(file.name)}?download=1`
-    : file.link;
-}
-
 // --- the files of the Zenodo record of a file: shown to everybody when its row is unfolded ---
 interface RecordFile {
   name: string;
@@ -570,7 +560,7 @@ onMounted(() => fetchDatasets());
                             <v-btn
                               v-if="file.link"
                               icon
-                              :href="fileLink(file)"
+                              :href="downloadLink(file)"
                               target="_blank"
                               color="teal-darken-2"
                               title="Download file"
@@ -600,7 +590,7 @@ onMounted(() => fetchDatasets());
                           >
                             {{ records[file.id].error }}
                             <a
-                              :href="file.doi ? `https://doi.org/${file.doi}` : fileLink(file)"
+                              :href="file.doi ? `https://doi.org/${file.doi}` : downloadLink(file)"
                               target="_blank"
                               >Open the record on Zenodo</a
                             >
