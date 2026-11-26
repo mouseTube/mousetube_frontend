@@ -7,7 +7,13 @@ import axios from 'axios';
 import { useRouter } from 'vue-router';
 import { useAuth } from '@/composables/useAuth';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
-import { passwordHint, passwordLengthRule, passwordDigitsRule } from '@/composables/passwordRules';
+import {
+  passwordHint,
+  passwordLengthRule,
+  passwordDigitsRule,
+  passwordScore,
+  passwordStrength,
+} from '@/composables/passwordRules';
 
 const router = useRouter();
 const { token, currentUser, login, logout } = useAuth();
@@ -24,6 +30,9 @@ const showPassword2 = ref(false);
 const loading = ref(false);
 const done = ref(false);
 const errors = ref<string[]>([]);
+
+const score = computed(() => passwordScore(password.value));
+const strength = computed(() => passwordStrength(score.value));
 
 const required = (v: string) => !!v || 'This field is required';
 const mismatchRule = (v: string) => v === password.value || 'Passwords do not match';
@@ -113,6 +122,10 @@ const submit = async () => {
       class="mb-2"
       @click:append-inner="showPassword = !showPassword"
     />
+    <div v-if="password" class="mb-3 mt-1">
+      <v-progress-linear :model-value="score * 20" :color="strength.color" height="6" rounded />
+      <div class="text-caption" style="color: #666">Strength: {{ strength.label }}</div>
+    </div>
     <v-text-field
       v-model="password2"
       :type="showPassword2 ? 'text' : 'password'"

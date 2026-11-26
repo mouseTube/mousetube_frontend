@@ -1,6 +1,12 @@
 <script setup>
 import OrcidIcon from '@/components/OrcidIcon.vue';
-import { passwordHint, passwordLengthRule, passwordDigitsRule } from '@/composables/passwordRules';
+import {
+  passwordHint,
+  passwordLengthRule,
+  passwordDigitsRule,
+  passwordScore,
+  passwordStrength,
+} from '@/composables/passwordRules';
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
@@ -74,28 +80,8 @@ const passwordError = computed(
   () => form.value.password !== form.value.password2 && form.value.password2.length > 0
 );
 
-// Rough guide only: the API applies the real password rules.
-const passwordScore = computed(() => {
-  const p = form.value.password;
-  return [
-    p.length >= 8,
-    p.length >= 12,
-    /[a-z]/.test(p) && /[A-Z]/.test(p),
-    /\d/.test(p),
-    /[^A-Za-z0-9]/.test(p),
-  ].filter(Boolean).length;
-});
-const passwordStrength = computed(
-  () =>
-    [
-      { label: '', color: 'grey-lighten-2' },
-      { label: 'Weak', color: 'error' },
-      { label: 'Weak', color: 'error' },
-      { label: 'Fair', color: 'warning' },
-      { label: 'Good', color: 'success' },
-      { label: 'Strong', color: 'success' },
-    ][passwordScore.value]
-);
+const passwordScoreValue = computed(() => passwordScore(form.value.password));
+const passwordStrengthValue = computed(() => passwordStrength(passwordScoreValue.value));
 
 // Current step shown in the progress header: 1 = form, 2 = e-mail, 3 = admin review
 const step = computed(() => (registered.value ? 2 : 1));
@@ -418,13 +404,13 @@ onMounted(async () => {
           />
           <div v-if="form.password" class="mb-3 mt-1">
             <v-progress-linear
-              :model-value="passwordScore * 20"
-              :color="passwordStrength.color"
+              :model-value="passwordScoreValue * 20"
+              :color="passwordStrengthValue.color"
               height="6"
               rounded
             />
             <div class="text-caption" style="color: #666">
-              Strength: {{ passwordStrength.label }}
+              Strength: {{ passwordStrengthValue.label }}
             </div>
           </div>
           <v-text-field
