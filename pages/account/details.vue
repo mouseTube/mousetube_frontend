@@ -503,8 +503,6 @@ watch(
                   </div>
                 </dl>
 
-                <AccountStats />
-
                 <h2 class="section-title">Laboratory</h2>
                 <v-autocomplete
                   v-model="selectedLabId"
@@ -582,6 +580,8 @@ watch(
                     :status="selectedLab.status"
                   />
                 </div>
+
+                <AccountStats class="mt-8" />
               </div>
             </v-window-item>
 
@@ -767,7 +767,7 @@ h1 {
   background: rgb(var(--v-theme-primary));
   color: #fff;
 }
-.section-title {
+:deep(.section-title) {
   margin: 0 0 12px;
   font-size: 1rem;
   font-weight: 700;
