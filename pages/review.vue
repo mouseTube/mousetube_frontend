@@ -134,6 +134,8 @@ async function decide(action: 'validate' | 'send_back', ids: number[], why = '')
         'warning'
       );
     }
+    // entries sent back that public sessions use: they cannot be deposited until validated again
+    if (data.warning) notify(data.warning, 'warning');
     reasonDialog.value = false;
     await loadItems();
   } catch (error: any) {
