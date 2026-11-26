@@ -12,6 +12,7 @@ import HardwareListContent from '@/components/HardwareListContent.vue';
 import EmailVisibility from '@/components/EmailVisibility.vue';
 import PasswordChange from '@/components/PasswordChange.vue';
 import LogoutEverywhere from '@/components/LogoutEverywhere.vue';
+import ChangeEmail from '@/components/ChangeEmail.vue';
 import MyVocalizations from '@/components/MyVocalizations.vue';
 import ReviewStatus from '@/components/ReviewStatus.vue';
 import LaboratoryModal from '@/components/modals/LaboratoryModal.vue';
@@ -481,7 +482,10 @@ watch(
                   </div>
                   <div class="fact">
                     <dt>E-mail</dt>
-                    <dd>{{ userProfile.user?.email || '—' }}</dd>
+                    <dd>
+                      {{ userProfile.user?.email || '—' }}
+                      <ChangeEmail />
+                    </dd>
                   </div>
                 </dl>
 
