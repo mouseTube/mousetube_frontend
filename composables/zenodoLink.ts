@@ -10,12 +10,3 @@ export function downloadLink(file: { name?: string | null; link?: string | null 
     ? `${archive[1]}/records/${archive[2]}/files/${encodeURIComponent(file.name)}?download=1`
     : link;
 }
-
-// The page of the Zenodo record a link belongs to (the link of a file, or of the whole record).
-// Zenodo offers "Download all" there to visitors; '' when the link is not a Zenodo one.
-export function recordLink(link?: string | null): string {
-  const record = (link || '').match(
-    /^(https?:\/\/(?:sandbox\.)?zenodo\.org)\/(?:api\/)?records?\/(\d+)(?:\/|$)/
-  );
-  return record ? `${record[1]}/records/${record[2]}` : '';
-}

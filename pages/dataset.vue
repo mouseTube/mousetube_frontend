@@ -5,7 +5,7 @@ import debounce from 'lodash-es/debounce';
 import { Database } from '@lucide/vue';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 import { isStaff, token } from '@/composables/useAuth';
-import { downloadLink, recordLink } from '@/composables/zenodoLink';
+import { downloadLink } from '@/composables/zenodoLink';
 import DatasetCreateModal from '@/components/modals/DatasetCreateModal.vue';
 import FileImagesModal from '@/components/modals/FileImagesModal.vue';
 
@@ -438,7 +438,7 @@ onMounted(() => fetchDatasets());
                       icon
                       :loading="downloading['dataset:' + dataset.id]"
                       :disabled="downloading['dataset:' + dataset.id]"
-                      title="Download the dataset (zip of the files hosted on Zenodo)"
+                      title="Download the dataset: every file of its Zenodo records, in one zip"
                       density="compact"
                       class="ms-1"
                       @click="downloadDataset(dataset)"
@@ -575,14 +575,6 @@ onMounted(() => fetchDatasets());
                           <div class="d-flex align-center flex-wrap ga-2">
                             <strong>Files of this record on Zenodo</strong>
                             <v-spacer />
-                            <a
-                              :href="recordLink(file.link)"
-                              target="_blank"
-                              rel="noopener"
-                              class="text-body-2"
-                              title="Zenodo also offers Download all on that page"
-                              >Open the record on Zenodo</a
-                            >
                             <v-btn
                               v-if="signedIn"
                               size="small"
@@ -609,9 +601,6 @@ onMounted(() => fetchDatasets());
                             class="mt-2"
                           >
                             {{ records[file.id].error }}
-                            <a :href="recordLink(file.link)" target="_blank"
-                              >Open the record on Zenodo</a
-                            >
                           </v-alert>
                           <v-list v-else-if="records[file.id]" density="compact" class="py-0">
                             <v-list-item
