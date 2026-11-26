@@ -1,5 +1,6 @@
 <script setup>
 import OrcidIcon from '@/components/OrcidIcon.vue';
+import { passwordHint, passwordLengthRule, passwordDigitsRule } from '@/composables/passwordRules';
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
@@ -15,8 +16,6 @@ const requiredRule = (v) => (!!v && v.trim() !== '') || 'This field is required'
 const emailRule = (v) => /.+@.+\..+/.test(v) || 'This does not look like an email address';
 const usernameRule = (v) =>
   /^[\w.@+-]+$/.test(v) || 'Use only letters, digits and the characters @ . + - _';
-const passwordLengthRule = (v) => (v || '').length >= 8 || 'Use at least 8 characters';
-const passwordDigitsRule = (v) => !/^\d+$/.test(v || '') || 'Do not use digits only';
 
 // Personal providers (gmail, outlook...) are refused. The list comes from the API, which
 // enforces the same rule on its side; this only gives instant feedback.
@@ -409,7 +408,7 @@ onMounted(async () => {
             variant="outlined"
             density="comfortable"
             autocomplete="new-password"
-            hint="At least 8 characters, not only digits, not a common password."
+            :hint="passwordHint"
             persistent-hint
             :rules="[requiredRule, passwordLengthRule, passwordDigitsRule]"
             :error-messages="errors.password"

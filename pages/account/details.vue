@@ -10,6 +10,7 @@ import { useRoute, useRouter } from 'vue-router';
 import SoftwareListContent from '@/components/SoftwareListContent.vue';
 import HardwareListContent from '@/components/HardwareListContent.vue';
 import EmailVisibility from '@/components/EmailVisibility.vue';
+import PasswordChange from '@/components/PasswordChange.vue';
 import MyVocalizations from '@/components/MyVocalizations.vue';
 import ReviewStatus from '@/components/ReviewStatus.vue';
 import LaboratoryModal from '@/components/modals/LaboratoryModal.vue';
@@ -552,6 +553,9 @@ watch(
               <v-divider class="my-6" />
               <h2 class="section-title">Privacy</h2>
               <EmailVisibility />
+
+              <h2 class="section-title mt-8">Password</h2>
+              <PasswordChange />
             </v-window-item>
 
             <!-- Vocalizations -->
