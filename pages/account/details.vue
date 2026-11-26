@@ -10,6 +10,8 @@ import { useRoute, useRouter } from 'vue-router';
 import SoftwareListContent from '@/components/SoftwareListContent.vue';
 import HardwareListContent from '@/components/HardwareListContent.vue';
 import EmailVisibility from '@/components/EmailVisibility.vue';
+import PasswordChange from '@/components/PasswordChange.vue';
+import LogoutEverywhere from '@/components/LogoutEverywhere.vue';
 import MyVocalizations from '@/components/MyVocalizations.vue';
 import ReviewStatus from '@/components/ReviewStatus.vue';
 import LaboratoryModal from '@/components/modals/LaboratoryModal.vue';
@@ -39,6 +41,14 @@ const hardwareCount = computed(() =>
 const softwareCount = computed(() =>
   softwareLoaded.value ? softwareStore.acquisitionSoftwareCount : null
 );
+
+// the request to delete the account, already written: the username and the address of the account
+const deleteMailto = computed(() => {
+  const username = userProfile.value?.user?.username || currentUser.value || '';
+  const email = userProfile.value?.user?.email || '';
+  const body = `Hello,\n\nI ask for the deletion of my mouseTube account.\nUsername: ${username}\nE-mail: ${email}\n\nThank you.`;
+  return `mailto:mousetube@igbmc.fr?subject=${encodeURIComponent('Delete my mouseTube account')}&body=${encodeURIComponent(body)}`;
+});
 
 async function loadCounts() {
   axios
@@ -552,6 +562,21 @@ watch(
               <v-divider class="my-6" />
               <h2 class="section-title">Privacy</h2>
               <EmailVisibility />
+
+              <h2 class="section-title mt-8">Password</h2>
+              <PasswordChange />
+
+              <h2 class="section-title mt-8">Sessions</h2>
+              <LogoutEverywhere />
+
+              <h2 class="section-title mt-8">Delete my account</h2>
+              <p class="text-body-2 mb-2">
+                To have your account deleted, write to
+                <a :href="deleteMailto">mousetube@igbmc.fr</a> from the e-mail address of the
+                account. Your profile and your sign-in are removed; the recordings and descriptions
+                you added stay on mouseTube, no longer linked to your account. What was published on
+                Zenodo stays public there. We answer within one month.
+              </p>
             </v-window-item>
 
             <!-- Vocalizations -->
