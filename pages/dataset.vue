@@ -446,7 +446,7 @@ onMounted(() => fetchDatasets());
                           <v-icon size="18">mdi-download</v-icon>
                         </v-btn>
                       </template>
-                      <v-list density="compact">
+                      <v-list density="compact" class="zip-menu">
                         <v-list-item
                           prepend-icon="mdi-waveform"
                           title="Sound files only"
@@ -730,6 +730,13 @@ a {
 }
 a:hover {
   text-decoration: underline;
+}
+/* in the menu of the zip, the icon of a choice turns red (the color of the site) under the mouse */
+.zip-menu :deep(.v-list-item .v-icon) {
+  transition: color 0.15s;
+}
+.zip-menu :deep(.v-list-item:hover .v-icon) {
+  color: rgb(var(--v-theme-primary));
 }
 /* the bar that folds and unfolds the files of a dataset: made to look clickable */
 .files-toggle {
