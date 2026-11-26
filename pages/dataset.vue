@@ -5,7 +5,7 @@ import debounce from 'lodash-es/debounce';
 import { Database } from '@lucide/vue';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 import { isStaff, token } from '@/composables/useAuth';
-import { downloadLink } from '@/composables/zenodoLink';
+import { downloadLink, recordLink } from '@/composables/zenodoLink';
 import DatasetCreateModal from '@/components/modals/DatasetCreateModal.vue';
 import FileImagesModal from '@/components/modals/FileImagesModal.vue';
 
@@ -146,23 +146,22 @@ const loadRecord = async (file: FileType) => {
 
 // --- the whole dataset: signed-in users only, so that robots do not take it ---
 const signedIn = computed(() => !!token.value);
-const downloading = ref<Record<number, boolean>>({});
+const downloading = ref<Record<string, boolean>>({});
 const notice = ref({ shown: false, text: '', color: 'success' });
 const say = (text: string, color = 'success') => {
   notice.value = { shown: true, text, color };
 };
-const downloadDataset = async (dataset: DatasetType) => {
-  downloading.value[dataset.id] = true;
+// a zip for a signed-in user: the server checks it and gives an address valid two minutes (a link
+// cannot carry the token of the login), then the browser downloads it
+const startZip = async (path: string, busy: string, what: string) => {
+  downloading.value[busy] = true;
   try {
-    // a link cannot carry the token of the login: the server gives an address valid two minutes
     const { data } = await axios.post(
-      `${apiBaseUrl}/dataset/${dataset.id}/download/`,
+      `${apiBaseUrl}${path}`,
       {},
       { headers: { Authorization: `Bearer ${token.value}` } }
     );
-    window.location.assign(
-      `${apiBaseUrl}/dataset/${dataset.id}/download/?token=${encodeURIComponent(data.token)}`
-    );
+    window.location.assign(`${apiBaseUrl}${path}?token=${encodeURIComponent(data.token)}`);
     const elsewhere = data.left_out
       ? ` ${data.left_out} file${data.left_out === 1 ? ' is' : 's are'} hosted elsewhere and not in the zip.`
       : '';
@@ -173,13 +172,17 @@ const downloadDataset = async (dataset: DatasetType) => {
     const code = error?.response?.status;
     say(
       error?.response?.data?.detail ||
-        (code === 401 ? 'Sign in to download the dataset.' : 'The download could not start.'),
+        (code === 401 ? `Sign in to download the ${what}.` : 'The download could not start.'),
       'error'
     );
   } finally {
-    setTimeout(() => (downloading.value[dataset.id] = false), 3000);
+    setTimeout(() => (downloading.value[busy] = false), 3000);
   }
 };
+const downloadDataset = (dataset: DatasetType) =>
+  startZip(`/dataset/${dataset.id}/download/`, `dataset:${dataset.id}`, 'dataset');
+const downloadRecord = (file: FileType) =>
+  startZip(`/file/${file.id}/record-download/`, `record:${file.id}`, 'record');
 function sortFiles(files: FileType[] = []) {
   return [...files].sort((a, b) => {
     const aIsAudio = isAudio(fileExt(a.name));
@@ -223,17 +226,10 @@ const toggleFiles = (dataset: DatasetType) => {
 // --- panel states for each file (independent) ---
 const activePanels = ref<Record<number, boolean>>({});
 
-watch(
-  activePanels,
-  (open) => {
-    for (const dataset of datasetList.value) {
-      for (const file of dataset.files) {
-        if (open[file.id] && onZenodo(file) && !records.value[file.id]) loadRecord(file);
-      }
-    }
-  },
-  { deep: true }
-);
+// the panel of a file tells when it opens (`group:selected`): the files of its record are read then
+const onPanel = (file: FileType, open: boolean) => {
+  if (open && onZenodo(file) && !records.value[file.id]) loadRecord(file);
+};
 
 // --- fetch datasets ---
 const fetchDatasets = async (url = `${apiBaseUrl}/dataset/?page_size=${perPage.value}`) => {
@@ -440,8 +436,8 @@ onMounted(() => fetchDatasets());
                     <v-btn
                       v-else-if="signedIn"
                       icon
-                      :loading="downloading[dataset.id]"
-                      :disabled="downloading[dataset.id]"
+                      :loading="downloading['dataset:' + dataset.id]"
+                      :disabled="downloading['dataset:' + dataset.id]"
                       title="Download the dataset (zip of the files hosted on Zenodo)"
                       density="compact"
                       class="ms-1"
@@ -489,6 +485,7 @@ onMounted(() => fetchDatasets());
                       v-model:active="activePanels[file.id]"
                       :readonly="!hasDetails(file)"
                       :hide-actions="!hasDetails(file)"
+                      @group:selected="onPanel(file, $event.value)"
                     >
                       <v-expansion-panel-title>
                         <v-row align="center" justify="space-between" class="w-100">
@@ -575,9 +572,32 @@ onMounted(() => fetchDatasets());
 
                       <v-expansion-panel-text v-if="hasDetails(file)">
                         <div v-if="onZenodo(file)" class="mb-4">
-                          <strong>Files of this record on Zenodo</strong>
+                          <div class="d-flex align-center flex-wrap ga-2">
+                            <strong>Files of this record on Zenodo</strong>
+                            <v-spacer />
+                            <a
+                              :href="recordLink(file.link)"
+                              target="_blank"
+                              rel="noopener"
+                              class="text-body-2"
+                              title="Zenodo also offers Download all on that page"
+                              >Open the record on Zenodo</a
+                            >
+                            <v-btn
+                              v-if="signedIn"
+                              size="small"
+                              variant="tonal"
+                              color="teal-darken-2"
+                              prepend-icon="mdi-folder-zip-outline"
+                              :loading="downloading['record:' + file.id]"
+                              :disabled="downloading['record:' + file.id]"
+                              title="Download every file of this record in one zip"
+                              @click="downloadRecord(file)"
+                              >Download all (zip)</v-btn
+                            >
+                          </div>
                           <v-progress-linear
-                            v-if="records[file.id]?.loading"
+                            v-if="!records[file.id] || records[file.id].loading"
                             indeterminate
                             class="my-2"
                           />
@@ -589,9 +609,7 @@ onMounted(() => fetchDatasets());
                             class="mt-2"
                           >
                             {{ records[file.id].error }}
-                            <a
-                              :href="file.doi ? `https://doi.org/${file.doi}` : downloadLink(file)"
-                              target="_blank"
+                            <a :href="recordLink(file.link)" target="_blank"
                               >Open the record on Zenodo</a
                             >
                           </v-alert>
@@ -599,9 +617,21 @@ onMounted(() => fetchDatasets());
                             <v-list-item
                               v-for="recordFile in records[file.id].files"
                               :key="recordFile.name"
-                              :title="recordFile.name"
-                              :subtitle="formatSize(recordFile.size)"
+                              min-height="32"
+                              class="px-0"
                             >
+                              <template #title>
+                                <a
+                                  :href="`${records[file.id].record}/preview/${encodeURIComponent(recordFile.name)}`"
+                                  target="_blank"
+                                  rel="noopener"
+                                  title="Preview on Zenodo"
+                                  >{{ recordFile.name }}</a
+                                >
+                                <span class="text-caption text-medium-emphasis ms-3">{{
+                                  formatSize(recordFile.size)
+                                }}</span>
+                              </template>
                               <template #append>
                                 <v-btn
                                   icon
@@ -610,6 +640,7 @@ onMounted(() => fetchDatasets());
                                   :title="`Download ${recordFile.name}`"
                                   density="compact"
                                   variant="text"
+                                  size="small"
                                 >
                                   <v-icon size="18">mdi-download</v-icon>
                                 </v-btn>
