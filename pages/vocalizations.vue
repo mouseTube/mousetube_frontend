@@ -452,6 +452,7 @@ const facts = (file) => {
                   variant="tonal"
                   elevation="4"
                   class="ma-1 hover-effect border-sm"
+                  :title="`Download only ${item.name || 'this recording'}`"
                   @click="incrementDownloads(item.id, downloadLink(item))"
                 >
                   Download
@@ -601,6 +602,7 @@ const facts = (file) => {
                             variant="flat"
                             elevation="0"
                             class="ma-2 hover-effect border-sm"
+                            :title="`Download only ${file.name || 'this recording'}`"
                             @click="incrementDownloads(file.id, downloadLink(file))"
                           >
                             Download

@@ -153,14 +153,12 @@ const say = (text: string, color = 'success') => {
 };
 // a zip for a signed-in user: the server checks it and gives an address valid two minutes (a link
 // cannot carry the token of the login), then the browser downloads it
-const startZip = async (path: string, busy: string, what: string) => {
+const startZip = async (path: string, busy: string, what: string, body: object = {}) => {
   downloading.value[busy] = true;
   try {
-    const { data } = await axios.post(
-      `${apiBaseUrl}${path}`,
-      {},
-      { headers: { Authorization: `Bearer ${token.value}` } }
-    );
+    const { data } = await axios.post(`${apiBaseUrl}${path}`, body, {
+      headers: { Authorization: `Bearer ${token.value}` },
+    });
     window.location.assign(`${apiBaseUrl}${path}?token=${encodeURIComponent(data.token)}`);
     const elsewhere = data.left_out
       ? ` ${data.left_out} file${data.left_out === 1 ? ' is' : 's are'} hosted elsewhere and not in the zip.`
@@ -179,8 +177,9 @@ const startZip = async (path: string, busy: string, what: string) => {
     setTimeout(() => (downloading.value[busy] = false), 3000);
   }
 };
-const downloadDataset = (dataset: DatasetType) =>
-  startZip(`/dataset/${dataset.id}/download/`, `dataset:${dataset.id}`, 'dataset');
+// `sound`: the recordings only; `all`: every file of their Zenodo records (images and analyses too)
+const downloadDataset = (dataset: DatasetType, scope: 'sound' | 'all') =>
+  startZip(`/dataset/${dataset.id}/download/`, `dataset:${dataset.id}`, 'dataset', { scope });
 const downloadRecord = (file: FileType) =>
   startZip(`/file/${file.id}/record-download/`, `record:${file.id}`, 'record');
 function sortFiles(files: FileType[] = []) {
@@ -433,18 +432,35 @@ onMounted(() => fetchDatasets());
                     >
                       <v-icon size="18">mdi-download</v-icon>
                     </v-btn>
-                    <v-btn
-                      v-else-if="signedIn"
-                      icon
-                      :loading="downloading['dataset:' + dataset.id]"
-                      :disabled="downloading['dataset:' + dataset.id]"
-                      title="Download the dataset: every file of its Zenodo records, in one zip"
-                      density="compact"
-                      class="ms-1"
-                      @click="downloadDataset(dataset)"
-                    >
-                      <v-icon size="18">mdi-download</v-icon>
-                    </v-btn>
+                    <v-menu v-else-if="signedIn" location="bottom end">
+                      <template #activator="{ props: menuProps }">
+                        <v-btn
+                          v-bind="menuProps"
+                          icon
+                          :loading="downloading['dataset:' + dataset.id]"
+                          :disabled="downloading['dataset:' + dataset.id]"
+                          title="Download the dataset in one zip: choose what it holds"
+                          density="compact"
+                          class="ms-1"
+                        >
+                          <v-icon size="18">mdi-download</v-icon>
+                        </v-btn>
+                      </template>
+                      <v-list density="compact">
+                        <v-list-item
+                          prepend-icon="mdi-waveform"
+                          title="Sound files only"
+                          subtitle="The recordings of the dataset (.wav)"
+                          @click="downloadDataset(dataset, 'sound')"
+                        />
+                        <v-list-item
+                          prepend-icon="mdi-folder-zip-outline"
+                          title="All files"
+                          subtitle="Recordings, images and analyses"
+                          @click="downloadDataset(dataset, 'all')"
+                        />
+                      </v-list>
+                    </v-menu>
                   </div>
                 </v-card-title>
 
@@ -560,7 +576,7 @@ onMounted(() => fetchDatasets());
                               :href="downloadLink(file)"
                               target="_blank"
                               color="teal-darken-2"
-                              title="Download file"
+                              :title="`Download only ${file.name}`"
                               density="compact"
                               class="ms-1"
                             >
