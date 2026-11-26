@@ -13,6 +13,10 @@ import EmailVisibility from '@/components/EmailVisibility.vue';
 import PasswordChange from '@/components/PasswordChange.vue';
 import LogoutEverywhere from '@/components/LogoutEverywhere.vue';
 import ChangeEmail from '@/components/ChangeEmail.vue';
+import UnlinkOrcid from '@/components/UnlinkOrcid.vue';
+import AccountStats from '@/components/AccountStats.vue';
+import NotificationSettings from '@/components/NotificationSettings.vue';
+import DownloadMyData from '@/components/DownloadMyData.vue';
 import MyVocalizations from '@/components/MyVocalizations.vue';
 import ReviewStatus from '@/components/ReviewStatus.vue';
 import LaboratoryModal from '@/components/modals/LaboratoryModal.vue';
@@ -362,6 +366,7 @@ watch(
                 <v-icon start size="16" :icon="OrcidIcon" />
                 {{ userProfile.orcid }}
               </v-chip>
+              <UnlinkOrcid v-if="userProfile?.orcid" @unlinked="fetchUserProfile" />
               <v-btn
                 v-else-if="userProfile"
                 size="small"
@@ -489,6 +494,8 @@ watch(
                   </div>
                 </dl>
 
+                <AccountStats />
+
                 <h2 class="section-title">Laboratory</h2>
                 <div class="d-flex align-start flex-wrap ga-3">
                   <v-select
@@ -567,11 +574,17 @@ watch(
               <h2 class="section-title">Privacy</h2>
               <EmailVisibility />
 
+              <h2 class="section-title mt-8">Notifications</h2>
+              <NotificationSettings />
+
               <h2 class="section-title mt-8">Password</h2>
               <PasswordChange />
 
               <h2 class="section-title mt-8">Sessions</h2>
               <LogoutEverywhere />
+
+              <h2 class="section-title mt-8">My data</h2>
+              <DownloadMyData />
 
               <h2 class="section-title mt-8">Delete my account</h2>
               <p class="text-body-2 mb-2">
