@@ -41,13 +41,28 @@ const items = computed(() => {
   return [...picked, ...found.value.filter((t) => !known.has(t.curie))];
 });
 
+// The vocabulary service is often slow (several seconds, sometimes twenty): a search still running
+// when the user types again is cancelled, so that its late answer never replaces the newer one.
+const SLOW_AFTER = 3000;
+let running = null; // the AbortController of the search in progress
+let slowTimer = null;
+
 const search = async (text) => {
+  running?.abort();
+  clearTimeout(slowTimer);
   message.value = '';
   if (!text || text.trim().length < 2) {
+    running = null;
+    loading.value = false;
     found.value = [];
     return;
   }
+  const mine = new AbortController();
+  running = mine;
   loading.value = true;
+  slowTimer = setTimeout(() => {
+    message.value = 'The vocabulary service is slow, still searching…';
+  }, SLOW_AFTER);
   try {
     const res = await axios.get(`${apiBaseUrl}/ontology/search/`, {
       params: {
@@ -56,18 +71,24 @@ const search = async (text) => {
         ...(props.ontology && { ontology: props.ontology }),
       },
       headers: { Authorization: `Bearer ${token.value}` },
+      signal: mine.signal,
     });
     found.value = res.data.results || [];
     vocabulary.value = res.data.vocabulary || '';
-    if (!found.value.length) message.value = 'No matching term.';
+    message.value = found.value.length ? '' : 'No matching term.';
   } catch (e) {
+    if (axios.isCancel(e)) return; // a newer search took over
     found.value = [];
     message.value =
       e?.response?.status === 502
         ? 'The vocabulary service is not answering. Try again in a moment.'
         : 'The search failed. Try again.';
   } finally {
-    loading.value = false;
+    if (running === mine) {
+      running = null;
+      clearTimeout(slowTimer);
+      loading.value = false;
+    }
   }
 };
 
