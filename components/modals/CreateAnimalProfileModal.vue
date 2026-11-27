@@ -34,7 +34,6 @@ function showSnackbar(message: string, color: 'success' | 'error') {
 }
 
 const formData = ref<Partial<AnimalProfile>>({
-  name: '',
   description: '',
   strain: null,
   sex: '',
@@ -79,7 +78,6 @@ function fillStage() {
 
 function resetForm() {
   formData.value = {
-    name: '',
     description: '',
     strain: null,
     sex: '',
@@ -111,7 +109,6 @@ watch(
     if (profile) {
       await fetchStrains();
       formData.value = {
-        name: profile.name ?? '',
         description: profile.description ?? '',
         strain: profile.strain ?? null,
         sex: profile.sex ?? '',
@@ -124,6 +121,7 @@ watch(
         diet_term: profile.diet_term ?? null,
         status: profile.status ?? 'draft',
       };
+      fillStage(); // a profile without a stage gets the one of its age, as the server would
     } else {
       resetForm();
     }
@@ -166,7 +164,6 @@ async function handleSubmit() {
     } else {
       const created = await animalProfileStore.createAnimalProfile({
         ...formData.value,
-        name: formData.value.name ?? '',
         description: formData.value.description ?? '',
         sex: formData.value.sex ?? '',
         age: formData.value.age ?? '',
@@ -213,22 +210,6 @@ function handleStrainCreated(newStrain: Strain) {
 
       <v-card-text>
         <v-form ref="formRef" v-model="formValid">
-          <!-- Name -->
-          <v-text-field
-            v-model="formData.name"
-            variant="outlined"
-            required
-            :rules="[(v) => !!v || 'Name is required']"
-            class="mb-4"
-          >
-            <template #label>Name <span style="color: red">*</span></template>
-          </v-text-field>
-
-          <!-- Description -->
-          <v-textarea v-model="formData.description" variant="outlined" class="mb-4">
-            <template #label>Description</template>
-          </v-textarea>
-
           <!-- Strain -->
           <v-text-field
             :model-value="formData.strain ? formData.strain.name : ''"
@@ -250,6 +231,8 @@ function handleStrainCreated(newStrain: Strain) {
             v-model="formData.sex"
             :items="['male', 'female']"
             variant="outlined"
+            hint="Linked to its PATO term automatically."
+            persistent-hint
             required
             :rules="[(v) => !!v || 'Sex is required']"
             class="mb-4"
@@ -277,7 +260,11 @@ function handleStrainCreated(newStrain: Strain) {
             v-model="formData.age_term"
             field="age"
             label="Developmental stage (optional)"
-            hint="Filled in from the age (infant, juvenile or adult stage) once the strain is chosen. Choose a more precise one if you know it."
+            :hint="
+              formData.strain
+                ? 'Filled in from the age (infant, juvenile or adult stage). Choose a more precise one if you know it.'
+                : 'Choose the strain first: the stage depends on the species. It is then filled in from the age.'
+            "
             class="mb-4"
           />
 
@@ -286,39 +273,38 @@ function handleStrainCreated(newStrain: Strain) {
             v-model="formData.genotype"
             variant="outlined"
             required
+            hint="Gene or allele, then the zygosity. For example: +/+ (wild type), +/- (heterozygous), -/- (homozygous), flox/flox, Cre+. Use the same spelling as the others: +/+ rather than WT."
+            persistent-hint
             :rules="[(v) => !!v || 'Genotype is required']"
             class="mb-4"
           >
             <template #label>Genotype <span style="color: red">*</span></template>
           </v-text-field>
 
-          <!-- Treatment -->
-          <v-text-field v-model="formData.treatment" variant="outlined" class="mb-4">
-            <template #label>Treatment</template>
-          </v-text-field>
+          <!-- Treatment: a ChEBI term to pick, or free text -->
           <OntologyField
-            v-if="formData.treatment"
             v-model="formData.treatment_term"
+            v-model:text="formData.treatment"
+            free-text
             field="treatment"
-            label="Compound (ChEBI, optional)"
-            hint="Link the treatment to its chemical entity so it can be found by other tools."
-            class="mb-2"
+            label="Treatment"
+            hint="Search a compound of ChEBI and pick it, so other tools can find it, or write your own text."
+            class="mb-4"
           />
-          <!-- Diet -->
-          <v-text-field v-model="formData.diet" variant="outlined" class="mb-4 mt-2">
-            <template #label>Diet</template>
-          </v-text-field>
+          <!-- Diet: an EFO term to pick, or free text -->
           <OntologyField
-            v-if="formData.diet"
             v-model="formData.diet_term"
+            v-model:text="formData.diet"
+            free-text
             field="diet"
-            label="Diet (EFO, optional)"
-            hint="Link the diet to its term of the Experimental Factor Ontology so it can be found by other tools."
-            class="mb-2"
+            label="Diet"
+            hint="Search a term of the Experimental Factor Ontology and pick it, so other tools can find it, or write your own text."
+            class="mb-4"
           />
-          <p class="text-caption text-medium-emphasis mb-0">
-            The sex is linked to its PATO term automatically.
-          </p>
+          <!-- Description -->
+          <v-textarea v-model="formData.description" variant="outlined" class="mb-4">
+            <template #label>Description</template>
+          </v-textarea>
         </v-form>
       </v-card-text>
 

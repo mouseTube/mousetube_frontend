@@ -68,6 +68,7 @@ async function loadProfiles() {
     if (selectedSex.value) filters.sex = selectedSex.value;
     if (selectedStatus.value) filters.status = selectedStatus.value;
     if (selectedAge.value) filters.age = selectedAge.value;
+    if (sortColumn.value) filters.ordering = (sortDescending.value ? '-' : '') + sortColumn.value;
 
     const data = await animalProfileStore.fetchAnimalProfilesPage(currentPage.value, filters);
     paginatedProfiles.value = data.results;
@@ -75,6 +76,38 @@ async function loadProfiles() {
   } catch (err: any) {
     showSnackbar(err.message || 'Failed to fetch animal profiles', 'error');
   }
+}
+
+// The column the table is sorted on (by the server: the list is paginated). Without one, the
+// favorites come first. A click sorts a to z, a second one z to a, a third one clears the sort.
+const sortColumn = ref<string | null>(null);
+const sortDescending = ref(false);
+const columns = [
+  { key: 'strain', label: 'Strain' },
+  { key: 'sex', label: 'Sex' },
+  { key: 'age', label: 'Age' },
+  { key: 'genotype', label: 'Genotype' },
+  { key: 'treatment', label: 'Treatment' },
+  { key: 'diet', label: 'Diet' },
+  { key: 'description', label: 'Description' },
+  { key: 'status', label: 'Status' },
+];
+function sortBy(key: string) {
+  if (sortColumn.value !== key) {
+    sortColumn.value = key;
+    sortDescending.value = false;
+  } else if (!sortDescending.value) {
+    sortDescending.value = true;
+  } else {
+    sortColumn.value = null;
+    sortDescending.value = false;
+  }
+  currentPage.value = 1;
+  loadProfiles();
+}
+function sortIcon(key: string) {
+  if (sortColumn.value !== key) return 'mdi-unfold-more-horizontal';
+  return sortDescending.value ? 'mdi-arrow-down' : 'mdi-arrow-up';
 }
 
 const totalPages = computed(() => Math.ceil(totalCount.value / itemsPerPage));
@@ -155,7 +188,11 @@ async function handleCreatedOrUpdated(profile: AnimalProfile) {
     }
 
     showSnackbar(
-      isNew ? 'Profile created successfully!' : 'Profile updated successfully!',
+      animalProfileStore.lastCreateReused
+        ? 'A validated profile already says the same: it is used, no copy was made.'
+        : isNew
+          ? 'Profile created successfully!'
+          : 'Profile updated successfully!',
       'success'
     );
 
@@ -362,14 +399,20 @@ function loadMoreStrains() {
       </template>
 
       <div class="ap-table">
-        <div class="ap-row ap-row--head" aria-hidden="true">
-          <span>Name</span>
-          <span>Strain</span>
-          <span>Sex</span>
-          <span>Age</span>
-          <span>Genotype</span>
-          <span>Treatment</span>
-          <span>Status</span>
+        <div class="ap-row ap-row--head">
+          <span /><!-- the tick and the star: a profile has no name to show, its fields say it -->
+          <span v-for="column in columns" :key="column.key">
+            <button
+              type="button"
+              class="ap-sort"
+              :class="{ 'ap-sort--on': sortColumn === column.key }"
+              :aria-label="`Sort by ${column.label}`"
+              @click="sortBy(column.key)"
+            >
+              {{ column.label }}
+              <v-icon :icon="sortIcon(column.key)" size="14" />
+            </button>
+          </span>
           <span />
         </div>
 
@@ -407,13 +450,16 @@ function loadMoreStrains() {
               class="me-1"
               @click.stop="toggleFavorite(profile.id)"
             />
-            <span class="truncate-name" :title="profile.name">{{ profile.name }}</span>
           </span>
           <span>{{ profile.strain?.name || '-' }}</span>
           <span>{{ profile.sex || '-' }}</span>
           <span>{{ profile.age || '-' }}</span>
           <span>{{ profile.genotype || '-' }}</span>
           <span>{{ profile.treatment || '-' }}</span>
+          <span>{{ profile.diet || '-' }}</span>
+          <span class="truncate-name" :title="profile.description || ''">{{
+            profile.description || '-'
+          }}</span>
           <span>
             <v-chip
               size="small"
@@ -486,7 +532,7 @@ function loadMoreStrains() {
       <v-card>
         <v-card-title>Confirm Deletion</v-card-title>
         <v-card-text>
-          Are you sure you want to delete <b>{{ profilePendingDelete?.name }}</b> ?
+          Are you sure you want to delete this profile ({{ profilePendingDelete?.name }}) ?
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -522,12 +568,29 @@ function loadMoreStrains() {
 }
 .ap-row {
   display: grid;
-  grid-template-columns: minmax(200px, 3fr) 1.6fr 0.8fr 0.9fr 1.4fr 1.2fr 1.4fr 84px;
+  grid-template-columns: 84px 1.4fr 0.8fr 0.9fr 1.4fr 1.2fr 1fr 1.6fr 1.3fr 84px;
   align-items: center;
   gap: 8px;
   min-width: 860px;
   padding: 6px 8px;
   font-size: 0.9rem;
+}
+.ap-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.ap-sort:hover,
+.ap-sort--on {
+  color: rgb(var(--v-theme-primary));
 }
 .ap-row--head {
   color: #777;
