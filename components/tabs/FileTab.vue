@@ -8,6 +8,7 @@ import { type RecordingSession, useRecordingSessionStore } from '~/stores/record
 import { useRepositoryStore } from '~/stores/repository';
 import RepositoryPublishModal from '@/components/modals/RepositoryPublishModal.vue';
 import { useAuth } from '~/composables/useAuth';
+import { doiLink } from '@/composables/zenodoLink';
 
 const repositoryStore = useRepositoryStore();
 const recordingSessionStore = useRecordingSessionStore();
@@ -631,7 +632,7 @@ async function deleteFile() {
             <v-chip
               v-for="v in versions"
               :key="v.number"
-              :href="`https://doi.org/${v.doi}`"
+              :href="v.url || doiLink(v.doi)"
               target="_blank"
               rel="noopener"
               size="small"
@@ -643,7 +644,7 @@ async function deleteFile() {
             </v-chip>
             <span v-if="conceptDoi" class="text-caption text-medium-emphasis">
               All versions:
-              <a :href="`https://doi.org/${conceptDoi}`" target="_blank" rel="noopener">
+              <a :href="doiLink(conceptDoi)" target="_blank" rel="noopener">
                 {{ conceptDoi }}
               </a>
             </span>

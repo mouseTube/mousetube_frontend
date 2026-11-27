@@ -33,6 +33,8 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
     animalProfiles: [] as AnimalProfile[],
     loading: false,
     error: null as string | null,
+    // the last creation gave back a validated profile that says the same (no copy was made)
+    lastCreateReused: false,
   }),
   actions: {
     getAuthHeaders() {
@@ -118,7 +120,7 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
       return this.animalProfiles.find((a) => a.id === id) || null;
     },
 
-    async createAnimalProfile(data: Omit<AnimalProfile, 'id'>): Promise<AnimalProfile> {
+    async createAnimalProfile(data: Omit<AnimalProfile, 'id' | 'name'>): Promise<AnimalProfile> {
       this.error = null;
       try {
         const apiBaseUrl = useApiBaseUrl();
@@ -130,7 +132,10 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
           headers: this.getAuthHeaders(),
         });
         const created: AnimalProfile = res.data;
-        this.animalProfiles.push(created);
+        this.lastCreateReused = res.status === 200; // 201 is a profile that was made
+        if (!this.animalProfiles.some((p) => p.id === created.id)) {
+          this.animalProfiles.push(created);
+        }
         return created;
       } catch (err: any) {
         this.error = err.message || 'Failed to create animal profile';
@@ -140,6 +145,7 @@ export const useAnimalProfileStore = defineStore('animalProfile', {
 
     async updateAnimalProfile(id: number, data: Partial<AnimalProfile>): Promise<AnimalProfile> {
       this.error = null;
+      this.lastCreateReused = false;
       try {
         const apiBaseUrl = useApiBaseUrl();
         const payload = {

@@ -8,6 +8,7 @@ import { useAuth } from '@/composables/useAuth';
 import { useApiBaseUrl } from '@/composables/useApiBaseUrl';
 import AccountListHeader from '@/components/AccountListHeader.vue';
 import SortButtons, { type Sort } from '@/components/SortButtons.vue';
+import { doiLink } from '@/composables/zenodoLink';
 
 interface MySession {
   id: number;
@@ -338,7 +339,7 @@ const meta = (s: MySession) =>
               variant="tonal"
               color="teal"
               size="small"
-              :href="`https://doi.org/${session.doi}`"
+              :href="doiLink(session.doi)"
               target="_blank"
               rel="noopener"
               append-icon="mdi-open-in-new"
