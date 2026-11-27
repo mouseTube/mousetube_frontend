@@ -5,7 +5,7 @@ import debounce from 'lodash-es/debounce';
 import { Database } from '@lucide/vue';
 import { useApiBaseUrl } from '~/composables/useApiBaseUrl';
 import { isStaff, token } from '@/composables/useAuth';
-import { downloadLink } from '@/composables/zenodoLink';
+import { doiLink, downloadLink } from '@/composables/zenodoLink';
 import DatasetCreateModal from '@/components/modals/DatasetCreateModal.vue';
 import FileImagesModal from '@/components/modals/FileImagesModal.vue';
 
@@ -380,7 +380,7 @@ onMounted(() => fetchDatasets());
                       DOI:
                       <a
                         v-if="dataset.doi.includes('zenodo')"
-                        :href="'https://zenodo.org/record/' + dataset.doi.split('zenodo.')[1]"
+                        :href="doiLink(dataset.doi)"
                         target="_blank"
                         class="doi"
                         >{{ dataset.doi }}</a
@@ -563,7 +563,7 @@ onMounted(() => fetchDatasets());
                               DOI:
                               <a
                                 v-if="file.doi.includes('zenodo')"
-                                :href="'https://zenodo.org/record/' + file.doi.split('zenodo.')[1]"
+                                :href="doiLink(file.doi)"
                                 target="_blank"
                                 class="doi"
                                 >{{ file.doi }}</a

@@ -9,7 +9,7 @@ Code under GPL v3.0 licence
 
 <script setup>
 import FileDetails from '@/components/FileDetails.vue';
-import { downloadLink } from '@/composables/zenodoLink';
+import { doiLink, downloadLink } from '@/composables/zenodoLink';
 import UsvDetections from '@/components/UsvDetections.vue';
 ////////////////////////////////
 // IMPORT
@@ -582,7 +582,7 @@ const facts = (file) => {
                             DOI:
                             <a
                               v-if="file.doi.includes('zenodo')"
-                              :href="'https://zenodo.org/record/' + file.doi.split('zenodo.')[1]"
+                              :href="doiLink(file.doi)"
                               target="_blank"
                               class="doi"
                             >
