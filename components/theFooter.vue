@@ -17,7 +17,8 @@ const { currentUser } = useAuth();
 const apiBaseUrl = useApiBaseUrl();
 const apiDocs = `${apiBaseUrl.replace(/\/api\/?$/, '')}/swagger/`;
 // the documentation of mouseTube: how to use it, and how it works (database, rights, API)
-const docsUrl = useRuntimeConfig().public.docsUrl;
+// an empty NUXT_PUBLIC_DOCS_URL still overrides the default of nuxt.config.ts: fall back here too
+const docsUrl = useRuntimeConfig().public.docsUrl || 'https://mousetube.github.io/mousetube_API/';
 
 // the version of the web application: package.json; the one of the API: asked to the API, which
 // reads it in its pyproject.toml (nothing is shown while it is not known)
